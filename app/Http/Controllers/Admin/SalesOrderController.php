@@ -26,6 +26,7 @@ use App\Exports\SalesOrderTemplateExport;
 use App\Exports\SalesOrderExport;
 use App\Imports\SalesOrderImport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Validator;
 
 class SalesOrderController extends Controller
 {
@@ -52,6 +53,14 @@ class SalesOrderController extends Controller
 
     public function downloadTemplate()
 {
+    // ✅ GUNAKAN TEMPLATE EXCEL YANG SUDAH ADA DARI LAPANGAN
+    $templatePath = app_path('Exports/TemplateImportSalesOrder.xlsx');
+    
+    if (file_exists($templatePath)) {
+        return response()->download($templatePath, 'template-import-sales-order.xlsx');
+    }
+    
+    // Fallback ke template yang dibuat programmatically
     return Excel::download(new SalesOrderTemplateExport(), 'template-import-sales-order.xlsx');
 }
 
@@ -1053,16 +1062,36 @@ private function syncPurchaseOrder(SalesOrder $salesOrder): void
         ]);
     
         try {
-            DB::transaction(function () use ($salesOrder, $request) {
+            $validator = Validator::make($request->all(), [
+                'supplier_id' => ['nullable', 'exists:suppliers,id'],
+                'supplier_name' => ['nullable', 'string', 'max:255'],
+                'items_mode' => ['nullable', 'in:all,selected'],
+                'selected_items' => ['nullable', 'array'],
+                'selected_items.*' => ['integer'],
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['error' => $validator->errors()->first()], 422);
+            }
+
+            $validated = $validator->validated();
+            $itemsMode = $validated['items_mode'] ?? 'all';
+            $selectedIds = collect($validated['selected_items'] ?? [])
+                ->filter(fn($id) => !empty($id))
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            DB::transaction(function () use ($salesOrder, $validated, $itemsMode, $selectedIds) {
                 // Cek apakah sudah ada PO terkait
                 $existingPO = PurchaseOrder::where('sales_order_id', $salesOrder->id)->first();
                 if ($existingPO) {
                     throw new \Exception('Sales order ini sudah terkait dengan PO: ' . $existingPO->po_number);
                 }
     
-                // Buat PO baru berdasarkan SO
-                $supplierId = $request->input('supplier_id');
-                $supplierName = $request->input('supplier_name');
+// Buat PO baru berdasarkan SO
+$supplierId = $validated['supplier_id'] ?? null;
+$supplierName = $validated['supplier_name'] ?? null;
                 
                 if ($supplierId) {
                     $supplier = Supplier::findOrFail($supplierId);
@@ -1096,8 +1125,23 @@ private function syncPurchaseOrder(SalesOrder $salesOrder): void
                     'sales_order_id' => $salesOrder->id,
                 ]);
     
-                // Buat items PO berdasarkan items SO
-                foreach ($salesOrder->items as $soItem) {
+// Tentukan items SO yang akan dimasukkan ke PO
+$itemsQuery = $salesOrder->items();
+if ($itemsMode === 'selected') {
+    if ($selectedIds->isEmpty()) {
+        throw new \Exception('Pilih minimal satu produk untuk membuat Purchase Order.');
+    }
+    $itemsQuery->whereIn('id', $selectedIds);
+}
+
+$itemsForPurchase = $itemsQuery->get();
+
+if ($itemsForPurchase->isEmpty()) {
+    throw new \Exception('Tidak ada produk yang valid untuk dimasukkan ke Purchase Order.');
+}
+
+// Buat items PO berdasarkan pilihan
+foreach ($itemsForPurchase as $soItem) {
                     $costPrice = 0;
                     if ($soItem->product_id) {
                         $product = Product::find($soItem->product_id);

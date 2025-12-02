@@ -1383,6 +1383,37 @@ function loadRelatedPO() {
                                            placeholder="Ketik nama supplier baru">
                                 </div>
                             </div>
+                            <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Produk ke Purchase Order</label>
+                                <div class="flex flex-wrap gap-4 text-sm">
+                                    <label class="inline-flex items-center space-x-2">
+                                        <input type="radio" name="items_mode" value="all" class="text-blue-600 focus:ring-blue-500" checked>
+                                        <span>Semua produk</span>
+                                    </label>
+                                    <label class="inline-flex items-center space-x-2">
+                                        <input type="radio" name="items_mode" value="selected" class="text-blue-600 focus:ring-blue-500">
+                                        <span>Pilih produk tertentu</span>
+                                    </label>
+                                </div>
+                                <div id="select-items-container" class="hidden mt-3 border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50">
+                                    <p class="text-xs text-gray-500 mb-2">Centang produk yang ingin dimasukkan ke Purchase Order.</p>
+                                    <div class="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                        @foreach($salesOrder->items as $item)
+                                            <label class="flex items-start justify-between bg-white rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                                                <div class="flex items-start space-x-3">
+                                                    <input type="checkbox" name="include_items[]" value="{{ $item->id }}" class="po-item-checkbox mt-1 text-blue-600 focus:ring-blue-500">
+                                                    <div>
+                                                        <p class="font-medium text-gray-800">{{ $item->product_name }}</p>
+                                                        <p class="text-xs text-gray-500">Qty: {{ $item->qty }} @if($item->sku) • SKU: {{ $item->sku }} @endif</p>
+                                                    </div>
+                                                </div>
+                                                <span class="text-xs text-gray-500">Rp {{ number_format($item->sale_price * $item->qty, 0, ',', '.') }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-2" id="selected-items-count"></p>
+                                </div>
+                            </div>
                             <div class="text-xs text-gray-600">
                                 <i class="bi bi-info-circle"></i> 
                                 Purchase Order baru akan dibuat secara otomatis berdasarkan items sales order ini.
@@ -1397,6 +1428,7 @@ function loadRelatedPO() {
                         @endif
                     </div>
                 `;
+                setupPoSelectionControls();
             }
         })
         .catch(error => {
@@ -1408,6 +1440,42 @@ function loadRelatedPO() {
                 </div>
             `;
         });
+}
+function setupPoSelectionControls() {
+    const form = document.getElementById('linkPoForm');
+    if (!form) {
+        return;
+    }
+
+    const selectionContainer = form.querySelector('#select-items-container');
+    const radios = form.querySelectorAll('input[name="items_mode"]');
+    const checkboxes = form.querySelectorAll('.po-item-checkbox');
+    const selectedCount = form.querySelector('#selected-items-count');
+
+    const toggleSelectionContainer = () => {
+        const selectedRadio = form.querySelector('input[name="items_mode"]:checked');
+        const showSelection = selectedRadio && selectedRadio.value === 'selected';
+        if (selectionContainer) {
+            selectionContainer.classList.toggle('hidden', !showSelection);
+        }
+        if (selectedCount) {
+            selectedCount.classList.toggle('hidden', !showSelection);
+        }
+    };
+
+    const updateSelectedCount = () => {
+        if (!selectedCount) {
+            return;
+        }
+        const selectedTotal = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+        selectedCount.textContent = `${selectedTotal} produk dipilih`;
+    };
+
+    radios.forEach(radio => radio.addEventListener('change', toggleSelectionContainer));
+    checkboxes.forEach(checkbox => checkbox.addEventListener('change', updateSelectedCount));
+
+    toggleSelectionContainer();
+    updateSelectedCount();
 }
 
 // ✅ FUNGSI UNLINK DARI PO + DELETE - PERBAIKI HANDLE RESPONSE
@@ -1464,8 +1532,15 @@ function linkToPO(event) {
     const form = event.target;
     const formData = new FormData(form);
     const salesOrderId = {{ $salesOrder->id }};
+    const itemsMode = formData.get('items_mode') || 'all';
+    const selectedItems = formData.getAll('include_items[]').filter(Boolean);
     
     showLoading('Membuat Purchase Order...');
+    if (itemsMode === 'selected' && selectedItems.length === 0) {
+        hideLoading();
+        showToast('Pilih minimal satu produk untuk dimasukkan ke Purchase Order.', 'error');
+        return;
+    }
     
     fetch(`/admin/sales/${salesOrderId}/link-to-po`, {
         method: 'POST',
@@ -1475,7 +1550,9 @@ function linkToPO(event) {
         },
         body: JSON.stringify({
             supplier_id: formData.get('supplier_id'),
-            supplier_name: formData.get('supplier_name')
+            supplier_name: formData.get('supplier_name'),
+            items_mode: itemsMode,
+            selected_items: selectedItems.map(id => Number(id))
         })
     })
     .then(response => {

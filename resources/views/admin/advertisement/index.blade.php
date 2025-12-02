@@ -11,7 +11,7 @@
 <body class="bg-gray-100">
     <div class="flex">
         <x-navbar-admin></x-navbar-admin>
-
+        
         <div class="flex-1 lg:w-5/6">
             <x-navbar-top-admin></x-navbar-top-admin>
 
@@ -27,21 +27,21 @@
                                     Shift aktif saat ini dimulai oleh <strong>{{ $activeShift->user->name ?? 'User' }}</strong> 
                                     pada <strong>{{ $activeShift->start_time->format('d/m/Y H:i') }}</strong>.
                                 </p>
-                            </div>
                         </div>
                     </div>
+                </div>
                 @elseif(!$userTodayShift)
                     <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg shadow">
-                        <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-3">
                             <i class="bi bi-info-circle-fill text-orange-600 text-xl"></i>
                             <div class="flex-1">
                                 <p class="font-semibold text-orange-800">Belum Buka-Tutup Shift Hari Ini</p>
                                 <p class="text-sm text-orange-700 mt-1">
                                     Anda belum membuka dan menutup shift hari ini. Buka dan tutup shift terlebih dahulu sebelum input data iklan.
                                 </p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
                 @endif
                 
                 @if(session('error'))
@@ -49,17 +49,17 @@
                         <div class="flex items-center gap-3">
                             <i class="bi bi-x-circle-fill text-red-600 text-xl"></i>
                             <p class="text-red-800">{{ session('error') }}</p>
-                        </div>
-                    </div>
-                @endif
+        </div>
+    </div>
+@endif
                 
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
+        <div>
                             <p class="text-sm text-gray-500 uppercase tracking-wider">Dashboard Iklan</p>
                             <h1 class="text-2xl font-bold text-gray-900">Gross Profit Bulan {{ now()->translatedFormat('F Y') }}</h1>
                             <p class="text-gray-600 mt-1">Ringkasan sederhana berdasarkan input closing (penjualan) dan total pembelian (HPP).</p>
-                        </div>
+            </div>
                         @if($activeShift)
                             <button disabled
                                     class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gray-400 text-white font-semibold shadow cursor-not-allowed"
@@ -74,15 +74,15 @@
                                 <i class="bi bi-lock-fill"></i>
                                 Input Data Iklan (Belum Shift)
                             </button>
-                        @else
+                @else
                             <a href="{{ route('admin.advertisement.create') }}"
                                class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">
                                 <i class="bi bi-plus-circle-fill"></i>
                                 Input Data Iklan
                             </a>
-                        @endif
+                @endif
                     </div>
-                </div>
+        </div>
 
                 @php
                     $grossProfitIsPositive = $grossProfit >= 0;
@@ -98,7 +98,7 @@
                         </p>
                         <div class="text-2xl font-bold text-gray-900">Rp {{ number_format($monthlySales, 0, ',', '.') }}</div>
                         <p class="text-xs text-gray-500 mt-2">Total nominal closing yang sudah diinput bulan ini.</p>
-                    </div>
+            </div>
                     <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
                         <p class="text-sm text-gray-500 mb-1 flex items-center gap-2">
                             <i class="bi bi-truck text-orange-500"></i>
@@ -106,7 +106,7 @@
                         </p>
                         <div class="text-2xl font-bold text-gray-900">Rp {{ number_format($monthlyHpp, 0, ',', '.') }}</div>
                         <p class="text-xs text-gray-500 mt-2">Akumulasi seluruh pembelian/purchase (semua waktu).</p>
-                    </div>
+        </div>
                     <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
                         <p class="text-sm text-gray-500 mb-1 flex items-center gap-2">
                             <i class="bi bi-graph-up text-green-500"></i>
@@ -114,10 +114,10 @@
                         </p>
                         <div class="text-2xl font-bold {{ $statusColor }}">
                             Rp {{ number_format($grossProfit, 0, ',', '.') }}
-                        </div>
+        </div>
                         <p class="text-xs text-gray-500 mt-2">Nilai bersih sebelum biaya lain.</p>
-                    </div>
-                </div>
+        </div>
+    </div>
 
                 <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -125,28 +125,28 @@
                             <p class="text-sm font-semibold text-gray-600">Target Gross Profit Bulanan</p>
                             <h2 class="text-3xl font-bold text-gray-900">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h2>
                             <p class="text-sm text-gray-500 mt-1">Target statis: Rp 30.000.000 per bulan.</p>
-                        </div>
+    </div>
                         <div class="text-right">
                             <p class="text-sm text-gray-500">Hari ke-{{ $currentDay }} dari {{ $daysInMonth }}</p>
                             <p class="text-lg font-semibold {{ $statusColor }}">{{ $statusLabel }}</p>
-                        </div>
-                    </div>
+</div>
+    </div>
 
                     <div class="space-y-2">
                         <div class="flex justify-between text-sm font-medium text-gray-700">
                             <span>Progress Gross Profit</span>
                             <span>{{ number_format($grossProfitProgress, 1) }}%</span>
-                        </div>
+            </div>
                         <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                             <div class="h-3 rounded-full transition-all duration-500 {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}"
                                  style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
-                        </div>
+        </div>
                         @if($grossProfitShortfall > 0)
                             <p class="text-sm text-gray-600">Masih perlu Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }} lagi untuk mencapai target.</p>
                         @else
                             <p class="text-sm text-green-600 font-semibold">🎉 Target 30 juta sudah tercapai bulan ini!</p>
-                        @endif
-                    </div>
+    @endif
+</div>
 
                     <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                         <div class="space-y-1">
@@ -158,12 +158,12 @@
                             <div class="flex justify-between">
                                 <span>Total Pembelian</span>
                                 <span class="font-medium">Rp {{ number_format($monthlyHpp, 0, ',', '.') }}</span>
-                            </div>
+            </div>
                             <div class="flex justify-between">
                                 <span>Gross Profit</span>
                                 <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span>
-                            </div>
-                        </div>
+            </div>
+        </div>
                         <div class="space-y-3">
                             <p class="font-semibold text-gray-800">Catatan</p>
                             <div class="p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-sm">
@@ -171,13 +171,13 @@
                                     Data penjualan dihitung dari setiap input iklan dengan tipe <span class="font-semibold">closing</span> bulan ini.
                                     HPP berasal dari total <span class="font-semibold">purchase order</span> semua waktu (keseluruhan).
                                 </p>
-                            </div>
+            </div>
                             <p class="text-xs text-gray-500">
                                 Pastikan semua penjualan ditutup melalui menu advertisement dan setiap pembelian dicatat agar perhitungan tetap akurat.
                             </p>
-                        </div>
-                    </div>
-                </div>
+            </div>
+        </div>
+    </div>
 
                 <!-- Grafik Real-time Chat, Follow Up, dan Closing -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">
@@ -208,24 +208,24 @@
                     @foreach($types as $type => $info)
                         <div class="mb-6 last:mb-0">
                             <h4 class="font-medium text-gray-700 mb-3 flex items-center gap-2">
-                                <i class="bi bi-{{ $info['icon'] }} text-{{ $info['color'] }}-500"></i>
+    <i class="bi bi-{{ $info['icon'] }} text-{{ $info['color'] }}-500"></i>
                                 {{ $info['label'] }} 
                                 <span class="text-sm font-normal text-gray-500">
                                     ({{ ($todayDetails[$type] ?? collect())->count() }} inputan)
                                 </span>
-                            </h4>
-
+</h4>
+                            
                             @if(($todayDetails[$type] ?? collect())->count() > 0)
                                 <div class="space-y-2">
-                                    @foreach(($todayDetails[$type] ?? collect()) as $item)
+                                @foreach(($todayDetails[$type] ?? collect()) as $item)
                                         <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                                             <div class="flex-1">
                                                 <span class="font-medium text-gray-800">{{ $item->description }}</span>
                                                 <div class="flex items-center gap-2 mt-1">
                                                     <span class="text-xs text-gray-500">
                                                         <i class="bi bi-clock"></i>
-                                                        {{ $item->created_at->format('H:i') }}
-                                                    </span>
+                                                    {{ $item->created_at->format('H:i') }}
+                                                </span>
                                                     @if($item->user)
                                                         <span class="text-xs text-gray-500">
                                                             <i class="bi bi-person"></i>
@@ -260,42 +260,42 @@
         // Grafik Real-time untuk Chat, Follow Up, dan Closing
         const ctx = document.getElementById('performanceChart');
         if (ctx) {
-            const chartData = {
-                labels: {!! json_encode($dates) !!},
-                datasets: [
-                    {
+        const chartData = {
+            labels: {!! json_encode($dates) !!},
+            datasets: [
+                {
                         label: 'Chat Masuk',
-                        data: {!! json_encode(array_column($formattedChartData, 'chat')) !!},
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    data: {!! json_encode(array_column($formattedChartData, 'chat')) !!},
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         tension: 0.4,
                         fill: true
-                    },
-                    {
-                        label: 'Follow Up',
-                        data: {!! json_encode(array_column($formattedChartData, 'followup')) !!},
-                        borderColor: '#f97316',
-                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                },
+                {
+                    label: 'Follow Up',
+                    data: {!! json_encode(array_column($formattedChartData, 'followup')) !!},
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
                         tension: 0.4,
                         fill: true
-                    },
-                    {
-                        label: 'Closing',
-                        data: {!! json_encode(array_column($formattedChartData, 'closing')) !!},
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                },
+                {
+                    label: 'Closing',
+                    data: {!! json_encode(array_column($formattedChartData, 'closing')) !!},
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         tension: 0.4,
                         fill: true
-                    }
-                ]
-            };
+                }
+            ]
+        };
 
-            new Chart(ctx, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+        new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             display: true,
@@ -306,11 +306,11 @@
                             intersect: false,
                         }
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
                             },
                             grid: {
                                 color: 'rgba(0, 0, 0, 0.05)'
@@ -319,16 +319,16 @@
                         x: {
                             grid: {
                                 display: false
-                            }
                         }
+                    }
                     },
                     interaction: {
                         mode: 'nearest',
                         axis: 'x',
                         intersect: false
-                    }
                 }
-            });
+            }
+        });
         }
     </script>
 </body>

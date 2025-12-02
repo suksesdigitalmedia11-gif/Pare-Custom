@@ -19,14 +19,15 @@
                     <div class="grid md:grid-cols-2 gap-6 mb-6">
                         <!-- Info Panel -->
                         <div class="bg-blue-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-blue-800 mb-2">📋 Petunjuk Import</h3>
-                            <ul class="text-sm text-blue-700 space-y-1">
-                                <li>• Download template terlebih dahulu</li>
-                                <li>• 1 file bisa berisi multiple Sales Order</li>
-                                <li>• SO dengan nomor sama akan digroup menjadi 1 SO</li>
-                                <li>• Format date: YYYY-MM-DD (2024-01-15)</li>
-                            </ul>
-                        </div>
+    <h3 class="font-semibold text-blue-800 mb-2">📋 Petunjuk Import TERBARU</h3>
+    <ul class="text-sm text-blue-700 space-y-1">
+        <li>• <strong>Split Payment:</strong> Isi CASH_AMOUNT_TOTAL dan TRANSFER_AMOUNT_TOTAL</li>
+        <li>• <strong>Cash Only:</strong> Isi CASH_AMOUNT_TOTAL saja</li>
+        <li>• <strong>Transfer Only:</strong> Isi TRANSFER_AMOUNT_TOTAL saja</li>
+        <li>• <strong>Historical Data:</strong> Auto set status selesai & lunas</li>
+        <li>• Format date: YYYY-MM-DD (2024-01-15)</li>
+    </ul>
+</div>
 
                         <!-- Template Download -->
                         <div class="bg-green-50 p-4 rounded-lg">

@@ -46,7 +46,7 @@ class SalesOrder extends Model
     // === RELASI === 
     public function payments(): HasMany
     {
-        return $this->hasMany(Payment::class)->orderBy('paid_at');
+        return $this->hasMany(Payment::class)->orderBy('paid_at', 'desc');
     }
 
     public function customer(): BelongsTo
