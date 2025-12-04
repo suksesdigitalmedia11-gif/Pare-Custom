@@ -932,10 +932,10 @@ function buildThermalReceiptText(salesOrder, payment, totalPaid, remaining) {
     lines.push(divider(RECEIPT_MAX_WIDTH));
     
     // INFORMASI ORDER
-    addKeyValue(lines, 'No SO', salesOrder.so_number || '-');
-    addKeyValue(lines, 'Customer', customerName);
-    addKeyValue(lines, 'Tgl Order', orderDate);
-    addKeyValue(lines, 'Kasir', operatorName);
+    lines.push(alignLeftRight('No SO', salesOrder.so_number || '-', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Customer', customerName, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Tgl Order', orderDate, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Kasir', operatorName, RECEIPT_MAX_WIDTH));
     lines.push(divider(RECEIPT_MAX_WIDTH));
     
     // DETAIL BARANG
