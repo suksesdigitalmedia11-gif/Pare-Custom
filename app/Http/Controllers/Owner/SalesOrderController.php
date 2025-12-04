@@ -1001,8 +1001,23 @@ public function updatePaymentMethod(Request $request, SalesOrder $salesOrder, Pa
     try {
         DB::transaction(function () use ($salesOrder, $payment, $validated) {
             $oldMethod = $payment->method;
-            $oldCashAmount = $payment->cash_amount;
-            $oldTransferAmount = $payment->transfer_amount;
+            $oldCashAmount = $payment->cash_amount ?? 0;
+            $oldTransferAmount = $payment->transfer_amount ?? 0;
+
+            // Hitung cash amount baru berdasarkan method
+            $newCashAmount = 0;
+            if ($validated['method'] === 'cash') {
+                $newCashAmount = $payment->amount;
+            } elseif ($validated['method'] === 'split') {
+                $newCashAmount = $validated['cash_amount'] ?? 0;
+                // Validate split amounts
+                if (($newCashAmount + ($validated['transfer_amount'] ?? 0)) != $payment->amount) {
+                    throw new \Exception('Jumlah cash + transfer harus sama dengan total pembayaran.');
+                }
+            }
+
+            // Hitung selisih cash (berapa yang harus ditambah/dikurangi dari shift)
+            $cashDifference = $newCashAmount - $oldCashAmount;
 
             // Update payment data
             $updateData = [
@@ -1020,14 +1035,14 @@ public function updatePaymentMethod(Request $request, SalesOrder $salesOrder, Pa
             } elseif ($validated['method'] === 'split') {
                 $updateData['cash_amount'] = $validated['cash_amount'];
                 $updateData['transfer_amount'] = $validated['transfer_amount'];
-                
-                // Validate split amounts
-                if (($updateData['cash_amount'] + $updateData['transfer_amount']) != $payment->amount) {
-                    throw new \Exception('Jumlah cash + transfer harus sama dengan total pembayaran.');
-                }
             }
 
             $payment->update($updateData);
+
+            // === UPDATE SHIFT CASH JIKA ADA PERUBAHAN CASH ===
+            if (abs($cashDifference) > 0.01) {
+                $this->updateShiftCashForPayment($payment, $cashDifference);
+            }
 
             // Update sales order payment method if this is the only/latest payment
             $latestPayment = $salesOrder->payments()->latest('created_at')->first();
@@ -1038,19 +1053,20 @@ public function updatePaymentMethod(Request $request, SalesOrder $salesOrder, Pa
             // Log the action
             $this->logAction($salesOrder, 'payment_method_updated', 
             "Metode pembayaran diubah: {$oldMethod} → {$validated['method']}, " .
-            "Cash: Rp " . number_format($oldCashAmount ?? 0, 0, ',', '.') . " → Rp " . number_format($payment->cash_amount ?? 0, 0, ',', '.') . ", " .
-            "Transfer: Rp " . number_format($oldTransferAmount ?? 0, 0, ',', '.') . " → Rp " . number_format($payment->transfer_amount ?? 0, 0, ',', '.')
+            "Cash: Rp " . number_format($oldCashAmount, 0, ',', '.') . " → Rp " . number_format($payment->cash_amount ?? 0, 0, ',', '.') . ", " .
+            "Transfer: Rp " . number_format($oldTransferAmount, 0, ',', '.') . " → Rp " . number_format($payment->transfer_amount ?? 0, 0, ',', '.')
         );
 
             \Log::info('Payment method updated successfully', [
                 'payment_id' => $payment->id,
                 'old_method' => $oldMethod,
                 'new_method' => $validated['method'],
+                'cash_difference' => $cashDifference,
                 'so_number' => $salesOrder->so_number
             ]);
         });
 
-        return back()->with('success', 'Metode pembayaran berhasil diubah.');
+        return back()->with('success', 'Metode pembayaran berhasil diubah dan kas shift telah diperbarui.');
 
     } catch (\Exception $e) {
         \Log::error('Error updating payment method: ' . $e->getMessage(), [
@@ -1059,5 +1075,149 @@ public function updatePaymentMethod(Request $request, SalesOrder $salesOrder, Pa
         ]);
         return back()->withErrors(['error' => 'Terjadi kesalahan saat mengubah metode pembayaran: ' . $e->getMessage()]);
     }
+}
+
+/**
+ * Helper method: Update shift cash ketika payment method berubah
+ */
+private function updateShiftCashForPayment(Payment $payment, float $cashDifference): void
+{
+    // Cari shift terkait payment berdasarkan created_by dan created_at
+    $shift = Shift::where('user_id', $payment->created_by)
+        ->where('start_time', '<=', $payment->created_at)
+        ->where(function($query) use ($payment) {
+            $query->where('end_time', '>=', $payment->created_at)
+                  ->orWhereNull('end_time');
+        })
+        ->orderBy('start_time', 'desc')
+        ->first();
+
+    if (!$shift) {
+        \Log::warning('Shift not found for payment', [
+            'payment_id' => $payment->id,
+            'created_by' => $payment->created_by,
+            'created_at' => $payment->created_at
+        ]);
+        return;
+    }
+
+    \Log::info('Updating shift cash for payment method change', [
+        'shift_id' => $shift->id,
+        'payment_id' => $payment->id,
+        'cash_difference' => $cashDifference,
+        'shift_status' => $shift->end_time ? 'closed' : 'open'
+    ]);
+
+    // Update cash_total shift
+    if ($cashDifference > 0) {
+        $shift->increment('cash_total', $cashDifference);
+    } else {
+        $shift->decrement('cash_total', abs($cashDifference));
+    }
+
+    // Jika shift sudah ditutup, perlu recalculate final_cash dan cascade update
+    if ($shift->end_time) {
+        $this->recalculateAndUpdateClosedShift($shift);
+    }
+}
+
+/**
+ * Helper method: Recalculate final_cash untuk shift yang sudah ditutup dan cascade update
+ */
+private function recalculateAndUpdateClosedShift(Shift $shift): void
+{
+    // Recalculate final_cash dari data real
+    $realCashTotal = $this->calculateRealCashTotalForShift($shift);
+    $totalCashTransfers = \App\Models\CashTransfer::where('shift_id', $shift->id)->sum('amount');
+    $newFinalCash = $shift->initial_cash + $realCashTotal - $shift->expense_total - $totalCashTransfers;
+
+    $oldFinalCash = $shift->final_cash;
+    $finalCashDifference = $newFinalCash - $oldFinalCash;
+
+    \Log::info('Recalculating closed shift final_cash', [
+        'shift_id' => $shift->id,
+        'old_final_cash' => $oldFinalCash,
+        'new_final_cash' => $newFinalCash,
+        'difference' => $finalCashDifference
+    ]);
+
+    // Update final_cash shift
+    $shift->update([
+        'final_cash' => $newFinalCash,
+        'cash_total' => $realCashTotal, // Update cash_total juga untuk konsistensi
+        'discrepancy' => 0, // Reset discrepancy karena kita recalculate dari data real
+    ]);
+
+    // Cascade update: Update initial_cash shift berikutnya jika ada
+    if (abs($finalCashDifference) > 0.01) {
+        $this->cascadeUpdateNextShift($shift, $finalCashDifference);
+    }
+}
+
+/**
+ * Helper method: Cascade update initial_cash shift berikutnya
+ */
+private function cascadeUpdateNextShift(Shift $updatedShift, float $finalCashDifference): void
+{
+    // Cari shift berikutnya yang langsung setelah shift ini
+    // Shift berikutnya adalah shift yang start_time > end_time shift ini
+    $nextShift = Shift::where('start_time', '>', $updatedShift->end_time)
+        ->orderBy('start_time', 'asc')
+        ->first();
+
+    if (!$nextShift) {
+        \Log::info('No next shift found for cascade update', [
+            'updated_shift_id' => $updatedShift->id
+        ]);
+        return;
+    }
+
+    \Log::info('Cascading update to next shift', [
+        'updated_shift_id' => $updatedShift->id,
+        'next_shift_id' => $nextShift->id,
+        'final_cash_difference' => $finalCashDifference
+    ]);
+
+    // Update initial_cash shift berikutnya
+    $oldInitialCash = $nextShift->initial_cash;
+    $newInitialCash = $oldInitialCash + $finalCashDifference;
+    
+    $nextShift->update(['initial_cash' => $newInitialCash]);
+
+    \Log::info('Next shift initial_cash updated', [
+        'next_shift_id' => $nextShift->id,
+        'old_initial_cash' => $oldInitialCash,
+        'new_initial_cash' => $newInitialCash
+    ]);
+
+    // Jika shift berikutnya juga sudah ditutup, perlu recalculate final_cash-nya juga
+    // Karena initial_cash berubah, final_cash juga akan berubah
+    if ($nextShift->end_time) {
+        $this->recalculateAndUpdateClosedShift($nextShift);
+    }
+}
+
+/**
+ * Helper method: Calculate real cash total untuk shift dari data payment
+ */
+private function calculateRealCashTotalForShift(Shift $shift): float
+{
+    $payments = Payment::where('created_by', $shift->user_id)
+        ->where('created_at', '>=', $shift->start_time)
+        ->where('created_at', '<=', $shift->end_time ?? now())
+        ->get();
+
+    $totalCashFromPayments = 0;
+    foreach ($payments as $payment) {
+        if ($payment->method === 'cash') {
+            $totalCashFromPayments += $payment->amount;
+        } elseif ($payment->method === 'split') {
+            $totalCashFromPayments += $payment->cash_amount ?? 0;
+        }
+    }
+
+    $totalIncome = \App\Models\Income::where('shift_id', $shift->id)->sum('amount');
+    
+    return $totalCashFromPayments + $totalIncome;
 }
 }

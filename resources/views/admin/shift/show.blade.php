@@ -404,12 +404,6 @@
                             <table class="w-full table-auto">
                                 <tbody>
                                     <tr class="border-b">
-                                        <td class="px-4 py-2 font-medium">Kas Aktual</td>
-                                        <td class="px-4 py-2 text-right">
-                                            {{ $shift->final_cash ? 'Rp ' . number_format($shift->final_cash, 0, ',', '.') : '-' }}
-                                        </td>
-                                    </tr>
-                                    <tr class="border-b">
                                         <td class="px-4 py-2 font-medium">Total Pendapatan Transfer</td>
                                         <td class="px-4 py-2 text-right text-blue-600">+ Rp {{ number_format($transferLunas + $transferDp + $transferPelunasan, 0, ',', '.') }}</td>
                                     </tr>
