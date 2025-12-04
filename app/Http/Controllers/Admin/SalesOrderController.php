@@ -1279,4 +1279,140 @@ foreach ($itemsForPurchase as $soItem) {
             'show_url' => route('admin.purchases.show', $purchaseOrder)
         ]);
     }
+    public function processJahit(SalesOrder $salesOrder): RedirectResponse
+    {
+        if ($salesOrder->order_type !== 'jahit_sendiri' || $salesOrder->status !== 'request_kain') {
+            \Log::warning('Invalid state for jahit process on SO: ' . $salesOrder->so_number, ['order_type' => $salesOrder->order_type, 'status' => $salesOrder->status]);
+            return back()->withErrors(['status' => 'Hanya SO jahit sendiri dengan status request kain yang bisa diproses jahit.']);
+        }
+
+        try {
+            $salesOrder->update(['status' => 'proses_jahit']);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
+            $this->logAction($salesOrder, 'jahit_processed', 'Proses jahit dimulai: Status berubah ke proses_jahit');
+            \Log::info('Jahit process started for SO: ' . $salesOrder->so_number);
+            return back()->with('success', 'Proses jahit dimulai.');
+        } catch (\Exception $e) {
+            \Log::error('Error processing jahit for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat memulai proses jahit: ' . $e->getMessage()]);
+        }
+    }
+    public function markAsJadi(SalesOrder $salesOrder): RedirectResponse
+    {
+        if ($salesOrder->order_type !== 'jahit_sendiri' || $salesOrder->status !== 'proses_jahit') {
+            \Log::warning('Invalid state for marking jadi on SO: ' . $salesOrder->so_number, ['order_type' => $salesOrder->order_type, 'status' => $salesOrder->status]);
+            return back()->withErrors(['status' => 'Hanya SO jahit sendiri dengan status proses jahit yang bisa ditandai printing.']);
+        }
+
+        try {
+            $salesOrder->update(['status' => 'printing']);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
+            $this->logAction($salesOrder, 'marked_jadi', 'Produk selesai dijahit: Status berubah ke printing');
+            \Log::info('Marked as jadi for SO: ' . $salesOrder->so_number);
+            return back()->with('success', 'Produk selesai dijahit.');
+        } catch (\Exception $e) {
+            \Log::error('Error marking as jadi for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menandai printing: ' . $e->getMessage()]);
+        }
+    }
+    public function markAsDiterimaToko(SalesOrder $salesOrder): RedirectResponse
+    {
+        if ($salesOrder->order_type !== 'jahit_sendiri' || $salesOrder->status !== 'printing') {
+            \Log::warning('Invalid state for marking diterima toko on SO: ' . $salesOrder->so_number, ['order_type' => $salesOrder->order_type, 'status' => $salesOrder->status]);
+            return back()->withErrors(['status' => 'Hanya SO jahit sendiri dengan status printing yang bisa ditandai diterima toko.']);
+        }
+
+        try {
+            $salesOrder->update(['status' => 'diterima_toko']);
+            $this->logAction($salesOrder, 'marked_diterima_toko', 'Produk diterima toko: Status berubah ke diterima_toko');
+            \Log::info('Marked as diterima toko for SO: ' . $salesOrder->so_number);
+            return back()->with('success', 'Produk diterima toko.');
+        } catch (\Exception $e) {
+            \Log::error('Error marking as diterima toko for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menandai diterima toko: ' . $e->getMessage()]);
+        }
+    }
+    public function startProcess(SalesOrder $salesOrder): RedirectResponse
+    {
+    
+        if ($salesOrder->status !== 'pending') {
+            \Log::warning('Attempt to start process on non-pending SO: ' . $salesOrder->so_number);
+            return back()->withErrors(['status' => 'Hanya pending yang bisa dimulai prosesnya.']);
+        }
+    
+        if ($salesOrder->approved_by === null) {
+            \Log::warning('SO not approved: ' . $salesOrder->so_number);
+            return back()->withErrors(['status' => 'Sales order harus di-approve terlebih dahulu.']);
+        }
+    
+        if ($salesOrder->paid_total <= 0) {
+            \Log::warning('No payment for SO: ' . $salesOrder->so_number, ['paid_total' => $salesOrder->paid_total]);
+            return back()->withErrors(['payment' => 'Harus ada pembayaran untuk mulai proses.']);
+        }
+    
+// ✅ FIX: Validasi yang benar - cek payment yang TIDAK punya bukti DAN TIDAK punya reference_number
+if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
+    $invalidPayments = $salesOrder->payments()
+        ->whereNull('proof_path')
+        ->where(function($q) {
+            $q->whereNull('reference_number')
+              ->orWhere('reference_number', '')
+              ->orWhere('reference_number', ' ')
+              ->orWhere('reference_number', 'null')
+              ->orWhere('reference_number', 'NULL');
+        })
+        ->count();
+    
+    if ($invalidPayments > 0) {
+        \Log::warning('Missing proof AND valid reference for transfer/split payments in SO: ' . $salesOrder->so_number);
+        return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
+    }
+}
+    
+        try {
+            DB::transaction(function () use ($salesOrder) {
+                $this->updateStockOnPayment($salesOrder);
+                $newStatus = $salesOrder->order_type === 'jahit_sendiri' ? 'request_kain' : 'payment';
+                $salesOrder->update(['status' => $newStatus]);
+                $this->logAction($salesOrder, 'process_started', "Proses dimulai: Status berubah ke {$newStatus}");
+            });
+            \Log::info('Process started for SO: ' . $salesOrder->so_number);
+            $salesOrder->refresh();
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
+            return back()->with('success', 'Proses dimulai.');
+        } catch (\Exception $e) {
+            \Log::error('Error starting process for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat memulai proses: ' . $e->getMessage()]);
+        }
+    }
+    private function updateStockOnPayment(SalesOrder $salesOrder)
+    {
+        DB::transaction(function () use ($salesOrder) {
+            foreach ($salesOrder->items as $item) {
+                if ($item->product_id) {
+                    $product = $item->product;
+                    $initialStock = $product->stock_qty;
+                    $newStock = $initialStock - $item->qty;
+                    if ($newStock < 0) {
+                        \Log::warning('Negative stock for product ' . $product->id . ' on SO ' . $salesOrder->so_number . ': New stock ' . $newStock);
+                    }
+                    $product->stock_qty = $newStock;
+                    $product->save();
+
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'type' => 'OUTGOING',
+                        'ref_code' => $salesOrder->so_number,
+                        'initial_qty' => $initialStock,
+                        'qty_in' => 0,
+                        'qty_out' => $item->qty,
+                        'final_qty' => $product->stock_qty,
+                        'user_id' => Auth::id(),
+                        'notes' => 'Pembayaran SO: ' . $salesOrder->so_number,
+                        'moved_at' => Carbon::now(),
+                    ]);
+                }
+            }
+        });
+    }
 }
