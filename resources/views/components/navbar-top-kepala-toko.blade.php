@@ -208,6 +208,18 @@
             document.body.classList.toggle('overflow-hidden', !sidebar?.classList.contains('-translate-x-full'));
         }
 
+        function updateClock() {
+              const now = new Date();
+              document.getElementById('current-time').textContent = 
+                now.toLocaleTimeString('id-ID', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  second: '2-digit'
+                });
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+
         // Toggle mobile search
         function toggleMobileSearch() {
             const mobileSearch = document.getElementById('mobile-search');
