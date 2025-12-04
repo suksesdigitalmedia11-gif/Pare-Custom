@@ -76,11 +76,10 @@
                             <span class="px-3 py-1 rounded text-sm font-medium
                             @if($purchase->status === 'draft') bg-gray-100 text-gray-800
                             @elseif($purchase->status === 'pending') bg-yellow-100 text-yellow-800
-                            @elseif($purchase->status === 'approved') bg-blue-100 text-blue-800
+                            @elseif($purchase->status === 'request_kain') bg-blue-100 text-blue-800
                             @elseif($purchase->status === 'payment') bg-purple-100 text-purple-800
-                            @elseif($purchase->status === 'kain_diterima') bg-indigo-100 text-indigo-800
+                            @elseif($purchase->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                             @elseif($purchase->status === 'printing') bg-orange-100 text-orange-800
-                            @elseif($purchase->status === 'jahit') bg-pink-100 text-pink-800
                             @elseif($purchase->status === 'selesai') bg-green-100 text-green-800
                             @elseif($purchase->status === 'cancelled') bg-red-100 text-red-800
                             @endif">
@@ -268,11 +267,10 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
-                                            ['status' => 'kain_diterima', 'label' => 'Kain Diterima', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
+                                            ['status' => 'proses_jahit', 'label' => 'Proses Jahit', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
                                             ['status' => 'printing', 'label' => 'Printing', 'user_field' => 'printing_by', 'date_field' => 'printing_at', 'relation' => 'printer'],
-                                            ['status' => 'jahit', 'label' => 'Jahit', 'user_field' => 'jahit_by', 'date_field' => 'jahit_at', 'relation' => 'tailor'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
                                     @endphp
@@ -282,8 +280,9 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
+                                            ['status' => 'printing', 'label' => 'Printing', 'user_field' => 'printing_by', 'date_field' => 'printing_at', 'relation' => 'printer'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
                                     @endphp
@@ -338,7 +337,7 @@
                             <div class="space-y-3">
 
             <!-- Tambah di bagian action buttons -->
-            @if(in_array($purchase->status, ['draft', 'pending', 'approved']))
+            @if(in_array($purchase->status, ['draft', 'pending', 'request_kain']))
 <a href="{{ route('admin.purchases.edit', $purchase) }}" class="w-full text-white rounded">
     <div class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-center"><i class="bi bi-pencil"></i> Edit</div>
 </a>
@@ -362,9 +361,9 @@
         @endif
 
     <!-- Workflow Status: Printing, Jahit, Selesai -->
-    @if(count($availableStatuses) > 0 && !in_array($purchase->status, ['draft', 'pending', 'approved']))
+            @if(count($availableStatuses) > 0 && !in_array($purchase->status, ['draft', 'pending', 'request_kain']))
         @foreach($availableStatuses as $nextStatus)
-            @if(in_array($nextStatus, ['kain_diterima', 'printing', 'jahit', 'selesai']) && in_array(auth()->user()->usertype, ['admin', 'owner']))
+            @if(in_array($nextStatus, ['proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->usertype, ['admin', 'owner']))
                 <form method="POST" action="{{ route('admin.purchases.update-status', $purchase) }}">
                     @csrf
                     <input type="hidden" name="new_status" value="{{ $nextStatus }}">
@@ -377,7 +376,7 @@
     @endif
 
     <!-- Cancel -->
-    @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'kain_diterima', 'printing', 'jahit']))
+    @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
         <form method="POST" action="{{ route('admin.purchases.cancel', $purchase) }}">
             @csrf @method('PATCH')
             <button class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors" 

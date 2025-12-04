@@ -89,7 +89,7 @@
                 <select name="status" 
                         class="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
                     <option value="">Semua Status</option>
-                    @foreach(['draft','pending','approved','payment','kain_diterima','printing','jahit','selesai'] as $st)
+                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
                     <option value="{{ $st }}" @selected($status==$st)>
                         {{ ucfirst(str_replace('_', ' ', $st)) }}
                     </option>
@@ -138,11 +138,10 @@
                                         <span class="px-2 py-1 rounded text-xs
                                         @if($p->status === 'draft') bg-gray-100 text-gray-800
                                         @elseif($p->status === 'pending') bg-yellow-100 text-yellow-800
-                                        @elseif($p->status === 'approved') bg-blue-100 text-blue-800
+                                        @elseif($p->status === 'request_kain') bg-blue-100 text-blue-800
                                         @elseif($p->status === 'payment') bg-purple-100 text-purple-800
-                                        @elseif($p->status === 'kain_diterima') bg-indigo-100 text-indigo-800
+                                        @elseif($p->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                         @elseif($p->status === 'printing') bg-orange-100 text-orange-800
-                                        @elseif($p->status === 'jahit') bg-pink-100 text-pink-800
                                         @elseif($p->status === 'selesai') bg-green-100 text-green-800
                                         @elseif($p->status === 'cancelled') bg-red-100 text-red-800
                                         @endif">
@@ -153,7 +152,7 @@
                                         @if($p->purchase_type === 'kain')
                                             <!-- Progress bar untuk kain -->
                                             @php
-                                                $steps = ['draft', 'pending', 'approved', 'payment', 'kain_diterima', 'printing', 'jahit', 'selesai'];
+                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
@@ -191,7 +190,7 @@
         <!-- Workflow Status: Printing, Jahit, Selesai -->
         @if(count($availableStatuses) > 0 && !in_array($p->status, ['draft', 'pending', 'approved']))
             @foreach($availableStatuses as $nextStatus)
-                @if(in_array($nextStatus, ['printing', 'jahit', 'selesai']) && in_array(auth()->user()->role, ['editor', 'owner']))
+                @if(in_array($nextStatus, ['proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->role, ['editor', 'owner']))
                     <form method="POST" action="{{ route('editor.purchases.update-status', $p) }}" class="inline">
                         @csrf
                         <input type="hidden" name="new_status" value="{{ $nextStatus }}">
@@ -205,7 +204,7 @@
         @endif
 
         <!-- Cancel -->
-        @if(!in_array($p->status, ['selesai', 'cancelled', 'payment', 'kain_diterima', 'printing', 'jahit']))
+        @if(!in_array($p->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
             <form method="POST" action="{{ route('editor.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
                 @csrf @method('PATCH')
                 <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Batalkan</button>

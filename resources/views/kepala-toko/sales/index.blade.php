@@ -83,15 +83,40 @@
             <x-navbar-top-kepala-toko />
 
             <!-- Content Wrapper -->
-            <div class="p-4 lg:p-6">
-                <!-- Header Section -->
-                <div class="mb-6">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div class="mb-4 sm:mb-0">
-                            <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">Sales Orders</h1>
-                            <p class="text-gray-600 mt-1">Kelola dan pantau semua transaksi penjualan</p>
-                        </div>
-                        
+            <div class="p-4 lg:p-8">
+                <!-- Page Title -->
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+                    <h1 class="text-2xl font-semibold text-gray-800">Daftar Sales Order</h1>
+                    <p class="text-sm text-gray-500 mt-1">Pantau dan kelola data sales order.</p>
+                </div>
+
+                <!-- Filter + Button -->
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-6">
+                    <form method="GET" action="{{ route('kepala-toko.sales.index') }}"
+                        class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+                        <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari SO atau customer"
+                            class="border rounded px-3 py-2 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+                        <select name="status"
+                            class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Semua Status</option>
+                            @foreach (['pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko', 'selesai'] as $s)
+                                <option value="{{ $s }}" @if(request('status') === $s) selected @endif>{{ ucfirst(str_replace('_', ' ', $s)) }}</option>
+                            @endforeach
+                        </select>
+
+                        <select name="payment_status"
+                            class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Semua Status Pembayaran</option>
+                            @foreach (['dp', 'lunas'] as $s)
+                                <option value="{{ $s }}" @if(request('payment_status') === $s) selected @endif>{{ ucfirst($s) }}</option>
+                            @endforeach
+                        </select>
+
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
+                            <i class="bi bi-funnel-fill mr-1"></i> Filter
+                        </button>
+
                         @php
                             $activeShift = \App\Models\Shift::where('user_id', \Illuminate\Support\Facades\Auth::id())->whereNull('end_time')->first();
                         @endphp

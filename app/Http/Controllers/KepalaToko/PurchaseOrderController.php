@@ -37,8 +37,8 @@ class PurchaseOrderController extends BaseController
             ->when($group, function ($query) use ($group) {
                 return match ($group) {
                     'todo' => $query->whereIn('status', ['draft','pending']),
-                    'approved' => $query->where('status', 'approved'),
-                    'in_progress' => $query->whereIn('status', ['payment', 'kain_diterima', 'printing', 'jahit']),
+                    'request_kain' => $query->where('status', 'request_kain'),
+                    'in_progress' => $query->whereIn('status', ['payment', 'proses_jahit', 'printing']),
                     'completed' => $query->where('status', 'selesai'),
                     'cancelled' => $query->where('status', 'canceled'),
                     default => $query,
@@ -193,9 +193,9 @@ class PurchaseOrderController extends BaseController
 
         $validated = $request->validate(['new_status' => 'required|string']);
         
-        // kepala-toko hanya bisa update printing, jahit, selesai
-        if (!in_array($validated['new_status'], ['approved', 'kain_diterima', 'printing', 'jahit', 'selesai'])) {
-            return back()->withErrors(['status' => 'kepala-toko hanya bisa update ke printing, jahit, atau selesai.']);
+        // kepala-toko hanya bisa update ke tahap produksi setelah pembayaran
+        if (!in_array($validated['new_status'], ['proses_jahit', 'printing', 'selesai'])) {
+            return back()->withErrors(['status' => 'kepala toko hanya bisa update ke proses jahit, printing, atau selesai.']);
         }
 
         return parent::updateWorkflowStatus($request, $purchase);

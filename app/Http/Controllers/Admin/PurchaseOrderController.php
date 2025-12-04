@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Owner\PurchaseOrderController as BaseController;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLog;
+use App\Exports\PurchaseOrderExport;
+use App\Exports\PurchaseOrderTemplateExport;
+use App\Imports\PurchaseOrderImport;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -13,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\PurchaseOrderItem;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 class PurchaseOrderController extends BaseController
@@ -49,8 +53,8 @@ class PurchaseOrderController extends BaseController
             ->when($group, function ($query) use ($group) {
                 return match ($group) {
                     'todo' => $query->whereIn('status', ['draft','pending']),
-                    'approved' => $query->where('status', 'approved'),
-                    'in_progress' => $query->whereIn('status', ['payment', 'kain_diterima', 'printing', 'jahit']),
+                    'request_kain' => $query->where('status', 'request_kain'),
+                    'in_progress' => $query->whereIn('status', ['payment', 'proses_jahit', 'printing']),
                     'completed' => $query->where('status', 'selesai'),
                     'cancelled' => $query->where('status', 'canceled'),
                     default => $query,
@@ -61,6 +65,82 @@ class PurchaseOrderController extends BaseController
             ->paginate(15);
 
         return view('admin.purchases.index', compact('purchases','q','status','group','type'));
+    }
+
+    /**
+     * Form import purchase order (admin)
+     */
+    public function importForm(): View
+    {
+        return view('admin.purchases.import');
+    }
+
+    /**
+     * Proses import purchase order dari Excel
+     */
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:2048',
+        ]);
+
+        try {
+            $import = new PurchaseOrderImport();
+            Excel::import($import, $request->file('file'));
+
+            if (!empty($import->errors)) {
+                return back()->withErrors(['import_errors' => $import->errors]);
+            }
+
+            $message = "Import berhasil! {$import->successCount} purchase order berhasil dibuat (status Draft).";
+
+            return redirect()->route('admin.purchases.index')->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat import: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Export data purchase order beserta item ke Excel
+     */
+    public function export(Request $request)
+    {
+        $query = PurchaseOrder::with(['items', 'supplier', 'creator']);
+
+        if ($type = $request->get('type')) {
+            $query->where('purchase_type', $type);
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($startDate = $request->get('start_date')) {
+            $query->whereDate('order_date', '>=', $startDate);
+        }
+
+        if ($endDate = $request->get('end_date')) {
+            $query->whereDate('order_date', '<=', $endDate);
+        }
+
+        $purchases = $query->orderByDesc('order_date')->get();
+
+        if ($purchases->isEmpty()) {
+            return back()->withErrors(['error' => 'Tidak ada data purchase untuk di-export.']);
+        }
+
+        $fileName = 'purchase_orders_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PurchaseOrderExport($purchases), $fileName);
+    }
+
+    /**
+     * Download template Excel untuk import purchase order
+     */
+    public function downloadTemplate()
+    {
+        $fileName = 'purchase_order_template_' . now()->format('Ymd') . '.xlsx';
+        return Excel::download(new PurchaseOrderTemplateExport(), $fileName);
     }
 
     public function create(): View
@@ -367,7 +447,7 @@ if (!empty($allChanges)) {
         }
     
         $purchase->update([
-            'status' => PurchaseOrder::STATUS_APPROVED,
+            'status' => PurchaseOrder::STATUS_REQUEST_KAIN,
             'approved_by' => Auth::id(),
             'approved_at' => Carbon::now(),
         ]);
@@ -380,8 +460,8 @@ if (!empty($allChanges)) {
 
     public function payment(Request $request, PurchaseOrder $purchase): RedirectResponse
     {
-        if ($purchase->status !== PurchaseOrder::STATUS_APPROVED) {
-            return back()->withErrors(['status' => 'Hanya approved yang bisa diproses pembayaran.']);
+        if ($purchase->status !== PurchaseOrder::STATUS_REQUEST_KAIN) {
+            return back()->withErrors(['status' => 'Hanya request kain yang bisa diproses pembayaran.']);
         }
     
         $validated = $request->validate([

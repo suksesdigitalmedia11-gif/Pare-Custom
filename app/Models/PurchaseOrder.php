@@ -14,14 +14,13 @@ class PurchaseOrder extends Model
     // Status untuk approval workflow
     const STATUS_DRAFT = 'draft';
     const STATUS_PENDING = 'pending';
-    const STATUS_APPROVED = 'approved';
+    const STATUS_REQUEST_KAIN = 'request_kain';
     const STATUS_CANCELLED = 'canceled';
     
     // Status untuk production workflow - Kain
     const STATUS_PAYMENT = 'payment';
-    const STATUS_KAIN_DITERIMA = 'kain_diterima';
+    const STATUS_PROSES_JAHIT = 'proses_jahit';
     const STATUS_PRINTING = 'printing';
-    const STATUS_JAHIT = 'jahit';
     const STATUS_SELESAI = 'selesai';
     
     // Purchase Types
@@ -195,12 +194,11 @@ class PurchaseOrder extends Model
         if ($this->isKainType()) {
             return match($currentStatus) {
                 self::STATUS_DRAFT => [self::STATUS_PENDING],
-                self::STATUS_PENDING => [self::STATUS_APPROVED, self::STATUS_CANCELLED],
-                self::STATUS_APPROVED => [self::STATUS_PAYMENT],
-                self::STATUS_PAYMENT => [self::STATUS_KAIN_DITERIMA],
-                self::STATUS_KAIN_DITERIMA => [self::STATUS_PRINTING],
-                self::STATUS_PRINTING => [self::STATUS_JAHIT],
-                self::STATUS_JAHIT => [self::STATUS_SELESAI],
+                self::STATUS_PENDING => [self::STATUS_REQUEST_KAIN, self::STATUS_CANCELLED],
+                self::STATUS_REQUEST_KAIN => [self::STATUS_PAYMENT],
+                self::STATUS_PAYMENT => [self::STATUS_PROSES_JAHIT],
+                self::STATUS_PROSES_JAHIT => [self::STATUS_PRINTING],
+                self::STATUS_PRINTING => [self::STATUS_SELESAI],
                 default => []
             };
         }
@@ -208,9 +206,10 @@ class PurchaseOrder extends Model
         // Produk Jadi workflow
         return match($currentStatus) {
             self::STATUS_DRAFT => [self::STATUS_PENDING],
-            self::STATUS_PENDING => [self::STATUS_APPROVED, self::STATUS_CANCELLED],
-            self::STATUS_APPROVED => [self::STATUS_PAYMENT],
-            self::STATUS_PAYMENT => [self::STATUS_SELESAI],
+            self::STATUS_PENDING => [self::STATUS_REQUEST_KAIN, self::STATUS_CANCELLED],
+            self::STATUS_REQUEST_KAIN => [self::STATUS_PAYMENT],
+            self::STATUS_PAYMENT => [self::STATUS_PRINTING, self::STATUS_SELESAI],
+            self::STATUS_PRINTING => [self::STATUS_SELESAI],
             default => []
         };
     }
@@ -220,11 +219,10 @@ class PurchaseOrder extends Model
         return match($this->status) {
             self::STATUS_DRAFT => 'Draft',
             self::STATUS_PENDING => 'Pending Approval',
-            self::STATUS_APPROVED => 'Approved',
+            self::STATUS_REQUEST_KAIN => 'Request Kain',
             self::STATUS_PAYMENT => 'Payment',
-            self::STATUS_KAIN_DITERIMA => 'Kain Diterima',
+            self::STATUS_PROSES_JAHIT => 'Proses Jahit',
             self::STATUS_PRINTING => 'Printing',
-            self::STATUS_JAHIT => 'Jahit',
             self::STATUS_SELESAI => 'Selesai',
             self::STATUS_CANCELLED => 'Cancelled',
             self::STATUS_RETURNED => 'Returned (All)',
@@ -288,7 +286,7 @@ class PurchaseOrder extends Model
         
         // Set timestamp dan user berdasarkan status
         match($newStatus) {
-            self::STATUS_APPROVED => [
+            self::STATUS_REQUEST_KAIN => [
                 $this->approved_by = $userId,
                 $this->approved_at = now()
             ],
@@ -296,17 +294,13 @@ class PurchaseOrder extends Model
                 $this->payment_by = $userId,
                 $this->payment_at = now()
             ],
-            self::STATUS_KAIN_DITERIMA => [
+            self::STATUS_PROSES_JAHIT => [
                 $this->kain_diterima_by = $userId,
                 $this->kain_diterima_at = now()
             ],
             self::STATUS_PRINTING => [
                 $this->printing_by = $userId,
                 $this->printing_at = now()
-            ],
-            self::STATUS_JAHIT => [
-                $this->jahit_by = $userId,
-                $this->jahit_at = now()
             ],
             self::STATUS_SELESAI => [
                 $this->selesai_by = $userId,

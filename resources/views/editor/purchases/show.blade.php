@@ -79,11 +79,10 @@
                                     <span class="px-3 py-1 rounded text-sm font-medium
                                     @if($purchase->status === 'draft') bg-gray-100 text-gray-800
                                     @elseif($purchase->status === 'pending') bg-yellow-100 text-yellow-800
-                                    @elseif($purchase->status === 'approved') bg-blue-100 text-blue-800
+                            @elseif($purchase->status === 'request_kain') bg-blue-100 text-blue-800
                                     @elseif($purchase->status === 'payment') bg-purple-100 text-purple-800
-                                    @elseif($purchase->status === 'kain_diterima') bg-indigo-100 text-indigo-800
+                            @elseif($purchase->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                     @elseif($purchase->status === 'printing') bg-orange-100 text-orange-800
-                                    @elseif($purchase->status === 'jahit') bg-pink-100 text-pink-800
                                     @elseif($purchase->status === 'selesai') bg-green-100 text-green-800
                                     @elseif($purchase->status === 'cancelled') bg-red-100 text-red-800
                                     @endif">
@@ -215,11 +214,10 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
-                                            ['status' => 'kain_diterima', 'label' => 'Kain Diterima', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
+                                            ['status' => 'proses_jahit', 'label' => 'Proses Jahit', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
                                             ['status' => 'printing', 'label' => 'Printing', 'user_field' => 'printing_by', 'date_field' => 'printing_at', 'relation' => 'printer'],
-                                            ['status' => 'jahit', 'label' => 'Jahit', 'user_field' => 'jahit_by', 'date_field' => 'jahit_at', 'relation' => 'tailor'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
                                     @endphp
@@ -229,7 +227,7 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
@@ -296,7 +294,7 @@
     <!-- Workflow Status: Printing, Jahit, Selesai -->
     @if(count($availableStatuses) > 0 && !in_array($purchase->status, ['draft', 'pending', 'approved']))
         @foreach($availableStatuses as $nextStatus)
-            @if(in_array($nextStatus, ['printing', 'jahit', 'selesai']) && in_array(auth()->user()->role, ['editor', 'owner']))
+            @if(in_array($nextStatus, ['proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->role, ['editor', 'owner']))
                 <form method="POST" action="{{ route('editor.purchases.update-status', $purchase) }}">
                     @csrf
                     <input type="hidden" name="new_status" value="{{ $nextStatus }}">
@@ -309,7 +307,7 @@
     @endif
 
     <!-- Cancel -->
-    @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'kain_diterima', 'printing', 'jahit']))
+    @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
         <form method="POST" action="{{ route('editor.purchases.cancel', $purchase) }}">
             @csrf @method('PATCH')
             <button class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors" 
@@ -327,7 +325,7 @@
     </div>
 
 <!-- Payment Modal -->
-@if($purchase->status === 'approved')
+@if($purchase->status === 'request_kain')
 <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>

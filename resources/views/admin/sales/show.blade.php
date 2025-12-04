@@ -90,11 +90,11 @@
                             <form action="{{ route('admin.sales.markAsJadi', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-check-circle"></i> Tandai Jadi
+                                    <i class="bi bi-check-circle"></i> Tandai Printing
                                 </button>
                             </form>
                         @endif
-                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'jadi') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'di proses') && $activeShift && Auth::user()->hasRole('admin'))
+                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment') && $activeShift && Auth::user()->hasRole('admin'))
                             <form action="{{ route('admin.sales.markAsDiterimaToko', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
@@ -215,7 +215,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-lg font-semibold mb-4 text-gray-800">Informasi Pembayaran & Status</h2>
                     <div class="space-y-3">
-                        <div class="flex justify-between"><span class="text-gray-600">Status Order:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->status === 'selesai') bg-green-100 text-green-600 @elseif(in_array($salesOrder->status, ['request_kain', 'proses_jahit', 'jadi', 'di proses', 'diterima_toko'])) bg-yellow-100 text-yellow-600 @else bg-blue-100 text-blue-600 @endif">{{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}</span></div>
+                        <div class="flex justify-between"><span class="text-gray-600">Status Order:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->status === 'selesai') bg-green-100 text-green-600 @elseif(in_array($salesOrder->status, ['request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko'])) bg-yellow-100 text-yellow-600 @else bg-blue-100 text-blue-600 @endif">{{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Metode Pembayaran:</span><span class="capitalize">{{ $salesOrder->payment_method }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Status Pembayaran:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->payment_status === 'lunas') bg-green-100 text-green-600 @else bg-yellow-100 text-yellow-600 @endif">{{ ucfirst($salesOrder->payment_status) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Subtotal:</span><span>Rp {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</span></div>
@@ -610,179 +610,30 @@
 <!-- Thermal Receipt Template (Hidden) -->
 <div id="thermalReceipt" style="display: none;">
     <div class="thermal-receipt">
-        <div class="receipt-header">
-            <div class="company-name">PARECUSTOM</div>
-            <div class="receipt-title">NOTA PEMBAYARAN</div>
-            <div class="receipt-divider">========================</div>
-        </div>
-        
-        <div class="receipt-body">
-            <div class="receipt-line">
-                <span class="label">No. Transaksi</span>
-                <span class="value" id="rcpt-so-number"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Customer</span>
-                <span class="value" id="rcpt-customer"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Tanggal</span>
-                <span class="value" id="rcpt-date"></span>
-            </div>
-            <div class="receipt-divider">========================</div>
-            
-            <!-- DETAIL ITEMS BARANG -->
-            <div class="receipt-section">DETAIL BARANG</div>
-            <div id="rcpt-items-list"></div>
-            <div class="receipt-divider">========================</div>
-            
-            <div class="receipt-section">RINGKASAN PEMBAYARAN</div>
-            <div class="receipt-line">
-                <span class="label">Subtotal</span>
-                <span class="value" id="rcpt-subtotal"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Diskon</span>
-                <span class="value" id="rcpt-discount"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Grand Total</span>
-                <span class="value" id="rcpt-grand-total"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Total Bayar</span>
-                <span class="value" id="rcpt-paid-total"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Sisa</span>
-                <span class="value" id="rcpt-remaining"></span>
-            </div>
-            <div class="receipt-divider">========================</div>
-            
-            <div class="receipt-section">DETAIL PEMBAYARAN</div>
-            <div class="receipt-line">
-                <span class="label">Tanggal Bayar</span>
-                <span class="value" id="rcpt-payment-date"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Metode</span>
-                <span class="value" id="rcpt-method"></span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">Jumlah</span>
-                <span class="value" id="rcpt-amount"></span>
-            </div>
-            <div id="rcpt-split-details"></div>
-            <div id="rcpt-reference"></div>
-            <div id="rcpt-note"></div>
-            <div class="receipt-divider">========================</div>
-            
-            <div class="receipt-line">
-                <span class="label">Operator</span>
-                <span class="value" id="rcpt-operator"></span>
-            </div>
-            <div class="receipt-divider">========================</div>
-            
-            <div class="receipt-footer">
-                <div class="thank-you">Terima kasih atas pembayarannya</div>
-                <div class="print-time" id="rcpt-print-time"></div>
-            </div>
-        </div>
+        <pre id="rcpt-text">Menyiapkan nota...</pre>
     </div>
 </div>
 
 <style>
 /* Thermal Receipt Styles */
 .thermal-receipt {
-    width: 58mm;
-    min-height: 100mm;
-    padding: 2mm;
-    font-family: 'Courier New', monospace;
-    font-size: 9px;
-    line-height: 1.2;
+    width: 58mm; /* Sesuaikan dengan lebar kertas */
+    max-width: 58mm;
+    padding: 1mm;
     background: white;
+    margin: 0 auto;
+    border: none;
+    font-size: 10px;
+}
+
+.thermal-receipt pre {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    line-height: 1.3;
     margin: 0;
-}
-
-.receipt-header {
-    text-align: center;
-    margin-bottom: 3mm;
-}
-
-.company-name {
-    font-size: 11px;
-    font-weight: bold;
-    margin-bottom: 1mm;
-}
-
-.receipt-title {
-    font-weight: bold;
-    margin-bottom: 2mm;
-}
-
-.receipt-divider {
-    text-align: center;
-    margin: 2mm 0;
-    font-weight: bold;
-}
-
-.receipt-body {
-    margin-bottom: 3mm;
-}
-
-.receipt-line {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 1mm;
-}
-
-.receipt-line .label {
-    font-weight: bold;
-}
-
-.receipt-line .value {
-    text-align: right;
-}
-
-.receipt-section {
-    font-weight: bold;
-    text-align: center;
-    margin: 2mm 0;
-}
-
-.receipt-footer {
-    text-align: center;
-    margin-top: 3mm;
-}
-
-.thank-you {
-    margin-bottom: 2mm;
-}
-
-.print-time {
-    font-size: 8px;
-}
-
-.item-line {
-    margin-bottom: 2mm;
-}
-
-.item-name {
-    font-weight: bold;
-    margin-bottom: 0.5mm;
-}
-
-.item-details {
-    display: flex;
-    justify-content: space-between;
-    font-size: 8px;
-    margin-bottom: 0.5mm;
-}
-
-.item-subtotal {
-    text-align: right;
-    font-weight: bold;
-    margin-bottom: 1mm;
+    white-space: pre-wrap;
+    word-break: break-word;
+    letter-spacing: 0;
 }
 
 /* Print Styles */
@@ -790,14 +641,23 @@
     @page {
         margin: 0;
         padding: 0;
-        size: 58mm auto;
+        size: 58mm auto; /* Lebar kertas 58mm */
+        width: 58mm;
+    }
+    
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 58mm !important;
+        background: white !important;
     }
     
     body * {
         visibility: hidden;
     }
     
-    .thermal-receipt, .thermal-receipt * {
+    .thermal-receipt, 
+    .thermal-receipt * {
         visibility: visible;
     }
     
@@ -805,14 +665,25 @@
         position: absolute;
         left: 0;
         top: 0;
-        width: 58mm;
-        margin: 0;
-        padding: 2mm;
-        box-shadow: none;
+        width: 58mm !important;
+        max-width: 58mm !important;
+        margin: 0 !important;
+        padding: 2mm !important;
+        background: white !important;
+        box-shadow: none !important;
+        border: none !important;
     }
     
-    .no-print {
+    /* Hilangkan semua tombol saat print */
+    button, .no-print {
         display: none !important;
+    }
+}
+@media screen {
+    .thermal-receipt {
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
     }
 }
 
@@ -859,6 +730,9 @@
 // Global variables
 let currentPaymentId = null;
 let currentPaymentData = null;
+// PERBAIKAN: Fungsi format thermal receipt
+const RECEIPT_CHAR_WIDTH = 32; // 58mm thermal = 32 karakter, bukan 28
+const RECEIPT_MAX_WIDTH = 32; // Max karakter per baris
 
 // PERBAIKAN: Hitung total bayar dari semua payments
 function calculateTotalPaid(payments) {
@@ -895,170 +769,94 @@ function printThermalHTML() {
     
     showLoading('Menyiapkan cetakan thermal...');
     
-    // Prepare receipt data
     const salesOrder = {!! json_encode($salesOrder) !!};
     const payment = currentPaymentData;
     const allPayments = {!! json_encode($salesOrder->payments) !!};
     
-    // PERBAIKAN: Hitung total bayar dan sisa yang REAL
     const totalPaid = calculateTotalPaid(allPayments);
     const remaining = calculateRemaining(salesOrder.grand_total, totalPaid);
     
-    // Populate receipt template dengan nilai REAL
-    document.getElementById('rcpt-so-number').textContent = salesOrder.so_number;
-    document.getElementById('rcpt-customer').textContent = salesOrder.customer ? salesOrder.customer.name : 'Umum';
-    document.getElementById('rcpt-date').textContent = new Date().toLocaleDateString('id-ID');
+    const textReceipt = buildThermalReceiptText(salesOrder, payment, totalPaid, remaining);
+    const receiptPre = document.getElementById('rcpt-text');
     
-    // PERBAIKAN: Gunakan nilai yang REAL
-    document.getElementById('rcpt-subtotal').textContent = 'Rp ' + safeFormatNumber(salesOrder.subtotal);
-    document.getElementById('rcpt-discount').textContent = 'Rp ' + safeFormatNumber(salesOrder.discount_total);
-    document.getElementById('rcpt-grand-total').textContent = 'Rp ' + safeFormatNumber(salesOrder.grand_total);
-    document.getElementById('rcpt-paid-total').textContent = 'Rp ' + safeFormatNumber(totalPaid); // TOTAL BAYAR REAL
-    document.getElementById('rcpt-remaining').textContent = 'Rp ' + safeFormatNumber(remaining); // SISA REAL
-    
-    document.getElementById('rcpt-payment-date').textContent = formatDate(payment.paid_at);
-    document.getElementById('rcpt-method').textContent = payment.method.toUpperCase();
-    document.getElementById('rcpt-amount').textContent = 'Rp ' + safeFormatNumber(payment.amount);
-    document.getElementById('rcpt-operator').textContent = payment.creator_name || 'System';
-    document.getElementById('rcpt-print-time').textContent = '*** ' + new Date().toLocaleDateString('id-ID') + ' ' + new Date().toLocaleTimeString('id-ID').substring(0,5) + ' ***';
-    
-    // Handle split payment
-    const splitDetails = document.getElementById('rcpt-split-details');
-    splitDetails.innerHTML = '';
-    if (payment.method === 'split') {
-        splitDetails.innerHTML = `
-            <div class="receipt-line">
-                <span class="label">- Cash</span>
-                <span class="value">Rp ${safeFormatNumber(payment.cash_amount)}</span>
-            </div>
-            <div class="receipt-line">
-                <span class="label">- Transfer</span>
-                <span class="value">Rp ${safeFormatNumber(payment.transfer_amount)}</span>
-            </div>
-        `;
+    if (receiptPre) {
+        receiptPre.textContent = textReceipt;
     }
     
-    // Handle reference
-    const referenceDiv = document.getElementById('rcpt-reference');
-    referenceDiv.innerHTML = '';
-    if (payment.reference) {
-        referenceDiv.innerHTML = `
-            <div class="receipt-line">
-                <span class="label">Referensi</span>
-                <span class="value">${payment.reference}</span>
-            </div>
-        `;
-    }
-    
-    // Handle note
-    const noteDiv = document.getElementById('rcpt-note');
-    noteDiv.innerHTML = '';
-    if (payment.note) {
-        noteDiv.innerHTML = `
-            <div class="receipt-line">
-                <span class="label">Catatan</span>
-                <span class="value">${payment.note}</span>
-            </div>
-        `;
-    }
-    
-    // TAMBAHAN: Populate items list
-    const itemsList = document.getElementById('rcpt-items-list');
-    itemsList.innerHTML = '';
-    
-    if (salesOrder.items && salesOrder.items.length > 0) {
-        salesOrder.items.forEach((item, index) => {
-            const itemHTML = `
-                <div class="item-line">
-                    <div class="item-name">${item.product_name}</div>
-                    <div class="item-details">
-                        <span>${item.qty} x Rp ${safeFormatNumber(item.sale_price)}</span>
-                        <span>Disc: Rp ${safeFormatNumber(item.discount)}</span>
-                    </div>
-                    <div class="item-subtotal">Rp ${safeFormatNumber(item.line_total)}</div>
-                </div>
-            `;
-            itemsList.innerHTML += itemHTML;
-        });
-    }
-    
-    // Create print window
-    const printWindow = window.open('', '_blank');
-    const receiptHTML = document.getElementById('thermalReceipt').innerHTML;
-    
-    const fullHTML = `
+    // Gunakan iframe untuk print yang lebih bersih
+    const printContent = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Nota Pembayaran - ${salesOrder.so_number}</title>
+    <title>Nota - ${salesOrder.so_number}</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=58mm, initial-scale=1">
     <style>
-        @page { margin: 0; padding: 0; size: 58mm auto; }
-        body { 
-            margin: 0; 
-            padding: 0; 
+        body, html {
+            margin: 0;
+            padding: 0;
             width: 58mm;
-            font-family: 'Courier New', monospace;
-            font-size: 9px;
-            line-height: 1.2;
             background: white;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.3;
         }
-        .thermal-receipt {
+        
+        .receipt {
             width: 58mm;
             padding: 2mm;
-            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            letter-spacing: normal;
         }
-        .receipt-header { text-align: center; margin-bottom: 3mm; }
-        .company-name { font-size: 11px; font-weight: bold; margin-bottom: 1mm; }
-        .receipt-title { font-weight: bold; margin-bottom: 2mm; }
-        .receipt-divider { text-align: center; margin: 2mm 0; font-weight: bold; }
-        .receipt-line { display: flex; justify-content: space-between; margin-bottom: 1mm; }
-        .receipt-line .label { font-weight: bold; }
-        .receipt-line .value { text-align: right; }
-        .receipt-section { font-weight: bold; text-align: center; margin: 2mm 0; }
-        .receipt-footer { text-align: center; margin-top: 3mm; }
-        .thank-you { margin-bottom: 2mm; }
-        .print-time { font-size: 8px; }
-        .item-line { margin-bottom: 2mm; }
-        .item-name { font-weight: bold; margin-bottom: 0.5mm; }
-        .item-details { display: flex; justify-content: space-between; font-size: 8px; margin-bottom: 0.5mm; }
-        .item-subtotal { text-align: right; font-weight: bold; margin-bottom: 1mm; }
         
         @media print {
-            body { margin: 0; padding: 0; }
-            .thermal-receipt { margin: 0; padding: 2mm; }
+            @page {
+                size: 58mm auto;
+                margin: 0;
+                padding: 0;
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+                width: 58mm;
+            }
         }
     </style>
 </head>
 <body>
-    ${receiptHTML}
+    <div class="receipt">${textReceipt}</div>
     
-    <div class="no-print" style="padding: 10px; text-align: center; background: #f0f0f0; margin-top: 10px;">
-        <button onclick="window.print()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; margin: 5px;">
-            🖨️ Cetak Sekarang
-        </button>
-        <button onclick="window.close()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; margin: 5px;">
-            ❌ Tutup
-        </button>
-    </div>
-
     <script>
+        // Auto print setelah load
         setTimeout(() => {
             window.print();
-        }, 500);
+            setTimeout(() => {
+                window.close();
+            }, 500);
+        }, 300);
     <\/script>
 </body>
 </html>`;
     
-    printWindow.document.write(fullHTML);
-    printWindow.document.close();
+    // Buat iframe untuk print
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.left = '-9999px';
+    document.body.appendChild(iframe);
+    
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(printContent);
+    iframe.contentDocument.close();
     
     hideLoading();
     closePrintModal();
     
-    setTimeout(() => {
-        showToast('Nota siap dicetak! Pilih printer thermal Anda.', 'success');
-    }, 1000);
+    showToast('Mencetak nota thermal...', 'success');
 }
 
 // 2. ESC/POS TEXT PRINTING (Alternative)
@@ -1071,57 +869,10 @@ function printESCPOS() {
     const payment = currentPaymentData;
     const allPayments = {!! json_encode($salesOrder->payments) !!};
     
-    // PERBAIKAN: Hitung total bayar dan sisa yang REAL
     const totalPaid = calculateTotalPaid(allPayments);
     const remaining = calculateRemaining(salesOrder.grand_total, totalPaid);
     
-    // Create plain text receipt dengan DETAIL ITEM dan NILAI REAL
-    let textReceipt = `
-PARECUSTOM
-NOTA PEMBAYARAN
-========================
-No. Transaksi  : ${salesOrder.so_number}
-Customer   : ${salesOrder.customer ? salesOrder.customer.name : 'Umum'}
-Tanggal    : ${new Date().toLocaleDateString('id-ID')}
-========================
-DETAIL BARANG
-`;
-
-    // Tambahkan items
-    if (salesOrder.items && salesOrder.items.length > 0) {
-        salesOrder.items.forEach((item, index) => {
-            textReceipt += `
-${item.product_name}
-  ${item.qty} x Rp ${safeFormatNumber(item.sale_price)} 
-  Disc: Rp ${safeFormatNumber(item.discount)}
-  Subtotal: Rp ${safeFormatNumber(item.line_total)}
-`;
-        });
-    }
-
-    textReceipt += `
-========================
-RINGKASAN PEMBAYARAN
-Subtotal   : Rp ${safeFormatNumber(salesOrder.subtotal)}
-Diskon     : Rp ${safeFormatNumber(salesOrder.discount_total)}
-Grand Total: Rp ${safeFormatNumber(salesOrder.grand_total)}
-Total Bayar: Rp ${safeFormatNumber(totalPaid)}
-Sisa      : Rp ${safeFormatNumber(remaining)}
-========================
-DETAIL PEMBAYARAN
-Tanggal Bayar: ${formatDate(payment.paid_at)}
-Metode      : ${payment.method.toUpperCase()}
-Jumlah      : Rp ${safeFormatNumber(payment.amount)}
-${payment.method === 'split' ? `- Cash     : Rp ${safeFormatNumber(payment.cash_amount)}
-- Transfer : Rp ${safeFormatNumber(payment.transfer_amount)}` : ''}
-${payment.reference ? `Referensi  : ${payment.reference}` : ''}
-${payment.note ? `Catatan    : ${payment.note}` : ''}
-========================
-Operator   : ${payment.creator_name || 'System'}
-========================
-Terima kasih atas pembayarannya
-*** ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')} ***
-    `.trim();
+    const textReceipt = buildThermalReceiptText(salesOrder, payment, totalPaid, remaining);
     
     // Create text file and download
     const blob = new Blob([textReceipt], { type: 'text/plain' });
@@ -1165,6 +916,226 @@ function formatDate(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('id-ID') + ' ' + date.toLocaleTimeString('id-ID').substring(0, 5);
+}
+
+function buildThermalReceiptText(salesOrder, payment, totalPaid, remaining) {
+    const lines = [];
+    const customerName = salesOrder.customer ? salesOrder.customer.name : 'Umum';
+    const operatorName = payment.creator_name || 'System';
+    const orderDate = salesOrder.order_date ? formatDate(salesOrder.order_date) : new Date().toLocaleDateString('id-ID');
+    const paymentDate = payment.paid_at ? formatDate(payment.paid_at) : new Date().toLocaleDateString('id-ID');
+    const now = new Date();
+
+    // HEADER
+    lines.push(centerText('PARE CUSTOM', RECEIPT_MAX_WIDTH));
+    lines.push(centerText('NOTA PEMBAYARAN', RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // INFORMASI ORDER
+    addKeyValue(lines, 'No SO', salesOrder.so_number || '-');
+    addKeyValue(lines, 'Customer', customerName);
+    addKeyValue(lines, 'Tgl Order', orderDate);
+    addKeyValue(lines, 'Kasir', operatorName);
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // DETAIL BARANG
+    lines.push(centerText('DETAIL BARANG', RECEIPT_MAX_WIDTH));
+    if (Array.isArray(salesOrder.items) && salesOrder.items.length) {
+        salesOrder.items.forEach((item, index) => {
+            const itemNumber = `${index + 1}.`;
+            const productName = item.product_name || '-';
+            
+            // Nama produk dengan wrap
+            const nameLines = wrapText(productName, RECEIPT_MAX_WIDTH - 8);
+            lines.push(`${itemNumber} ${nameLines[0]}`);
+            if (nameLines.length > 1) {
+                for (let i = 1; i < nameLines.length; i++) {
+                    lines.push(`  ${nameLines[i]}`);
+                }
+            }
+            
+            // Qty dan harga
+            const qtyText = `${item.qty || 0} x ${formatCurrency(item.sale_price)}`;
+            const lineTotal = formatCurrency(item.line_total);
+            lines.push(alignLeftRight(qtyText, lineTotal, RECEIPT_MAX_WIDTH));
+            
+            // Diskon jika ada
+            if (Number(item.discount) > 0) {
+                lines.push(alignLeftRight('Disc', formatCurrency(item.discount), RECEIPT_MAX_WIDTH));
+            }
+            
+            lines.push(''); // Spasi antar item
+        });
+        // Hapus spasi terakhir jika ada
+        if (lines[lines.length - 1] === '') lines.pop();
+    } else {
+        lines.push('(Tidak ada item)');
+    }
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // RINGKASAN
+    lines.push(centerText('RINGKASAN', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Subtotal', formatCurrency(salesOrder.subtotal), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Diskon', formatCurrency(salesOrder.discount_total), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Grand Total', formatCurrency(salesOrder.grand_total), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Total Bayar', formatCurrency(totalPaid), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Sisa', formatCurrency(remaining), RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // DETAIL PEMBAYARAN
+    lines.push(centerText('DETAIL PEMBAYARAN', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Tgl Bayar', paymentDate, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Metode', (payment.method || '').toUpperCase(), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Jumlah', formatCurrency(payment.amount), RECEIPT_MAX_WIDTH));
+    
+    if (payment.method === 'split') {
+        lines.push(alignLeftRight('- Cash', formatCurrency(payment.cash_amount), RECEIPT_MAX_WIDTH));
+        lines.push(alignLeftRight('- Transfer', formatCurrency(payment.transfer_amount), RECEIPT_MAX_WIDTH));
+    }
+    
+    if (payment.reference) {
+        addKeyValue(lines, 'Referensi', payment.reference);
+    }
+    
+    if (payment.note) {
+        addKeyValue(lines, 'Catatan', payment.note);
+    }
+    
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // FOOTER
+    lines.push(alignLeftRight('Operator', operatorName, RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    lines.push(centerText('Terima kasih', RECEIPT_MAX_WIDTH));
+    lines.push(centerText(`*** ${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} ***`, RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+        lines.push(divider(RECEIPT_MAX_WIDTH));
+            lines.push(divider(RECEIPT_MAX_WIDTH));
+            lines.push(divider(RECEIPT_MAX_WIDTH));
+    return lines.join('\n');
+}
+
+// FUNGSI HELPER YANG DIPERBAIKI
+
+// 1. Center text dengan tepat
+function centerText(text, width) {
+    const textStr = String(text || '').trim();
+    if (textStr.length >= width) return textStr;
+    
+    const leftPadding = Math.floor((width - textStr.length) / 2);
+    const rightPadding = width - textStr.length - leftPadding;
+    
+    return ' '.repeat(Math.max(0, leftPadding)) + textStr + ' '.repeat(Math.max(0, rightPadding));
+}
+
+// 2. Align left-right dengan benar
+function alignLeftRight(left, right, width) {
+    const leftStr = String(left || '');
+    const rightStr = String(right || '');
+    
+    if (leftStr.length + rightStr.length > width) {
+        // Jika terlalu panjang, buat dua baris
+        return leftStr + '\n' + ' '.repeat(width - rightStr.length) + rightStr;
+    }
+    
+    const middleSpaces = width - leftStr.length - rightStr.length;
+    return leftStr + ' '.repeat(Math.max(0, middleSpaces)) + rightStr;
+}
+
+// 3. Divider line
+function divider(width, char = '-') {
+    return char.repeat(width);
+}
+
+// 4. Wrap text untuk nama produk panjang
+function wrapText(text, maxWidth) {
+    const words = String(text || '').split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    words.forEach(word => {
+        if (word.length > maxWidth) {
+            // Handle kata yang sangat panjang
+            if (currentLine) {
+                lines.push(currentLine);
+                currentLine = '';
+            }
+            
+            for (let i = 0; i < word.length; i += maxWidth) {
+                lines.push(word.substring(i, i + maxWidth));
+            }
+        } else if ((currentLine + ' ' + word).length > maxWidth) {
+            lines.push(currentLine);
+            currentLine = word;
+        } else {
+            currentLine = currentLine ? currentLine + ' ' + word : word;
+        }
+    });
+    
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    
+    return lines;
+}
+
+// 5. Key-value dengan format yang baik
+function addKeyValue(lines, key, value) {
+    const keyPart = `${key}: `;
+    const valueStr = String(value || '-');
+    const availableWidth = RECEIPT_MAX_WIDTH - keyPart.length;
+    
+    if (availableWidth <= 0) {
+        lines.push(keyPart);
+        const valueLines = wrapText(valueStr, RECEIPT_MAX_WIDTH);
+        valueLines.forEach(line => lines.push(line));
+        return;
+    }
+    
+    const valueLines = wrapText(valueStr, availableWidth);
+    
+    if (valueLines.length === 0) {
+        lines.push(keyPart + '-');
+        return;
+    }
+    
+    // Baris pertama
+    lines.push(keyPart + valueLines[0]);
+    
+    // Baris berikutnya (jika ada) dengan indent
+    for (let i = 1; i < valueLines.length; i++) {
+        lines.push(' '.repeat(keyPart.length) + valueLines[i]);
+    }
+}
+
+// 6. Format currency tetap sama
+function formatCurrency(num) {
+    if (num === null || num === undefined || num === '' || isNaN(num)) {
+        return 'Rp 0';
+    }
+    
+    // Format dengan dua digit desimal
+    const formatted = parseFloat(num).toLocaleString('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
+    
+    return 'Rp ' + formatted;
+}
+
+// 7. Format date
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return '-';
+    }
 }
 
 function getPaymentById(paymentId) {
