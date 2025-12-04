@@ -220,7 +220,7 @@
                                     <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                         <option value="">Semua Status</option>
                                         <option value="draft" @if(request('status') === 'draft') selected @endif>Draft</option>
-                                        @foreach (['pending', 'request_kain', 'proses_jahit', 'jadi', 'diterima_toko', 'di proses', 'selesai'] as $s)
+                                        @foreach (['pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko', 'selesai'] as $s)
                                             <option value="{{ $s }}" @if(request('status') === $s) selected @endif>
                                                 {{ ucfirst(str_replace('_', ' ', $s)) }}
                                             </option>
@@ -317,7 +317,7 @@
                                             <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span class="status-badge 
                                                     @if($so->status === 'selesai') bg-green-100 text-green-800
-                                                    @elseif($so->status === 'di proses') bg-yellow-100 text-yellow-800
+                                                    @elseif($so->status === 'payment') bg-yellow-100 text-yellow-800
                                                     @elseif($so->status === 'pending') bg-blue-100 text-blue-800
                                                     @elseif($so->status === 'draft') bg-gray-100 text-gray-800
                                                     @else bg-orange-100 text-orange-800 @endif">
@@ -372,7 +372,7 @@
                                     <div class="text-right">
                                         <span class="status-badge 
                                             @if($so->status === 'selesai') bg-green-100 text-green-800
-                                            @elseif($so->status === 'di proses') bg-yellow-100 text-yellow-800
+                                            @elseif($so->status === 'payment') bg-yellow-100 text-yellow-800
                                             @elseif($so->status === 'pending') bg-blue-100 text-blue-800
                                             @elseif($so->status === 'draft') bg-gray-100 text-gray-800
                                             @else bg-orange-100 text-orange-800 @endif">

@@ -491,6 +491,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'index'])->name('index');
         Route::get('create', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'store'])->name('store');
+        Route::get('import', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'importForm'])->name('import-form');
+        Route::post('import', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'import'])->name('import');
+        Route::get('export', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'export'])->name('export');
+        Route::get('download-template', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'downloadTemplate'])->name('download-template');
         Route::get('{purchase}', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'show'])->name('show');
         Route::post('{purchase}/submit', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'submit'])->name('submit');
         Route::post('{purchase}/update-status', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');

@@ -62,7 +62,7 @@
                             <select name="status" class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
     <option value="">Semua Status</option>
     <option value="draft" @if(request('status') === 'draft') selected @endif>Draft</option>
-    @foreach (['pending', 'request_kain', 'proses_jahit', 'jadi', 'diterima_toko', 'di proses', 'selesai'] as $s)
+    @foreach (['pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko', 'selesai'] as $s)
         <option value="{{ $s }}" @if(request('status') === $s) selected @endif>
             {{ ucfirst(str_replace('_', ' ', $s)) }}
         </option>
@@ -117,7 +117,7 @@
                                         <td class="px-4 py-2">
                                             <span class="inline-block px-2 py-1 text-xs font-medium rounded-full
                                                 @if($so->status === 'selesai') bg-green-100 text-green-600
-                                                @elseif($so->status === 'di proses') bg-yellow-100 text-yellow-600
+                                                @elseif($so->status === 'payment') bg-yellow-100 text-yellow-600
                                                 @elseif($so->status === 'pending') bg-blue-100 text-blue-600
                                                 @else bg-gray-100 text-gray-600 @endif">
                                                 {{ ucfirst(str_replace('_', ' ', $so->status)) }}

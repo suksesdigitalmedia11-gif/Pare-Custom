@@ -19,6 +19,7 @@ use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\SalesPurchaseSyncService;
 
 class SalesOrderController extends Controller
 {
@@ -668,11 +669,13 @@ if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
         try {
             DB::transaction(function () use ($salesOrder) {
                 $this->updateStockOnPayment($salesOrder);
-                $newStatus = $salesOrder->order_type === 'jahit_sendiri' ? 'request_kain' : 'di proses';
+                $newStatus = $salesOrder->order_type === 'jahit_sendiri' ? 'request_kain' : 'payment';
                 $salesOrder->update(['status' => $newStatus]);
                 $this->logAction($salesOrder, 'process_started', "Proses dimulai: Status berubah ke {$newStatus}");
             });
             \Log::info('Process started for SO: ' . $salesOrder->so_number);
+            $salesOrder->refresh();
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Proses dimulai.');
         } catch (\Exception $e) {
             \Log::error('Error starting process for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
@@ -689,6 +692,7 @@ if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
 
         try {
             $salesOrder->update(['status' => 'proses_jahit']);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
             $this->logAction($salesOrder, 'jahit_processed', 'Proses jahit dimulai: Status berubah ke proses_jahit');
             \Log::info('Jahit process started for SO: ' . $salesOrder->so_number);
             return back()->with('success', 'Proses jahit dimulai.');
@@ -702,30 +706,32 @@ if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
     {
         if ($salesOrder->order_type !== 'jahit_sendiri' || $salesOrder->status !== 'proses_jahit') {
             \Log::warning('Invalid state for marking jadi on SO: ' . $salesOrder->so_number, ['order_type' => $salesOrder->order_type, 'status' => $salesOrder->status]);
-            return back()->withErrors(['status' => 'Hanya SO jahit sendiri dengan status proses jahit yang bisa ditandai jadi.']);
+            return back()->withErrors(['status' => 'Hanya SO jahit sendiri dengan status proses jahit yang bisa ditandai printing.']);
         }
 
         try {
-            $salesOrder->update(['status' => 'jadi']);
-            $this->logAction($salesOrder, 'marked_jadi', 'Produk selesai dijahit: Status berubah ke jadi');
+            $salesOrder->update(['status' => 'printing']);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
+            $this->logAction($salesOrder, 'marked_jadi', 'Produk selesai dijahit: Status berubah ke printing');
             \Log::info('Marked as jadi for SO: ' . $salesOrder->so_number);
             return back()->with('success', 'Produk selesai dijahit.');
         } catch (\Exception $e) {
             \Log::error('Error marking as jadi for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat menandai jadi: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menandai printing: ' . $e->getMessage()]);
         }
     }
 
     public function markAsDiterimaToko(SalesOrder $salesOrder): RedirectResponse
     {
-        $validStatuses = $salesOrder->order_type === 'jahit_sendiri' ? ['jadi'] : ['di proses'];
+        $validStatuses = $salesOrder->order_type === 'jahit_sendiri' ? ['printing'] : ['payment'];
         if (!in_array($salesOrder->status, $validStatuses)) {
             \Log::warning('Invalid state for marking diterima toko on SO: ' . $salesOrder->so_number, ['status' => $salesOrder->status]);
-            return back()->withErrors(['status' => 'Hanya SO dengan status ' . ($salesOrder->order_type === 'jahit_sendiri' ? 'jadi' : 'di proses') . ' yang bisa ditandai diterima toko.']);
+            return back()->withErrors(['status' => 'Hanya SO dengan status ' . ($salesOrder->order_type === 'jahit_sendiri' ? 'printing' : 'payment') . ' yang bisa ditandai diterima toko.']);
         }
 
         try {
             $salesOrder->update(['status' => 'diterima_toko']);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
             $this->logAction($salesOrder, 'marked_diterima_toko', 'Produk diterima di toko: Status berubah ke diterima_toko');
             \Log::info('Marked as diterima toko for SO: ' . $salesOrder->so_number);
             return back()->with('success', 'Produk diterima di toko.');
@@ -749,6 +755,7 @@ if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
 
         try {
             $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
             $this->logAction($salesOrder, 'completed', 'Sales order selesai: Status berubah ke selesai');
             \Log::info('Sales order completed: ' . $salesOrder->so_number);
             return back()->with('success', 'Sales order selesai.');

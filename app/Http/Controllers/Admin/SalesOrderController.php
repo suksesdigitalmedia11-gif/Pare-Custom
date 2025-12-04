@@ -25,6 +25,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\SalesOrderTemplateExport;
 use App\Exports\SalesOrderExport;
 use App\Imports\SalesOrderImport;
+use App\Services\SalesPurchaseSyncService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Validator;
 
@@ -50,6 +51,7 @@ class SalesOrderController extends Controller
             'created_at' => now(),
         ]);
     }
+
 
     public function downloadTemplate()
 {
@@ -737,6 +739,10 @@ public function index(Request $request): View
                 \Log::info('Sales order update completed successfully: ' . $salesOrder->so_number);
             });
     
+            // Sync PO status jika status SO berubah
+            $salesOrder->refresh();
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
+    
             \Log::info('=== SALES ORDER UPDATE SUCCESS ===', ['so_number' => $salesOrder->so_number]);
             return redirect()->route('admin.sales.show', $salesOrder)->with('success', 'Sales order berhasil diperbarui.');
             
@@ -972,12 +978,13 @@ public function complete(SalesOrder $salesOrder): RedirectResponse
         return back()->withErrors(['payment' => 'Pembayaran harus lunas untuk menyelesaikan.']);
     }
 
-    try {
-        $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
-        $this->logAction($salesOrder, 'completed', 'Sales order selesai: Status berubah ke selesai');
-        \Log::info('Sales order completed: ' . $salesOrder->so_number);
-        return back()->with('success', 'Sales order selesai.');
-    } catch (\Exception $e) {
+        try {
+            $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder->fresh());
+            $this->logAction($salesOrder, 'completed', 'Sales order selesai: Status berubah ke selesai');
+            \Log::info('Sales order completed: ' . $salesOrder->so_number);
+            return back()->with('success', 'Sales order selesai.');
+        } catch (\Exception $e) {
         \Log::error('Error completing sales order: ' . $e->getMessage(), ['so_number' => $salesOrder->so_number]);
         return back()->withErrors(['error' => 'Terjadi kesalahan saat menyelesaikan: ' . $e->getMessage()]);
     }

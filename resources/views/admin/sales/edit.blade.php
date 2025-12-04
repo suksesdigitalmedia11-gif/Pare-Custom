@@ -94,7 +94,7 @@
                                 <span class="text-gray-600">SO Number: <strong>{{ $salesOrder->so_number }}</strong></span>
                                 <span class="status-badge 
                                     @if($salesOrder->status === 'selesai') bg-green-100 text-green-800
-                                    @elseif($salesOrder->status === 'di proses') bg-yellow-100 text-yellow-800
+                                    @elseif($salesOrder->status === 'payment') bg-yellow-100 text-yellow-800
                                     @elseif($salesOrder->status === 'pending') bg-blue-100 text-blue-800
                                     @elseif($salesOrder->status === 'draft') bg-gray-100 text-gray-800
                                     @else bg-orange-100 text-orange-800 @endif">

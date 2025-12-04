@@ -81,11 +81,10 @@
                                     @elseif($purchase->status === 'returned') bg-red-100 text-red-800
                                     @elseif($purchase->status === 'draft') bg-gray-100 text-gray-800
                                     @elseif($purchase->status === 'pending') bg-yellow-100 text-yellow-800
-                                    @elseif($purchase->status === 'approved') bg-blue-100 text-blue-800
+                            @elseif($purchase->status === 'request_kain') bg-blue-100 text-blue-800
                                     @elseif($purchase->status === 'payment') bg-purple-100 text-purple-800
-                                    @elseif($purchase->status === 'kain_diterima') bg-indigo-100 text-indigo-800
+                            @elseif($purchase->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                     @elseif($purchase->status === 'printing') bg-orange-100 text-orange-800
-                                    @elseif($purchase->status === 'jahit') bg-pink-100 text-pink-800
                                     @elseif($purchase->status === 'selesai') bg-green-100 text-green-800
                                     @elseif($purchase->status === 'cancelled') bg-red-100 text-red-800
                                     @endif">
@@ -329,11 +328,10 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
-                                            ['status' => 'kain_diterima', 'label' => 'Kain Diterima', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
+                                            ['status' => 'proses_jahit', 'label' => 'Proses Jahit', 'user_field' => 'kain_diterima_by', 'date_field' => 'kain_diterima_at', 'relation' => 'kainReceiver'],
                                             ['status' => 'printing', 'label' => 'Printing', 'user_field' => 'printing_by', 'date_field' => 'printing_at', 'relation' => 'printer'],
-                                            ['status' => 'jahit', 'label' => 'Jahit', 'user_field' => 'jahit_by', 'date_field' => 'jahit_at', 'relation' => 'tailor'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
                                     @endphp
@@ -343,8 +341,9 @@
                                         $kainSteps = [
                                             ['status' => 'draft', 'label' => 'Draft', 'user_field' => 'created_by', 'date_field' => 'created_at', 'relation' => 'creator'],
                                             ['status' => 'pending', 'label' => 'Pending', 'user_field' => null, 'date_field' => null, 'relation' => null],
-                                            ['status' => 'approved', 'label' => 'Approved', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
+                                            ['status' => 'request_kain', 'label' => 'Request Kain', 'user_field' => 'approved_by', 'date_field' => 'approved_at', 'relation' => 'approver'],
                                             ['status' => 'payment', 'label' => 'Payment', 'user_field' => 'payment_by', 'date_field' => 'payment_at', 'relation' => 'paymentProcessor'],
+                                            ['status' => 'printing', 'label' => 'Printing', 'user_field' => 'printing_by', 'date_field' => 'printing_at', 'relation' => 'printer'],
                                             ['status' => 'selesai', 'label' => 'Selesai', 'user_field' => 'selesai_by', 'date_field' => 'selesai_at', 'relation' => 'finisher'],
                                         ];
                                     @endphp
@@ -405,7 +404,7 @@
         </div>
 
         <!-- Tambah di bagian action buttons -->
-        @if(in_array($purchase->status, ['draft', 'pending', 'approved']))
+        @if(in_array($purchase->status, ['draft', 'pending', 'request_kain']))
 <a href="{{ route('owner.purchases.edit', $purchase) }}" class="w-full text-white rounded">
     <div class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-center"><i class="bi bi-pencil"></i> Edit</div>
 </a>
@@ -432,7 +431,7 @@
         @endif
 
         <!-- TOMBOL PAYMENT - FIXED LOGIC -->
-        @if($purchase->status === 'approved')
+        @if($purchase->status === 'request_kain')
             <button onclick="openModal('payment-modal')" class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
                 <i class="bi bi-cash mr-2"></i>Proses Pembayaran
             </button>
@@ -444,7 +443,7 @@
             @if($purchase->purchase_type === 'kain')
                 <form method="POST" action="{{ route('owner.purchases.update-status', $purchase) }}">
                     @csrf
-                    <input type="hidden" name="new_status" value="kain_diterima">
+                    <input type="hidden" name="new_status" value="proses_jahit">
                     <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors mb-2">
                         <i class="bi bi-check-circle mr-2"></i>Konfirmasi Kain Diterima
                     </button>
@@ -461,7 +460,7 @@
             @endif
         @endif
 
-        @if($purchase->status === 'kain_diterima')
+        @if($purchase->status === 'proses_jahit')
             <form method="POST" action="{{ route('owner.purchases.update-status', $purchase) }}">
                 @csrf
                 <input type="hidden" name="new_status" value="printing">
@@ -472,16 +471,6 @@
         @endif
 
         @if($purchase->status === 'printing')
-            <form method="POST" action="{{ route('owner.purchases.update-status', $purchase) }}">
-                @csrf
-                <input type="hidden" name="new_status" value="jahit">
-                <button type="submit" class="w-full px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition-colors mb-2">
-                    <i class="bi bi-scissors mr-2"></i>Mulai Jahit
-                </button>
-            </form>
-        @endif
-
-        @if($purchase->status === 'jahit')
             <form method="POST" action="{{ route('owner.purchases.update-status', $purchase) }}">
                 @csrf
                 <input type="hidden" name="new_status" value="selesai">
@@ -500,7 +489,7 @@
         @endif
 
         <!-- TOMBOL BATAL - HANYA SEBELUM PRODUKSI -->
-        @if(in_array($purchase->status, ['draft', 'pending', 'approved']))
+        @if(in_array($purchase->status, ['draft', 'pending', 'request_kain']))
             <form method="POST" action="{{ route('owner.purchases.cancel', $purchase) }}">
                 @csrf @method('PATCH')
                 <button class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors" 
@@ -531,7 +520,7 @@
     </div>
 
 <!-- Payment Modal -->
-@if($purchase->status === 'approved')
+@if($purchase->status === 'request_kain')
 <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>

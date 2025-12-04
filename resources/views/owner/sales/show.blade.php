@@ -80,11 +80,11 @@
                             <form action="{{ route('owner.sales.markAsJadi', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-check-circle"></i> Tandai Jadi
+                                    <i class="bi bi-check-circle"></i> Tandai Printing
                                 </button>
                             </form>
                         @endif
-                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'jadi') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'di proses'))
+                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment'))
                             <form action="{{ route('owner.sales.markAsDiterimaToko', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
@@ -133,7 +133,7 @@
                 @endif
             @endif
 
-            @if(in_array($salesOrder->status, ['pending', 'request_kain', 'proses_jahit', 'jadi', 'di proses', 'diterima_toko']))
+            @if(in_array($salesOrder->status, ['pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko']))
                 <div class="bg-gray-100 p-4 rounded-xl mb-6">
                     <h4 class="font-semibold text-gray-700">Debug Status Proses</h4>
                     <p class="text-sm text-gray-600">
@@ -174,8 +174,8 @@
                         @elseif($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'request_kain')
                             <span class="text-green-600">Tombol Proses Jahit harusnya muncul.</span>
                         @elseif($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'proses_jahit')
-                            <span class="text-green-600">Tombol Tandai Jadi harusnya muncul.</span>
-                        @elseif(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'jadi') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'di proses'))
+                            <span class="text-green-600">Tombol Tandai Printing harusnya muncul.</span>
+                        @elseif(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment'))
                             <span class="text-green-600">Tombol Diterima Toko harusnya muncul.</span>
                         @elseif($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0)
                             <span class="text-green-600">Tombol Selesaikan harusnya muncul.</span>
@@ -227,7 +227,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-lg font-semibold mb-4 text-gray-800">Informasi Pembayaran & Status</h2>
                     <div class="space-y-3">
-                        <div class="flex justify-between"><span class="text-gray-600">Status Order:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->status === 'selesai') bg-green-100 text-green-600 @elseif(in_array($salesOrder->status, ['request_kain', 'proses_jahit', 'jadi', 'di proses', 'diterima_toko'])) bg-yellow-100 text-yellow-600 @else bg-blue-100 text-blue-600 @endif">{{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}</span></div>
+                        <div class="flex justify-between"><span class="text-gray-600">Status Order:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->status === 'selesai') bg-green-100 text-green-600 @elseif(in_array($salesOrder->status, ['request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko'])) bg-yellow-100 text-yellow-600 @else bg-blue-100 text-blue-600 @endif">{{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Metode Pembayaran:</span><span class="capitalize">{{ $salesOrder->payment_method }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Status Pembayaran:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->payment_status === 'lunas') bg-green-100 text-green-600 @else bg-yellow-100 text-yellow-600 @endif">{{ ucfirst($salesOrder->payment_status) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Subtotal:</span><span>Rp {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</span></div>

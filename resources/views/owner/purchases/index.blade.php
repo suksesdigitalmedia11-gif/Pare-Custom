@@ -42,9 +42,9 @@
                                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='todo' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                                     Butuh Diproses
                                 </a>
-                                <a href="{{ route('owner.purchases.index', ['group' => 'approved']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='approved' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Approved
+                                <a href="{{ route('owner.purchases.index', ['group' => 'request_kain']) }}" 
+                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='request_kain' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                    Request Kain
                                 </a>
                                 <a href="{{ route('owner.purchases.index', ['group' => 'in_progress']) }}" 
                                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='in_progress' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
@@ -89,7 +89,7 @@
                                     <select name="status" 
                                             class="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
                                         <option value="">Semua Status</option>
-                                        @foreach(['draft','pending','approved','payment','kain_diterima','printing','jahit','selesai'] as $st)
+                                        @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
                                         <option value="{{ $st }}" @selected($status==$st)>
                                             {{ ucfirst(str_replace('_', ' ', $st)) }}
                                         </option>
@@ -138,11 +138,10 @@
                                         <span class="px-2 py-1 rounded text-xs
                                         @if($p->status === 'draft') bg-gray-100 text-gray-800
                                         @elseif($p->status === 'pending') bg-yellow-100 text-yellow-800
-                                        @elseif($p->status === 'approved') bg-blue-100 text-blue-800
+                                        @elseif($p->status === 'request_kain') bg-blue-100 text-blue-800
                                         @elseif($p->status === 'payment') bg-purple-100 text-purple-800
-                                        @elseif($p->status === 'kain_diterima') bg-indigo-100 text-indigo-800
+                                        @elseif($p->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                         @elseif($p->status === 'printing') bg-orange-100 text-orange-800
-                                        @elseif($p->status === 'jahit') bg-pink-100 text-pink-800
                                         @elseif($p->status === 'selesai') bg-green-100 text-green-800
                                         @elseif($p->status === 'cancelled') bg-red-100 text-red-800
                                         @endif">
@@ -153,7 +152,7 @@
                                         @if($p->purchase_type === 'kain')
                                             <!-- Progress bar untuk kain -->
                                             @php
-                                                $steps = ['draft', 'pending', 'approved', 'payment', 'kain_diterima', 'printing', 'jahit', 'selesai'];
+                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
@@ -164,7 +163,7 @@
                                         @else
                                             <!-- Progress bar untuk produk jadi -->
                                             @php
-                                                $steps = ['draft', 'pending', 'approved', 'payment', 'selesai'];
+                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'printing', 'selesai'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
@@ -196,7 +195,7 @@
         @endif
 
         <!-- TOMBOL PAYMENT -->
-        @if($p->status === 'approved')
+        @if($p->status === 'request_kain')
             <button onclick="openModal('payment-modal-{{ $p->id }}')" class="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">Payment</button>
         @endif
 
@@ -205,7 +204,7 @@
             @if($p->purchase_type === 'kain')
                 <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
                     @csrf
-                    <input type="hidden" name="new_status" value="kain_diterima">
+                    <input type="hidden" name="new_status" value="proses_jahit">
                     <button class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Kain Diterima</button>
                 </form>
             @else
@@ -217,7 +216,7 @@
             @endif
         @endif
 
-        @if($p->status === 'kain_diterima')
+        @if($p->status === 'proses_jahit')
             <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
                 @csrf
                 <input type="hidden" name="new_status" value="printing">
@@ -228,21 +227,13 @@
         @if($p->status === 'printing')
             <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
                 @csrf
-                <input type="hidden" name="new_status" value="jahit">
-                <button class="px-2 py-1 text-xs bg-pink-600 text-white rounded hover:bg-pink-700">Jahit</button>
-            </form>
-        @endif
-
-        @if($p->status === 'jahit')
-            <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                @csrf
                 <input type="hidden" name="new_status" value="selesai">
                 <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Selesai</button>
             </form>
         @endif
 
         <!-- TOMBOL BATAL -->
-        @if(in_array($p->status, ['draft', 'pending', 'approved']))
+        @if(in_array($p->status, ['draft', 'pending', 'request_kain']))
             <form method="POST" action="{{ route('owner.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
                 @csrf @method('PATCH')
                 <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Batalkan</button>
@@ -251,7 +242,7 @@
     </div>
 
     <!-- Modal Payment -->
-    @if($p->status === 'approved')
+    @if($p->status === 'request_kain')
     <div id="payment-modal-{{ $p->id }}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $p->po_number }}</h3>

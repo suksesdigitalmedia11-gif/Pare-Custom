@@ -88,7 +88,16 @@ class SalesOrder extends Model
     // === Validasi Status ===
     public static function allowedStatuses(): array
     {
-        return ['draft', 'pending', 'di proses', 'selesai', 'request_kain', 'proses_jahit', 'jadi', 'diterima_toko'];
+        return [
+            'draft',
+            'pending',
+            'request_kain',
+            'payment',
+            'proses_jahit',
+            'printing',
+            'diterima_toko',
+            'selesai',
+        ];
     }
 
     public function isValidTransition(string $newStatus): bool
@@ -96,11 +105,11 @@ class SalesOrder extends Model
         $currentStatus = $this->status;
         $transitions = [
             'draft' => ['pending'],
-            'pending' => ['di proses', 'request_kain'],
-            'request_kain' => ['proses_jahit'],
-            'proses_jahit' => ['jadi'],
-            'jadi' => ['diterima_toko'],
-            'di proses' => ['diterima_toko'],
+            'pending' => ['request_kain', 'payment'],
+            'request_kain' => ['payment', 'proses_jahit'],
+            'payment' => ['proses_jahit', 'diterima_toko'],
+            'proses_jahit' => ['printing'],
+            'printing' => ['diterima_toko'],
             'diterima_toko' => ['selesai'],
         ];
         return in_array($newStatus, $transitions[$currentStatus] ?? []);
