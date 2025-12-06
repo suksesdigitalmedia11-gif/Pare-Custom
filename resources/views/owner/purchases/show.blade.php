@@ -105,10 +105,11 @@
                                     <div>{{ \Carbon\Carbon::parse($purchase->order_date)->format('d M Y') }}</div>
                                 </div>
                                 @if($purchase->deadline)
-    <div>
-        <strong>Deadline:</strong> {{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}
-    </div>
-    @endif
+                                <div>
+                                    <div class="text-sm text-gray-500">Deadline</div>
+                                    <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
+                                </div>
+                                @endif
                                 <div>
                                     <div class="text-sm text-gray-500">Supplier</div>
                                     <div>{{ $purchase->supplier?->name ?? '-' }}</div>
@@ -117,6 +118,24 @@
                                     <div class="text-sm text-gray-500">Dibuat Oleh</div>
                                     <div>{{ $purchase->creator->name ?? 'System' }}</div>
                                 </div>
+                                
+                                <!-- 🔧 FIX: Tampilkan informasi customer jika dari sales -->
+                                @if($purchase->is_from_sales)
+                                <div class="md:col-span-2 border-t pt-4 mt-4">
+                                    <div class="text-sm text-gray-500 mb-2">Informasi Customer</div>
+                                    <div class="bg-blue-50 p-3 rounded-lg">
+                                        <div class="flex items-center space-x-2">
+                                            <i class="bi bi-person text-blue-600"></i>
+                                            <div>
+                                                <div class="font-medium text-blue-800">{{ $purchase->customer_name }}</div>
+                                                @if($purchase->salesOrder && $purchase->salesOrder->so_number)
+                                                <div class="text-sm text-blue-600">Dari Sales Order: {{ $purchase->salesOrder->so_number }}</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
 
                             <!-- Financial Summary -->

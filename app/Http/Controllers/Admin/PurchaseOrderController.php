@@ -458,6 +458,10 @@ if (!empty($allChanges)) {
         return back()->with('success', 'Pembelian telah di-approve.');
     }
 
+    /**
+     * ✅ WORKFLOW BARU: payment_proof_file dibuat opsional
+     * Bisa diisi nanti, bahkan sampai status selesai
+     */
     public function payment(Request $request, PurchaseOrder $purchase): RedirectResponse
     {
         if ($purchase->status !== PurchaseOrder::STATUS_REQUEST_KAIN) {
@@ -465,12 +469,17 @@ if (!empty($allChanges)) {
         }
     
         $validated = $request->validate([
-            'invoice_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'payment_proof_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'invoice_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048', // ✅ Opsional
+            'payment_proof_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048', // ✅ Opsional
         ]);
     
-        $invoicePath = $request->file('invoice_file')->store('purchase_orders/invoices', 'public');
-        $paymentProofPath = $request->file('payment_proof_file')->store('purchase_orders/payments', 'public');
+        $invoicePath = $request->hasFile('invoice_file') 
+            ? $request->file('invoice_file')->store('purchase_orders/invoices', 'public')
+            : $purchase->invoice_file; // Keep existing if not uploaded
+        
+        $paymentProofPath = $request->hasFile('payment_proof_file')
+            ? $request->file('payment_proof_file')->store('purchase_orders/payments', 'public')
+            : $purchase->payment_proof_file; // Keep existing if not uploaded
     
         $purchase->update([
             'status' => PurchaseOrder::STATUS_PAYMENT,
@@ -481,9 +490,9 @@ if (!empty($allChanges)) {
         ]);
 
         // TAMBAH LOG
-        $this->logAction($purchase, 'payment_processed', 'Pembayaran diproses dengan upload invoice dan bukti pembayaran');
+        $this->logAction($purchase, 'payment_processed', 'Pembayaran diproses' . ($invoicePath ? ' dengan invoice' : '') . ($paymentProofPath ? ' dan bukti pembayaran' : ''));
     
-        return back()->with('success', 'Pembayaran telah diproses dengan file faktur dan bukti pembayaran.');
+        return back()->with('success', 'Pembayaran telah diproses.' . ($invoicePath ? ' Invoice tersimpan.' : '') . ($paymentProofPath ? ' Bukti pembayaran tersimpan.' : ''));
     }
 
     public function updateWorkflowStatus(Request $request, PurchaseOrder $purchase): RedirectResponse

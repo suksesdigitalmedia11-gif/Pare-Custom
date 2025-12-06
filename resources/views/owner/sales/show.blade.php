@@ -9,6 +9,77 @@
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Raleway', sans-serif; }
+        
+        /* Thermal Receipt Styles */
+        .thermal-receipt {
+            width: 58mm;
+            max-width: 58mm;
+            padding: 1mm;
+            background: white;
+            margin: 0 auto;
+            border: none;
+            font-size: 10px;
+        }
+
+        .thermal-receipt pre {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 10px;
+            line-height: 1.3;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            letter-spacing: 0;
+        }
+
+        /* Print Styles */
+        @media print {
+            @page {
+                margin: 0;
+                padding: 0;
+                size: 58mm auto;
+                width: 58mm;
+            }
+            
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 58mm !important;
+                background: white !important;
+            }
+            
+            body * {
+                visibility: hidden;
+            }
+            
+            .thermal-receipt, 
+            .thermal-receipt * {
+                visibility: visible;
+            }
+            
+            .thermal-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 58mm !important;
+                max-width: 58mm !important;
+                margin: 0 !important;
+                padding: 2mm !important;
+                background: white !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            
+            button, .no-print {
+                display: none !important;
+            }
+        }
+        @media screen {
+            .thermal-receipt {
+                border: 1px solid #ccc;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -43,56 +114,96 @@
                             </form>
                         @endif
 @php
-    // Validasi payment: untuk transfer/split, boleh ada proof_path ATAU reference_number
-    $canStartProcess = $salesOrder->status === 'pending' 
-        && $salesOrder->approved_by !== null 
-        && $salesOrder->paid_total >= $salesOrder->grand_total * 0.5;
+    $userType = strtolower(Auth::user()->usertype ?? Auth::user()->role ?? '');
+    $hasPO = $salesOrder->hasRelatedPO();
+    $canPendingToRequestKain = in_array($userType, ['owner', 'kepala_toko', 'finance']);
+    $canRequestKainToPayment = $userType === 'finance';
+    $canPaymentToProsesJahit = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+    $canProsesJahitToPrinting = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+    $canPrintingToDiterimaToko = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+    $canDiterimaTokoToSelesai = in_array($userType, ['admin', 'finance', 'kepala_toko']);
     
-    if ($canStartProcess && in_array($salesOrder->payment_method, ['transfer', 'split'])) {
-        // Cek apakah semua payment punya bukti ATAU no referensi
+    // Validasi pembayaran untuk pending → request_kain
+    $paymentValid = true;
+    if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
         $invalidPayments = $salesOrder->payments()
+            ->whereNull('proof_path')
             ->where(function($q) {
-                $q->whereNull('proof_path')->whereNull('reference_number');
+                $q->whereNull('reference_number')
+                  ->orWhere('reference_number', '')
+                  ->orWhere('reference_number', ' ')
+                  ->orWhere('reference_number', 'null')
+                  ->orWhere('reference_number', 'NULL');
             })
             ->count();
-        
-        $canStartProcess = $invalidPayments == 0;
+        $paymentValid = $invalidPayments == 0;
     }
 @endphp
 
-@if($canStartProcess)
-    <form action="{{ route('owner.sales.startProcess', $salesOrder) }}" method="POST">
+<!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
+
+<!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
+@if($salesOrder->status === 'pending' && $hasPO && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
+    <form action="{{ route('owner.sales.move-to-request-kain', $salesOrder) }}" method="POST">
         @csrf
         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-            <i class="bi bi-play-circle"></i> Mulai Proses
+            <i class="bi bi-play-circle"></i> Mulai Proses (Request Kain)
         </button>
     </form>
 @endif
-                        @if($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'request_kain')
-                            <form action="{{ route('owner.sales.processJahit', $salesOrder) }}" method="POST">
+
+<!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
+@if($salesOrder->status === 'pending' && !$hasPO && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+    <form action="{{ route('owner.sales.complete-without-po', $salesOrder) }}" method="POST">
+        @csrf
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+            <i class="bi bi-check2-all"></i> Selesaikan (Tanpa PO)
+        </button>
+    </form>
+@endif
+
+<!-- request_kain → payment - Hanya Finance -->
+@if($salesOrder->status === 'request_kain' && $hasPO && $canRequestKainToPayment)
+    <form action="{{ route('owner.sales.move-to-payment', $salesOrder) }}" method="POST">
+        @csrf
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
+            <i class="bi bi-credit-card"></i> Ubah ke Payment
+        </button>
+    </form>
+@endif
+
+<!-- payment → proses_jahit (untuk jahit_sendiri) - Admin, Finance, Kepala Toko -->
+@if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $canPaymentToProsesJahit)
+    <form action="{{ route('owner.sales.process-jahit', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
                                     <i class="bi bi-scissors"></i> Proses Jahit
                                 </button>
                             </form>
                         @endif
-                        @if($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'proses_jahit')
-                            <form action="{{ route('owner.sales.markAsJadi', $salesOrder) }}" method="POST">
+
+<!-- proses_jahit → printing - Admin, Finance, Kepala Toko -->
+@if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $canProsesJahitToPrinting)
+    <form action="{{ route('owner.sales.mark-as-jadi', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
                                     <i class="bi bi-check-circle"></i> Tandai Printing
                                 </button>
                             </form>
                         @endif
-                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment'))
-                            <form action="{{ route('owner.sales.markAsDiterimaToko', $salesOrder) }}" method="POST">
+
+<!-- printing → diterima_toko (jahit_sendiri) atau payment → diterima_toko (beli_jadi) - Admin, Finance, Kepala Toko -->
+@if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $hasPO && $canPrintingToDiterimaToko)
+    <form action="{{ route('owner.sales.mark-as-diterima-toko', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
                                     <i class="bi bi-shop"></i> Diterima Toko
                                 </button>
                             </form>
                         @endif
-                        @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0)
+
+<!-- diterima_toko → selesai - Admin, Finance, Kepala Toko -->
+@if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $canDiterimaTokoToSelesai)
                             <form action="{{ route('owner.sales.complete', $salesOrder) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
@@ -133,59 +244,6 @@
                 @endif
             @endif
 
-            @if(in_array($salesOrder->status, ['pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko']))
-                <div class="bg-gray-100 p-4 rounded-xl mb-6">
-                    <h4 class="font-semibold text-gray-700">Debug Status Proses</h4>
-                    <p class="text-sm text-gray-600">
-                        Approved: {{ $salesOrder->approved_by ? 'Ya (User ID: ' . $salesOrder->approved_by . ')' : 'Belum' }}<br>
-                        Total Dibayar: Rp {{ number_format($salesOrder->paid_total, 0, ',', '.') }}<br>
-                        Minimal 50% Grand Total: Rp {{ number_format($salesOrder->grand_total * 0.5, 0, ',', '.') }}<br>
-                        @if(in_array($salesOrder->payment_method, ['transfer', 'split']))
-    @php
-        $paymentsWithoutProof = $salesOrder->payments()
-            ->where(function($q) {
-                $q->whereNull('proof_path')->whereNull('reference_number');
-            })
-            ->count();
-    @endphp
-    Bukti Pembayaran: {{ $paymentsWithoutProof == 0 ? 'Semua pembayaran valid (bukti/referensi)' : 'Ada pembayaran tanpa bukti DAN tanpa no referensi' }}<br>
-@endif
-@php
-    $paymentsValid = true;
-    if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
-        $paymentsValid = $salesOrder->payments()
-            ->where(function($q) {
-                $q->whereNull('proof_path')->whereNull('reference_number');
-            })
-            ->count() == 0;
-    }
-@endphp
-
-@if($salesOrder->status === 'pending' && $salesOrder->approved_by && $salesOrder->paid_total >= $salesOrder->grand_total * 0.5 && ($salesOrder->payment_method === 'cash' || $paymentsValid))
-    <span class="text-green-600">Tombol Mulai Proses harusnya muncul.</span>
-@elseif($salesOrder->status === 'pending')
-    <span class="text-red-600">Tombol Mulai Proses tidak muncul karena: 
-        {{ !$salesOrder->approved_by ? 'Belum di-approve. ' : '' }}
-        {{ $salesOrder->paid_total < $salesOrder->grand_total * 0.5 ? 'Pembayaran kurang dari 50%. ' : '' }}
-        @if(in_array($salesOrder->payment_method, ['transfer', 'split']) && !$paymentsValid)
-            Ada pembayaran tanpa bukti DAN tanpa no referensi.
-        @endif
-    </span>
-                        @elseif($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'request_kain')
-                            <span class="text-green-600">Tombol Proses Jahit harusnya muncul.</span>
-                        @elseif($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'proses_jahit')
-                            <span class="text-green-600">Tombol Tandai Printing harusnya muncul.</span>
-                        @elseif(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment'))
-                            <span class="text-green-600">Tombol Diterima Toko harusnya muncul.</span>
-                        @elseif($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0)
-                            <span class="text-green-600">Tombol Selesaikan harusnya muncul.</span>
-                        @elseif($salesOrder->status === 'diterima_toko')
-                            <span class="text-red-600">Tombol Selesaikan tidak muncul karena pembayaran belum lunas.</span>
-                        @endif
-                    </p>
-                </div>
-            @endif
-
             @if ($errors->any())
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
                     <h4 class="font-bold">Terjadi kesalahan:</h4>
@@ -203,6 +261,24 @@
                 </div>
             @endif
 
+            <!-- Info Pembayaran Alert Box -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div class="flex items-center">
+                    <i class="bi bi-credit-card text-blue-600 text-xl mr-3"></i>
+                    <div>
+                        <h3 class="font-semibold text-blue-800">Info Pembayaran</h3>
+                        <p class="text-sm text-blue-700 mt-1">
+                            <strong>Pembayaran hanya bisa ditambah melalui section "Tambah Pembayaran" di bawah.</strong><br>
+                            Edit sales order hanya untuk mengubah data order, tidak untuk pembayaran.
+                        </p>
+                        <div class="mt-2 text-sm">
+        <strong>Total Dibayar:</strong> Rp {{ number_format($salesOrder->paid_total, 0, ',', '.') }} |
+        <strong>Sisa:</strong> Rp {{ number_format($salesOrder->remaining_amount, 0, ',', '.') }}
+    </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-lg font-semibold mb-4 text-gray-800">Informasi Order</h2>
@@ -210,8 +286,19 @@
                         <div class="flex justify-between"><span class="text-gray-600">SO Number:</span><span class="font-mono font-semibold">{{ $salesOrder->so_number }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Tipe Order:</span><span class="capitalize">{{ str_replace('_', ' ', $salesOrder->order_type) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Tanggal Order:</span><span>{{ \Carbon\Carbon::parse($salesOrder->order_date)->format('d/m/Y') }}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-600">Tanggal Deadline:</span><span>{{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d/m/Y') }}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-600">Customer:</span><span>{{ $salesOrder->customer ? $salesOrder->customer->name : 'Umum' }}</span></div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Deadline:</span>
+                            <span>{{ $salesOrder->deadline ? \Carbon\Carbon::parse($salesOrder->deadline)->format('d/m/Y') : '-' }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Customer:</span>
+                            <span>
+                                {{ $salesOrder->customer ? $salesOrder->customer->name : 'Umum' }}
+                                @if($salesOrder->customer && $salesOrder->customer->phone)
+                                    <br><small class="text-gray-500">({{ $salesOrder->customer->phone }})</small>
+                                @endif
+                            </span>
+                        </div>
                         <div class="flex justify-between"><span class="text-gray-600">Dibuat Oleh:</span><span>{{ $salesOrder->creator->name ?? 'System' }}</span></div>
                         @if($salesOrder->approved_by)
                             <div class="flex justify-between"><span class="text-gray-600">Disetujui Oleh:</span><span>{{ $salesOrder->approver->name ?? 'System' }}</span></div>
@@ -232,6 +319,8 @@
                         <div class="flex justify-between"><span class="text-gray-600">Status Pembayaran:</span><span class="px-2 py-1 rounded-full text-xs font-medium @if($salesOrder->payment_status === 'lunas') bg-green-100 text-green-600 @else bg-yellow-100 text-yellow-600 @endif">{{ ucfirst($salesOrder->payment_status) }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Subtotal:</span><span>Rp {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Diskon:</span><span>Rp {{ number_format($salesOrder->discount_total, 0, ',', '.') }}</span></div>
+                        <!-- ✅ TAMBAH DISPLAY ONGKIR DI SINI -->
+                        <div class="flex justify-between"><span class="text-gray-600">Ongkir:</span><span>Rp {{ number_format($salesOrder->shipping_cost, 0, ',', '.') }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Grand Total:</span><span class="text-lg font-bold text-blue-600">Rp {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Total Dibayar:</span><span class="text-green-600 font-medium">Rp {{ number_format($salesOrder->paid_total, 0, ',', '.') }}</span></div>
                         <div class="flex justify-between"><span class="text-gray-600">Sisa:</span><span class="@if($salesOrder->remaining_amount > 0) text-red-600 @else text-green-600 @endif font-medium">Rp {{ number_format($salesOrder->remaining_amount, 0, ',', '.') }}</span></div>
@@ -419,15 +508,15 @@
     </td>
     <td class="px-4 py-2 border text-center">
     <div class="flex justify-center gap-2">
-        <button onclick="printPaymentNota({{ $payment->id }})" class="text-green-600 hover:underline" title="Print Langsung">
+        <button onclick="showPrintOptions({{ $payment->id }})" class="text-green-600 hover:text-green-800" title="Cetak Nota">
             <i class="bi bi-printer"></i>
         </button>
-        <a href="{{ route('owner.sales.printNota', $payment) }}" class="text-blue-600 hover:underline" title="Download PDF">
+        <a href="{{ route('owner.sales.printNota', $payment) }}" class="text-blue-600 hover:text-blue-800" title="Download PDF">
             <i class="bi bi-download"></i>
         </a>
         <!-- TAMBAH TOMBOL INI -->
         <button onclick="openEditPaymentMethodModal({{ $payment->id }}, '{{ $payment->method }}', {{ $payment->cash_amount }}, {{ $payment->transfer_amount }}, '{{ $payment->reference_number }}')" 
-                class="text-yellow-600 hover:underline" title="Ubah Metode">
+                class="text-yellow-600 hover:text-yellow-800" title="Ubah Metode">
             <i class="bi bi-pencil"></i>
         </button>
     </div>
@@ -475,33 +564,82 @@
                                 <th class="px-4 py-2 border text-right">Harga</th>
                                 <th class="px-4 py-2 border text-center">Qty</th>
                                 <th class="px-4 py-2 border text-right">Diskon</th>
+                                @php
+                                    $hasDesignItems = $salesOrder->items->contains(function($item) {
+                                        return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+                                    });
+                                @endphp
+                                @if($hasDesignItems)
+                                    <th class="px-4 py-2 border text-center">Status Desain</th>
+                                @endif
                                 <th class="px-4 py-2 border text-right">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($salesOrder->items as $item)
                                 <tr class="border-b hover:bg-gray-50">
-                                    <td class="px-4 py-2 border">{{ $item->product_name }}
-                                        @if($item->product_id)<br><small class="text-gray-500">ID: {{ $item->product_id }}</small>@endif</td>
+                                    <td class="px-4 py-2 border">
+                                        {{ $item->product_name }}
+                                        @if($item->product_id)<br><small class="text-gray-500">ID: {{ $item->product_id }}</small>@endif
+                                        @if($item->requires_design || in_array($item->product_type, ['dtf', 'jersey']))
+                                            <br><span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700 mt-1">
+                                                <i class="bi bi-brush mr-1"></i> Butuh Desain
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 border">{{ $item->sku ?? '-' }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->sale_price, 0, ',', '.') }}</td>
                                     <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->discount, 0, ',', '.') }}</td>
+                                    @if($hasDesignItems)
+                                        <td class="px-4 py-2 border text-center">
+                                            @if($item->requires_design || in_array($item->product_type, ['dtf', 'jersey']))
+                                                @php
+                                                    $statusColors = [
+                                                        'pending' => 'bg-amber-100 text-amber-800',
+                                                        'in_progress' => 'bg-blue-100 text-blue-800',
+                                                        'waiting_customer' => 'bg-purple-100 text-purple-800',
+                                                        'approved' => 'bg-emerald-100 text-emerald-800',
+                                                        'rejected' => 'bg-red-100 text-red-800',
+                                                    ];
+                                                    $statusLabels = \App\Models\SalesOrderItem::designStatusOptions();
+                                                @endphp
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600' }}">
+                                                    {{ $statusLabels[$item->design_status] ?? $item->design_status ?? 'Belum Ditetapkan' }}
+                                                </span>
+                                                @if($item->design_preview_path)
+                                                    <br><a href="{{ Storage::url($item->design_preview_path) }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center">
+                                                        <i class="bi bi-eye mr-1"></i> Preview
+                                                    </a>
+                                                @endif
+                                            @else
+                                                <span class="text-xs text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                    @endif
                                     <td class="px-4 py-2 border text-right font-semibold">Rp {{ number_format($item->line_total, 0, ',', '.') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="bg-gray-50">
+                            @php
+                                $colspan = $hasDesignItems ? 7 : 6;
+                            @endphp
                             <tr>
-                                <td colspan="5" class="px-4 py-2 border text-right font-semibold">Subtotal:</td>
+                                <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Subtotal:</td>
                                 <td class="px-4 py-2 border text-right font-semibold">Rp {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td colspan="5" class="px-4 py-2 border text-right font-semibold">Total Diskon:</td>
+                                <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Total Diskon:</td>
                                 <td class="px-4 py-2 border text-right font-semibold text-red-600">- Rp {{ number_format($salesOrder->discount_total, 0, ',', '.') }}</td>
                             </tr>
+                            <!-- ✅ TAMBAH ROW ONGKIR DI SINI -->
                             <tr>
-                                <td colspan="5" class="px-4 py-2 border text-right font-semibold">Grand Total:</td>
+                                <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Ongkir:</td>
+                                <td class="px-4 py-2 border text-right font-semibold text-green-600">+ Rp {{ number_format($salesOrder->shipping_cost, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Grand Total:</td>
                                 <td class="px-4 py-2 border text-right font-semibold text-blue-600">Rp {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</td>
                             </tr>
                         </tfoot>
@@ -509,8 +647,112 @@
                 </div>
             </div>
 
+            @php
+                use Illuminate\Support\Facades\Storage;
+                use Illuminate\Support\Str;
+                $designItems = $salesOrder->items->filter(function($item) {
+                    return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+                });
+            @endphp
+            @if($designItems->isNotEmpty())
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <i class="bi bi-brush text-purple-600"></i>
+                                Status Desain (DTF & Jersey)
+                            </h2>
+                            <p class="text-sm text-gray-500 mt-1">Pantau progress desain untuk item DTF dan Jersey yang membutuhkan desain.</p>
+                        </div>
+                        <a href="{{ route('editor.dashboard', ['search' => $salesOrder->so_number]) }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                            Buka di Editor
+                        </a>
+                    </div>
+                    <div class="space-y-4">
+                        @foreach($designItems as $item)
+                            <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-800">{{ $item->product_name }}</h3>
+                                        <p class="text-sm text-gray-500 mt-1">Qty: {{ $item->qty }} • SKU: {{ $item->sku ?? '-' }}</p>
+                                        @if($item->design_brief)
+                                            <p class="text-sm text-gray-600 mt-2">
+                                                <strong>Brief:</strong> {{ Str::limit($item->design_brief, 100) }}
+                                            </p>
+                                        @endif
+                                        @if($item->design_notes)
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                <strong>Catatan Editor:</strong> {{ Str::limit($item->design_notes, 100) }}
+                                            </p>
+                                        @endif
+                                        @if($item->design_feedback)
+                                            <p class="text-sm text-amber-700 mt-1 bg-amber-50 p-2 rounded">
+                                                <strong>Feedback Customer:</strong> {{ Str::limit($item->design_feedback, 100) }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <div class="ml-4 text-right">
+                                        @php
+                                            $statusColors = [
+                                                'pending' => 'bg-amber-100 text-amber-800 border-amber-300',
+                                                'in_progress' => 'bg-blue-100 text-blue-800 border-blue-300',
+                                                'waiting_customer' => 'bg-purple-100 text-purple-800 border-purple-300',
+                                                'approved' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                                                'rejected' => 'bg-red-100 text-red-800 border-red-300',
+                                            ];
+                                            $statusLabels = \App\Models\SalesOrderItem::designStatusOptions();
+                                        @endphp
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600 border-gray-300' }}">
+                                            {{ $statusLabels[$item->design_status] ?? $item->design_status ?? 'Belum Ditetapkan' }}
+                                        </span>
+                                        @if($item->design_confirmed_at)
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Disetujui: {{ $item->design_confirmed_at->format('d/m/Y H:i') }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4 mt-3 pt-3 border-t">
+                                    @if($item->design_reference_path)
+                                        <a href="{{ Storage::url($item->design_reference_path) }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                            <i class="bi bi-cloud-arrow-down"></i>
+                                            Download Brief
+                                        </a>
+                                    @endif
+                                    @if($item->design_preview_path)
+                                        <a href="{{ Storage::url($item->design_preview_path) }}" target="_blank" class="text-sm text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
+                                            <i class="bi bi-eye"></i>
+                                            Lihat Preview
+                                        </a>
+                                    @endif
+                                    @if(!$item->design_reference_path && !$item->design_preview_path)
+                                        <span class="text-sm text-gray-400">Belum ada file desain</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <div class="bg-white p-6 rounded-xl shadow-lg mt-6">
                 <h2 class="text-lg font-semibold mb-4 text-gray-800">Informasi Sistem</h2>
+                    {{-- ✅ TAMBAH SECTION PURCHASE ORDER TERKAIT --}}
+    <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <h3 class="font-semibold text-blue-800 mb-3 flex items-center">
+            <i class="bi bi-link-45deg mr-2"></i>
+            Purchase Order Terkait
+        </h3>
+        
+        <div id="po-related-section">
+            {{-- Content akan di-load via AJAX --}}
+            <div class="text-center py-4">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                <p class="text-sm text-gray-600 mt-2">Memuat informasi PO...</p>
+            </div>
+        </div>
+    </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div><span class="text-gray-600">Dibuat pada:</span><span>{{ $salesOrder->created_at->format('d/m/Y H:i:s') }}</span></div>
                     <div><span class="text-gray-600">Terakhir diupdate:</span><span>{{ $salesOrder->updated_at->format('d/m/Y H:i:s') }}</span></div>
@@ -556,6 +798,61 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal Print Options -->
+<div id="printModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 w-80 mx-4">
+        <h3 class="text-lg font-semibold mb-4 text-center">Pilih Metode Cetak</h3>
+        
+        <div class="space-y-3">
+            <!-- Option 1: Pure HTML Thermal -->
+            <button onclick="printThermalHTML()" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
+                <i class="bi bi-printer text-xl"></i>
+                <div class="text-left">
+                    <div class="font-semibold">Thermal Printer</div>
+                    <div class="text-xs opacity-90">Format thermal 58mm + detail barang</div>
+                </div>
+            </button>
+            
+            <!-- Option 2: ESC/POS Text -->
+            <button onclick="printESCPOS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
+                <i class="bi bi-file-text text-xl"></i>
+                <div class="text-left">
+                    <div class="font-semibold">Text Printer</div>
+                    <div class="text-xs opacity-90">Format text + detail barang</div>
+                </div>
+            </button>
+            
+            <!-- Option 3: PDF Download -->
+            <button onclick="downloadThermalPDF()" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
+                <i class="bi bi-file-earmark-pdf text-xl"></i>
+                <div class="text-left">
+                    <div class="font-semibold">Download PDF</div>
+                    <div class="text-xs opacity-90">Simpan sebagai PDF</div>
+                </div>
+            </button>
+        </div>
+        
+        <div class="mt-4 flex justify-center">
+            <button onclick="closePrintModal()" class="text-gray-600 hover:text-gray-800 px-4 py-2">Batal</button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 flex items-center gap-3">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span>Loading...</span>
+    </div>
+</div>
+
+<!-- Thermal Receipt Template (Hidden) -->
+<div id="thermalReceipt" style="display: none;">
+    <div class="thermal-receipt">
+        <pre id="rcpt-text">Menyiapkan nota...</pre>
     </div>
 </div>
 
@@ -706,136 +1003,437 @@
         }
     }
 });
-function printPaymentNota(paymentId) {
-    const printBtn = event.target;
-    const originalHTML = printBtn.innerHTML;
-    printBtn.innerHTML = '<i class="bi bi-hourglass"></i>';
-    printBtn.disabled = true;
+// Global variables untuk print modal
+let currentPaymentId = null;
+let currentPaymentData = null;
+const RECEIPT_CHAR_WIDTH = 32; // 58mm thermal = 32 karakter
+const RECEIPT_MAX_WIDTH = 32; // Max karakter per baris
 
-    const payment = getPaymentById(paymentId);
-    if (!payment) {
+// Show print options modal
+function showPrintOptions(paymentId) {
+    currentPaymentId = paymentId;
+    currentPaymentData = getPaymentById(paymentId);
+    
+    if (!currentPaymentData) {
         alert('Data pembayaran tidak ditemukan!');
-        resetButton(printBtn, originalHTML);
         return;
     }
 
-    // === Ambil data dari Blade (dijamin aman karena di-encode via JSON) ===
-    const soNumber = '{{ addslashes($salesOrder->so_number) }}';
-    const customerName = '{{ addslashes($salesOrder->customer ? $salesOrder->customer->name : 'Umum') }}';
-    const kasirName = payment.creator_name || 'System';
-    const orderDate = '{{ \Carbon\Carbon::parse($salesOrder->order_date)->format('d/m/Y') }}';
-    const grandTotal = {{ $salesOrder->grand_total }};
-    const paidTotal = {{ $salesOrder->paid_total }};
-    const remaining = {{ $salesOrder->remaining_amount }};
-    const paymentStatus = '{{ $salesOrder->payment_status }}';
-    const items = {!! json_encode($salesOrder->items->map(function($item) {
+    document.getElementById('printModal').classList.remove('hidden');
+}
+
+// Close print modal
+function closePrintModal() {
+    document.getElementById('printModal').classList.add('hidden');
+}
+
+// Calculate total paid from all payments
+function calculateTotalPaid(payments) {
+    if (!payments || payments.length === 0) return 0;
+    return payments.reduce((total, payment) => total + (parseFloat(payment.amount) || 0), 0);
+}
+
+// Calculate remaining amount
+function calculateRemaining(grandTotal, totalPaid) {
+    return Math.max(0, parseFloat(grandTotal) - totalPaid);
+}
+
+// 1. PURE HTML THERMAL PRINTING
+function printThermalHTML() {
+    if (!currentPaymentData) return;
+    
+    showLoading('Menyiapkan cetakan thermal...');
+    
+    const salesOrder = {!! json_encode($salesOrder) !!};
+    const payment = currentPaymentData;
+    const allPayments = {!! json_encode($salesOrder->payments->map(function($payment) {
         return [
-            'name' => substr($item->product_name, 0, 22),
-            'qty' => $item->qty,
-            'price' => $item->sale_price,
-            'subtotal' => $item->line_total
+            'id' => $payment->id,
+            'amount' => $payment->amount,
+            'method' => $payment->method,
+            'cash_amount' => $payment->cash_amount,
+            'transfer_amount' => $payment->transfer_amount,
+            'reference' => $payment->reference_number,
+            'note' => $payment->note,
+            'paid_at' => $payment->paid_at,
+            'creator_name' => $payment->creator->name ?? 'System'
         ];
     })) !!};
 
-    // === Bangun teks nota thermal (58mm, monospace) ===
-    let text = "PARE CUSTOM\n";
-    text += "NOTA PEMBAYARAN\n";
-    text += "--------------------------------\n";
-    text += `SO Number   : ${soNumber}\n`;
-    text += `Tgl Order   : ${orderDate}\n`;
-    text += `Customer    : ${customerName}\n`;
-    text += `Kasir       : ${kasirName}\n`;
-    text += "--------------------------------\n";
+    const totalPaid = calculateTotalPaid(allPayments);
+    const remaining = calculateRemaining(salesOrder.grand_total, totalPaid);
+    
+    const textReceipt = buildThermalReceiptText(salesOrder, payment, totalPaid, remaining);
+    
+    // Gunakan iframe untuk print yang lebih bersih
+    const printContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nota - ${salesOrder.so_number}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=58mm, initial-scale=1">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 58mm;
+            background: white;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+        
+        .receipt {
+            width: 58mm;
+            padding: 2mm;
+            white-space: pre-wrap;
+            word-break: break-word;
+            letter-spacing: normal;
+        }
+        
+        @media print {
+            @page {
+                size: 58mm auto;
+                margin: 0;
+                padding: 0;
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+                width: 58mm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt">${textReceipt}</div>
+    
+    <script>
+        // Auto print setelah load
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => {
+                window.close();
+            }, 500);
+        }, 300);
+    <\/script>
+</body>
+</html>`;
+    
+    // Buat iframe untuk print
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.left = '-9999px';
+    document.body.appendChild(iframe);
+    
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(printContent);
+    iframe.contentDocument.close();
+    
+    hideLoading();
+    closePrintModal();
+    
+    showToast('Mencetak nota thermal...', 'success');
+}
 
-    // Item list (max 22 char nama)
-    items.forEach(item => {
-        const name = item.name.padEnd(16, ' ').substring(0, 16);
-        const qty = String(item.qty).padStart(2, ' ');
-        const price = formatNumber(item.price).padStart(10, ' ');
-        text += `${name}${qty}x${price}\n`;
-    });
+// 2. ESC/POS TEXT PRINTING (Alternative)
+function printESCPOS() {
+    if (!currentPaymentData) return;
+    
+    showLoading('Membuat format text...');
+    
+    const salesOrder = {!! json_encode($salesOrder) !!};
+    const payment = currentPaymentData;
+    const allPayments = {!! json_encode($salesOrder->payments->map(function($payment) {
+        return [
+            'id' => $payment->id,
+            'amount' => $payment->amount,
+            'method' => $payment->method,
+            'cash_amount' => $payment->cash_amount,
+            'transfer_amount' => $payment->transfer_amount,
+            'reference' => $payment->reference_number,
+            'note' => $payment->note,
+            'paid_at' => $payment->paid_at,
+            'creator_name' => $payment->creator->name ?? 'System'
+        ];
+    })) !!};
+    
+    const totalPaid = calculateTotalPaid(allPayments);
+    const remaining = calculateRemaining(salesOrder.grand_total, totalPaid);
+    
+    const textReceipt = buildThermalReceiptText(salesOrder, payment, totalPaid, remaining);
+    
+    // Create text file and download
+    const blob = new Blob([textReceipt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nota-${salesOrder.so_number}-${payment.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    hideLoading();
+    closePrintModal();
+    showToast('File text berhasil diunduh! Buka dengan aplikasi printer.', 'success');
+}
 
-    text += "--------------------------------\n";
-    text += `TOTAL       : ${formatNumber(grandTotal).padStart(16, ' ')}\n`;
-    text += `BAYAR       : ${formatNumber(paidTotal).padStart(16, ' ')}\n`;
-    text += `SISA        : ${formatNumber(remaining).padStart(16, ' ')}\n`;
-    text += `STATUS      : ${paymentStatus.toUpperCase().padEnd(16, ' ')}\n`;
-    text += "--------------------------------\n";
-    text += "PEMBAYARAN\n";
-    text += "--------------------------------\n";
-    text += `Tgl Bayar   : ${formatDate(payment.paid_at)}\n`;
-    text += `Metode      : ${payment.method.toUpperCase()}\n`;
-    text += `Jumlah      : ${formatNumber(payment.amount).padStart(16, ' ')}\n`;
+// 3. PDF DOWNLOAD
+function downloadThermalPDF() {
+    if (!currentPaymentData) return;
+    
+    // Redirect to PDF route
+    window.open('{{ route("owner.sales.printNota", ":paymentId") }}'.replace(':paymentId', currentPaymentId), '_blank');
+    closePrintModal();
+}
+
+// Build thermal receipt text
+function buildThermalReceiptText(salesOrder, payment, totalPaid, remaining) {
+    const lines = [];
+    const customerName = salesOrder.customer ? salesOrder.customer.name : 'Umum';
+    const operatorName = payment.creator_name || 'System';
+    const orderDate = salesOrder.order_date ? formatDate(salesOrder.order_date) : new Date().toLocaleDateString('id-ID');
+    const paymentDate = payment.paid_at ? formatDate(payment.paid_at) : new Date().toLocaleDateString('id-ID');
+    const now = new Date();
+
+    // HEADER
+    lines.push(centerText('PARE CUSTOM', RECEIPT_MAX_WIDTH));
+    lines.push(centerText('NOTA PEMBAYARAN', RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // INFORMASI ORDER
+    lines.push(alignLeftRight('No SO', salesOrder.so_number || '-', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Customer', customerName, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Tgl Order', orderDate, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Kasir', operatorName, RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // DETAIL BARANG
+    lines.push(centerText('DETAIL BARANG', RECEIPT_MAX_WIDTH));
+    if (Array.isArray(salesOrder.items) && salesOrder.items.length) {
+        salesOrder.items.forEach((item, index) => {
+            const itemNumber = `${index + 1}.`;
+            const productName = item.product_name || '-';
+            
+            // Nama produk dengan wrap
+            const nameLines = wrapText(productName, RECEIPT_MAX_WIDTH - 8);
+            lines.push(`${itemNumber} ${nameLines[0]}`);
+            if (nameLines.length > 1) {
+                for (let i = 1; i < nameLines.length; i++) {
+                    lines.push(`  ${nameLines[i]}`);
+                }
+            }
+            
+            // Qty dan harga
+            const qtyText = `${item.qty || 0} x ${formatCurrency(item.sale_price)}`;
+            const lineTotal = formatCurrency(item.line_total);
+            lines.push(alignLeftRight(qtyText, lineTotal, RECEIPT_MAX_WIDTH));
+            
+            // Diskon jika ada
+            if (Number(item.discount) > 0) {
+                lines.push(alignLeftRight('Disc', formatCurrency(item.discount), RECEIPT_MAX_WIDTH));
+            }
+            
+            lines.push(''); // Spasi antar item
+        });
+        // Hapus spasi terakhir jika ada
+        if (lines[lines.length - 1] === '') lines.pop();
+    } else {
+        lines.push('(Tidak ada item)');
+    }
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // RINGKASAN
+    lines.push(centerText('RINGKASAN', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Subtotal', formatCurrency(salesOrder.subtotal), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Diskon', formatCurrency(salesOrder.discount_total), RECEIPT_MAX_WIDTH));
+    if (salesOrder.shipping_cost > 0) {
+        lines.push(alignLeftRight('Ongkir', formatCurrency(salesOrder.shipping_cost), RECEIPT_MAX_WIDTH));
+    }
+    lines.push(alignLeftRight('Grand Total', formatCurrency(salesOrder.grand_total), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Total Bayar', formatCurrency(totalPaid), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Sisa', formatCurrency(remaining), RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // DETAIL PEMBAYARAN
+    lines.push(centerText('DETAIL PEMBAYARAN', RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Tgl Bayar', paymentDate, RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Metode', (payment.method || '').toUpperCase(), RECEIPT_MAX_WIDTH));
+    lines.push(alignLeftRight('Jumlah', formatCurrency(payment.amount), RECEIPT_MAX_WIDTH));
 
     if (payment.method === 'split') {
-        text += `- Cash     : ${formatNumber(payment.cash_amount).padStart(16, ' ')}\n`;
-        text += `- Transfer : ${formatNumber(payment.transfer_amount).padStart(16, ' ')}\n`;
+        lines.push(alignLeftRight('- Cash', formatCurrency(payment.cash_amount), RECEIPT_MAX_WIDTH));
+        lines.push(alignLeftRight('- Transfer', formatCurrency(payment.transfer_amount), RECEIPT_MAX_WIDTH));
     }
 
-    if (payment.reference_number) {
-        text += `Ref         : ${payment.reference_number}\n`;
+    if (payment.reference) {
+        addKeyValue(lines, 'Referensi', payment.reference);
     }
+    
     if (payment.note) {
-        text += `Catatan     : ${payment.note}\n`;
+        addKeyValue(lines, 'Catatan', payment.note);
     }
+    
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    
+    // FOOTER
+    lines.push(alignLeftRight('Operator', operatorName, RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    lines.push(centerText('Terima kasih', RECEIPT_MAX_WIDTH));
+    lines.push(centerText(`*** ${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} ***`, RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    lines.push(divider(RECEIPT_MAX_WIDTH));
+    return lines.join('\n');
+}
 
-    text += "--------------------------------\n";
-    text += "Terima kasih atas pembayarannya!\n";
-    text += `*** ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')} ***\n`;
-    text += "\x1B\x69"; // ESC/POS cut command
+// Helper functions
+function centerText(text, width) {
+    const textStr = String(text || '').trim();
+    if (textStr.length >= width) return textStr;
+    
+    const leftPadding = Math.floor((width - textStr.length) / 2);
+    const rightPadding = width - textStr.length - leftPadding;
+    
+    return ' '.repeat(Math.max(0, leftPadding)) + textStr + ' '.repeat(Math.max(0, rightPadding));
+}
 
-    // Deteksi device
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+function alignLeftRight(left, right, width) {
+    const leftStr = String(left || '');
+    const rightStr = String(right || '');
+    
+    if (leftStr.length + rightStr.length > width) {
+        return leftStr + '\n' + ' '.repeat(width - rightStr.length) + rightStr;
+    }
+    
+    const middleSpaces = width - leftStr.length - rightStr.length;
+    return leftStr + ' '.repeat(Math.max(0, middleSpaces)) + rightStr;
+}
 
-    if (isMobile) {
-        // Kirim ke RawBT
-        const encoded = encodeURIComponent(text);
-        window.location.href = `rawbt://print?text=${encoded}`;
-        setTimeout(() => resetButton(printBtn, originalHTML), 2000);
+function divider(width, char = '-') {
+    return char.repeat(width);
+}
+
+function wrapText(text, maxWidth) {
+    const words = String(text || '').split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    words.forEach(word => {
+        if (word.length > maxWidth) {
+            if (currentLine) {
+                lines.push(currentLine);
+                currentLine = '';
+            }
+            
+            for (let i = 0; i < word.length; i += maxWidth) {
+                lines.push(word.substring(i, i + maxWidth));
+            }
+        } else if ((currentLine + ' ' + word).length > maxWidth) {
+            lines.push(currentLine);
+            currentLine = word;
     } else {
-        // Print via browser (PC)
-        const printWin = window.open('', '_blank', 'width=230,height=600');
-        if (!printWin) {
-            alert('Popup diblokir! Izinkan popup untuk cetak.');
-            resetButton(printBtn, originalHTML);
+            currentLine = currentLine ? currentLine + ' ' + word : word;
+        }
+    });
+    
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    
+    return lines;
+}
+
+function addKeyValue(lines, key, value) {
+    const keyPart = `${key}: `;
+    const valueStr = String(value || '-');
+    const availableWidth = RECEIPT_MAX_WIDTH - keyPart.length;
+    
+    if (availableWidth <= 0) {
+        lines.push(keyPart);
+        const valueLines = wrapText(valueStr, RECEIPT_MAX_WIDTH);
+        valueLines.forEach(line => lines.push(line));
             return;
         }
-        const html = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Nota ${soNumber}</title>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: 'Courier New', monospace; font-size: 12px; width: 58mm; margin: 0; padding: 5px; line-height: 1.3; }
-                    pre { margin: 0; white-space: pre; }
-                </style>
-            </head>
-            <body><pre>${text.replace(/\x1B\x69/g, '')}</pre></body>
-            </html>
-        `;
-        printWin.document.write(html);
-        printWin.document.close();
-        printWin.print();
-        setTimeout(() => {
-            printWin.close();
-            resetButton(printBtn, originalHTML);
-        }, 3000);
+    
+    const valueLines = wrapText(valueStr, availableWidth);
+    
+    if (valueLines.length === 0) {
+        lines.push(keyPart + '-');
+        return;
+    }
+    
+    lines.push(keyPart + valueLines[0]);
+    
+    for (let i = 1; i < valueLines.length; i++) {
+        lines.push(' '.repeat(keyPart.length) + valueLines[i]);
     }
 }
 
-function resetButton(btn, html) {
-    btn.innerHTML = html;
-    btn.disabled = false;
+function formatCurrency(num) {
+    if (num === null || num === undefined || num === '' || isNaN(num)) {
+        return 'Rp 0';
+    }
+    
+    const formatted = parseFloat(num).toLocaleString('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
+    
+    return 'Rp ' + formatted;
 }
 
-function formatNumber(num) {
-    return parseInt(num).toLocaleString('id-ID');
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return '-';
+    }
 }
 
-function formatDate(dateStr) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('id-ID') + ' ' + d.toLocaleTimeString('id-ID', { hour12: false });
+function showLoading(message = 'Loading...') {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        const span = loading.querySelector('span');
+        if (span) span.textContent = message;
+        loading.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.classList.add('hidden');
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    toast.style.cssText = 'position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-weight: 500; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+    if (type === 'success') toast.style.background = '#10b981';
+    else if (type === 'error') toast.style.background = '#ef4444';
+    else toast.style.background = '#3b82f6';
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
 
 function getPaymentById(id) {
@@ -934,11 +1532,130 @@ document.getElementById('editPaymentMethodModal').addEventListener('click', func
     }
 });
 
-// Escape key to close modal
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !document.getElementById('editPaymentMethodModal').classList.contains('hidden')) {
-        closeEditPaymentMethodModal();
+// Close print modal when clicking outside
+document.getElementById('printModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePrintModal();
     }
+});
+
+// Escape key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (!document.getElementById('editPaymentMethodModal').classList.contains('hidden')) {
+        closeEditPaymentMethodModal();
+        }
+        if (!document.getElementById('printModal').classList.contains('hidden')) {
+            closePrintModal();
+        }
+    }
+});
+
+// ✅ FUNGSI UNTUK MANAGE PURCHASE ORDER TERKAIT (READ-ONLY untuk Owner)
+function loadRelatedPO() {
+    const salesOrderId = {{ $salesOrder->id }};
+    
+    // ✅ GUNAKAN ROUTE OWNER YANG SUDAH DITAMBAHKAN
+    fetch(`/owner/sales/${salesOrderId}/related-po`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(async response => {
+            // ✅ PERBAIKI: Cek content-type sebelum parse JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                // Jika bukan JSON, coba ambil text untuk debug
+                const text = await response.text();
+                console.error('Non-JSON response:', text.substring(0, 200));
+                throw new Error('Server returned non-JSON response. Status: ' + response.status + '. Response: ' + text.substring(0, 100));
+            }
+            if (!response.ok) {
+                // Coba parse JSON error jika ada
+                try {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || errorData.message || 'Network response was not ok: ' + response.status);
+                } catch (e) {
+                    throw new Error('Network response was not ok: ' + response.status);
+                }
+            }
+            return response.json();
+        })
+        .then(data => {
+            const poSection = document.getElementById('po-related-section');
+            
+            if (data.exists) {
+                // Tampilkan info PO terkait (read-only untuk Owner)
+                poSection.innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-green-800 mb-2">Purchase Order Terkait</h4>
+                                <div class="space-y-1 text-sm">
+                                    <div class="flex">
+                                        <span class="text-gray-600 w-24">PO Number:</span>
+                                        <span class="font-medium">
+                                            <a href="${data.show_url}" target="_blank" class="text-blue-600 hover:underline">
+                                                ${data.po_number}
+                                            </a>
+                                        </span>
+                                    </div>
+                                    <div class="flex">
+                                        <span class="text-gray-600 w-24">Supplier:</span>
+                                        <span>${data.supplier_name}</span>
+                                    </div>
+                                    <div class="flex">
+                                        <span class="text-gray-600 w-24">Status:</span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            ${data.status}
+                                        </span>
+                                    </div>
+                                    <div class="flex">
+                                        <span class="text-gray-600 w-24">Tipe:</span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            ${data.purchase_type}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <a href="${data.show_url}" target="_blank" 
+                                   class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center">
+                                    <i class="bi bi-eye mr-1"></i> Lihat
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Tidak ada PO terkait (read-only, tidak bisa create)
+                poSection.innerHTML = `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 class="font-semibold text-yellow-800 mb-2">Belum ada Purchase Order Terkait</h4>
+                        <p class="text-sm text-gray-600">Sales order ini belum memiliki Purchase Order terkait.</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading related PO:', error);
+            const poSection = document.getElementById('po-related-section');
+            if (poSection) {
+                poSection.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p class="text-red-700 font-semibold mb-2">Error memuat informasi PO terkait</p>
+                        <p class="text-sm text-red-600">${error.message}</p>
+                        <p class="text-xs text-gray-500 mt-2">Pastikan shift sudah aktif atau hubungi administrator.</p>
+                    </div>
+                `;
+            }
+        });
+}
+
+// ✅ LOAD RELATED PO SAAT PAGE LOAD
+document.addEventListener('DOMContentLoaded', function() {
+    loadRelatedPO();
 });
 </script>
 </body>

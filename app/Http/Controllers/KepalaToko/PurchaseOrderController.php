@@ -68,6 +68,7 @@ class PurchaseOrderController extends BaseController
         }
         $validated = $request->validate([
             'order_date' => ['required','date'],
+            'deadline' => ['nullable','date'], // ✅ TAMBAH INI
             'supplier_id' => ['nullable','exists:suppliers,id'],
             'supplier_name' => ['nullable','string','max:255'],
             'purchase_type' => ['required','in:kain,produk_jadi'], // validasi tipe pembelian
@@ -109,6 +110,7 @@ class PurchaseOrderController extends BaseController
             $po = PurchaseOrder::create([
                 'po_number' => $poNumber,
                 'order_date' => $validated['order_date'],
+                'deadline' => $validated['deadline'] ?? null, // ✅ TAMBAH INI
                 'supplier_id' => $supplierId,
                 'purchase_type' => $validated['purchase_type'], // simpan tipe pembelian
                 'subtotal' => $subtotal,
@@ -152,7 +154,9 @@ class PurchaseOrderController extends BaseController
             'kainReceiver',
             'printer',
             'tailor',
-            'finisher'
+            'finisher',
+            'logs.user', // ✅ TAMBAH INI UNTUK LOAD LOGS
+            'salesOrder.customer'
         ]);
 
         return view('kepala-toko.purchases.show', compact('purchase'));

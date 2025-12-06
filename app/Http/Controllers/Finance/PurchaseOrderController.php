@@ -40,6 +40,7 @@ class PurchaseOrderController extends BaseController
             'printer',
             'tailor',
             'finisher',
+            'logs.user', // ✅ TAMBAH INI UNTUK LOAD LOGS
             'salesOrder.customer'
         ]);
 

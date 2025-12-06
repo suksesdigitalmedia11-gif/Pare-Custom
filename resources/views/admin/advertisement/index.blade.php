@@ -119,65 +119,76 @@
         </div>
     </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <p class="text-sm font-semibold text-gray-600">Target Gross Profit Bulanan</p>
-                            <h2 class="text-3xl font-bold text-gray-900">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h2>
-                            <p class="text-sm text-gray-500 mt-1">Target statis: Rp 30.000.000 per bulan.</p>
-    </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">Hari ke-{{ $currentDay }} dari {{ $daysInMonth }}</p>
-                            <p class="text-lg font-semibold {{ $statusColor }}">{{ $statusLabel }}</p>
-</div>
-    </div>
+                <!-- === TARGET GROSS PROFIT & INVOICE (2 KOLOM) === -->
+                @php
+                    $invoiceStatusColor = $currentMonthInvoiceCount >= $invoiceTarget ? 'text-green-600' : 'text-amber-600';
+                    $invoiceStatusLabel = $currentMonthInvoiceCount >= $invoiceTarget ? 'Target tercapai' : 'Perlu akselerasi';
+                @endphp
 
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-sm font-medium text-gray-700">
-                            <span>Progress Gross Profit</span>
-                            <span>{{ number_format($grossProfitProgress, 1) }}%</span>
-            </div>
-                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                            <div class="h-3 rounded-full transition-all duration-500 {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}"
-                                 style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
-        </div>
-                        @if($grossProfitShortfall > 0)
-                            <p class="text-sm text-gray-600">Masih perlu Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }} lagi untuk mencapai target.</p>
-                        @else
-                            <p class="text-sm text-green-600 font-semibold">🎉 Target 30 juta sudah tercapai bulan ini!</p>
-    @endif
-</div>
-
-                    <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div class="space-y-1">
-                            <p class="font-semibold text-gray-800">Detail Perhitungan</p>
-                            <div class="flex justify-between">
-                                <span>Nominal Closing</span>
-                                <span class="font-medium">Rp {{ number_format($monthlySales, 0, ',', '.') }}</span>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- Target Gross Profit -->
+                    <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Target Gross Profit</p>
+                                <h2 class="text-2xl font-bold text-gray-900 mt-1">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h2>
                             </div>
-                            <div class="flex justify-between">
-                                <span>Total Pembelian</span>
-                                <span class="font-medium">Rp {{ number_format($monthlyHpp, 0, ',', '.') }}</span>
-            </div>
-                            <div class="flex justify-between">
-                                <span>Gross Profit</span>
-                                <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span>
-            </div>
-        </div>
-                        <div class="space-y-3">
-                            <p class="font-semibold text-gray-800">Catatan</p>
-                            <div class="p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-sm">
-                                <p class="text-gray-700">
-                                    Data penjualan dihitung dari setiap input iklan dengan tipe <span class="font-semibold">closing</span> bulan ini.
-                                    HPP berasal dari total <span class="font-semibold">purchase order</span> semua waktu (keseluruhan).
-                                </p>
-            </div>
-                            <p class="text-xs text-gray-500">
-                                Pastikan semua penjualan ditutup melalui menu advertisement dan setiap pembelian dicatat agar perhitungan tetap akurat.
-                            </p>
-            </div>
-        </div>
-    </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                                <p class="text-sm font-semibold {{ $statusColor }} mt-1">{{ $statusLabel }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-xs font-medium text-gray-700">
+                                <span>Progress</span>
+                                <span>{{ number_format($grossProfitProgress, 1) }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                <div class="h-2 rounded-full transition-all duration-500 {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}"
+                                     style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-600 mt-2">
+                                <span>Realisasi: <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span></span>
+                                @if($grossProfitShortfall > 0)
+                                    <span class="text-red-600">Kurang: Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Invoice -->
+                    <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-indigo-500">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Target Invoice</p>
+                                <h2 class="text-2xl font-bold text-gray-900 mt-1">{{ number_format($invoiceTarget, 0, ',', '.') }} Nota</h2>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                                <p class="text-sm font-semibold {{ $invoiceStatusColor }} mt-1">{{ $invoiceStatusLabel }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-xs font-medium text-gray-700">
+                                <span>Progress</span>
+                                <span>{{ number_format($invoiceProgress, 1) }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                <div class="h-2 rounded-full transition-all duration-500 {{ $invoiceProgress >= 100 ? 'bg-green-500' : 'bg-indigo-500' }}"
+                                     style="width: {{ min(100, max(0, $invoiceProgress)) }}%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-600 mt-2">
+                                <span>Realisasi: <span class="font-semibold {{ $invoiceStatusColor }}">{{ number_format($currentMonthInvoiceCount, 0, ',', '.') }} nota</span></span>
+                                @if($remainingInvoiceTarget > 0)
+                                    <span class="text-red-600">Kurang: {{ number_format($remainingInvoiceTarget, 0, ',', '.') }} nota</span>
+                                @endif
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Bulan lalu: {{ number_format($previousMonthInvoiceCount, 0, ',', '.') }} nota</p>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Grafik Real-time Chat, Follow Up, dan Closing -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">

@@ -201,6 +201,73 @@ class SalesOrderController extends Controller
         return view('editor.sales.show', compact('salesOrder', 'payment', 'activeShift'));
     }
 
+    /**
+     * Read-only detail untuk kebutuhan desain (DTF/Jersey).
+     */
+    public function showDesign(SalesOrder $salesOrder): View
+    {
+        $salesOrder->load(['customer', 'items', 'logs.user']);
+
+        $hasDesignItem = $salesOrder->items->contains(function ($item) {
+            return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+        });
+
+        if (!$hasDesignItem) {
+            abort(404, 'Order ini tidak memiliki item desain.');
+        }
+
+        return view('editor.sales.show', [
+            'salesOrder' => $salesOrder,
+        ]);
+    }
+
+    /**
+     * Daftar sales order yang membutuhkan desain (DTF/Jersey) - read only.
+     */
+    public function indexDesign(Request $request): View
+    {
+        $search = trim($request->get('search', ''));
+        $status = $request->get('status', 'all');
+
+        $designCondition = function ($query) {
+            $query->where('requires_design', true)
+                ->orWhereIn('product_type', ['dtf', 'jersey'])
+                ->orWhereRaw('LOWER(product_name) LIKE ?', ['%dtf%'])
+                ->orWhereRaw('LOWER(product_name) LIKE ?', ['%jersey%']);
+        };
+
+        $orders = SalesOrder::with(['customer', 'items' => function ($q) use ($designCondition) {
+                $q->where($designCondition);
+            }])
+            ->whereHas('items', $designCondition)
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('so_number', 'like', "%{$search}%")
+                        ->orWhereHas('customer', function ($cq) use ($search) {
+                            $cq->where('name', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($status !== 'all', function ($q) use ($status, $designCondition) {
+                $q->whereHas('items', function ($iq) use ($status, $designCondition) {
+                    $iq->where($designCondition)
+                       ->where('design_status', $status);
+                });
+            })
+            ->orderByDesc('created_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        $statusOptions = ['all' => 'Semua Status'] + SalesOrderItem::designStatusOptions();
+
+        return view('editor.sales.index', [
+            'orders' => $orders,
+            'statusOptions' => $statusOptions,
+            'statusFilter' => $status,
+            'search' => $search,
+        ]);
+    }
+
     public function edit(SalesOrder $salesOrder): View|RedirectResponse
     {
         $shiftCheck = $this->checkActiveShift();

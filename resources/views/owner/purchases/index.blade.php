@@ -19,123 +19,121 @@
         <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-gray-700 lg:hidden focus:outline-none z-50" onclick="toggleSidebar()">
             <i class="bi bi-list"></i>
         </button>
-
         <x-navbar-owner></x-navbar-owner>
-
         <div class="flex-1 lg:w-5/6">
             <x-navbar-top-owner></x-navbar-top-owner>
 
             <div class="p-4 lg:p-8">
-                <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-semibold text-gray-700">Daftar Pembelian</h2>
-                        <a href="{{ route('owner.purchases.create') }}" class="bg-[#005281] text-white px-4 py-2 rounded-md hover:opacity-90">Buat Pembelian</a>
+                <!-- Header -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <h2 class="text-xl lg:text-2xl font-semibold text-gray-700">Daftar Pembelian</h2>
+                        <a href="{{ route('owner.purchases.create') }}" 
+                           class="bg-[#005281] text-white px-3 lg:px-4 py-2 rounded-md hover:opacity-90 inline-flex items-center text-sm">
+                            <i class="bi bi-plus-lg mr-2"></i> <span class="hidden sm:inline">Buat Pembelian</span>
+                            <span class="sm:hidden">Buat</span>
+                        </a>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <div class="flex flex-col space-y-4 mb-6">
-                        <!-- Filter Tabs Row -->
-                        <div class="w-full">
-                            <div class="flex flex-wrap gap-2">
-                                <a href="{{ route('owner.purchases.index', ['group' => 'todo']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='todo' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Butuh Diproses
-                                </a>
-                                <a href="{{ route('owner.purchases.index', ['group' => 'request_kain']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='request_kain' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Request Kain
-                                </a>
-                                <a href="{{ route('owner.purchases.index', ['group' => 'in_progress']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='in_progress' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Dalam Proses
-                                </a>
-                                <a href="{{ route('owner.purchases.index', ['group' => 'completed']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='completed' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Selesai
-                                </a>
-                                <a href="{{ route('owner.purchases.index', ['group' => 'cancelled']) }}" 
-                                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='cancelled' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    Dibatalkan
-                                </a>
-                            </div>
-                        </div>
-
-                        <!-- Search and Filter Row -->
-                        <div class="w-full">
-                            <form method="GET" class="flex flex-col lg:flex-row gap-3">
-                                <input type="hidden" name="group" value="{{ $group }}" />
-                                
-                                <!-- Search Input -->
-                                <div class="flex-1 lg:max-w-xs">
-                                    <input type="text" 
-                                           name="q" 
-                                           value="{{ $q }}" 
-                                           placeholder="Cari No/Supplier" 
-                                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent" />
-                                </div>
-                                
-                                <!-- Filter Controls -->
-                                <div class="flex flex-col sm:flex-row gap-3">
-                                    <!-- Type Filter -->
-                                    <select name="type" 
-                                            class="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                        <option value="">Semua Tipe</option>
-                                        <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
-                                        <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
-                                    </select>
-                                    
-                                    <!-- Status Filter -->
-                                    <select name="status" 
-                                            class="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                        <option value="">Semua Status</option>
-                                        @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
-                                        <option value="{{ $st }}" @selected($status==$st)>
-                                            {{ ucfirst(str_replace('_', ' ', $st)) }}
-                                        </option>
-                                        @endforeach
-                                    </select>
-                                    
-                                    <!-- Filter Button -->
-                                    <button type="submit" 
-                                            class="bg-[#005281] hover:bg-[#004070] text-white px-6 py-2 rounded-lg font-medium transition-colors min-w-[80px]">
-                                        Filter
-                                    </button>
-                                </div>
-                            </form>
+                <!-- Filters & Table -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+                    <!-- Filter Tabs -->
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ route('owner.purchases.index', ['group' => 'todo']) }}" 
+                               class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='todo' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                Butuh Diproses
+                            </a>
+                            <a href="{{ route('owner.purchases.index', ['group' => 'request_kain']) }}" 
+                               class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='request_kain' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                Request Kain
+                            </a>
+                            <a href="{{ route('owner.purchases.index', ['group' => 'in_progress']) }}" 
+                               class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='in_progress' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                Dalam Proses
+                            </a>
+                            <a href="{{ route('owner.purchases.index', ['group' => 'completed']) }}" 
+                               class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='completed' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                Selesai
+                            </a>
+                            <a href="{{ route('owner.purchases.index', ['group' => 'cancelled']) }}" 
+                               class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='cancelled' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                Dibatalkan
+                            </a>
                         </div>
                     </div>
 
+                    <!-- Search and Filter -->
+                    <form method="GET" class="mb-6">
+                        <input type="hidden" name="group" value="{{ $group }}" />
+                        <div class="flex flex-col lg:flex-row gap-3">
+                            <div class="flex-1 lg:max-w-xs">
+                                <input type="text" 
+                                       name="q" 
+                                       value="{{ $q }}" 
+                                       placeholder="Cari No/Supplier" 
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent" />
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <select name="type" 
+                                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
+                                    <option value="">Semua Tipe</option>
+                                    <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
+                                    <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
+                                </select>
+                                <select name="status" 
+                                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
+                                    <option value="">Semua Status</option>
+                                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
+                                    <option value="{{ $st }}" @selected($status==$st)>
+                                        {{ ucfirst(str_replace('_', ' ', $st)) }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                                <button type="submit" 
+                                        class="bg-[#005281] hover:bg-[#004070] text-white px-4 lg:px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+                                    Filter
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
                     <div class="overflow-x-auto">
-                        <table class="min-w-full text-left text-sm">
+                        <table class="min-w-full text-sm">
                             <thead>
-                                <tr class="border-b text-gray-600">
-                                    <th class="px-3 py-2">No. Pembelian</th>
-                                    <th class="px-3 py-2">Tanggal</th>
-                                    <th class="px-3 py-2">Tipe</th>
-                                    <th class="px-3 py-2">Supplier</th>
-                                    <th class="px-3 py-2">Jumlah</th>
-                                    <th class="px-3 py-2">Status</th>
-                                    <th class="px-3 py-2">Progress</th>
-                                    <th class="px-3 py-2">Aksi</th>
+                                <tr class="border-b-2 border-gray-200 bg-gray-50">
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700">No. Pembelian</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden sm:table-cell">Tanggal</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700">Tipe</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden md:table-cell">Supplier</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden lg:table-cell">Jumlah</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden lg:table-cell">Progress</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($purchases as $p)
-                                <tr class="border-b hover:bg-gray-50">
-                                    <td class="px-3 py-2">
-                                        <a class="text-[#005281] hover:underline" href="{{ route('owner.purchases.show', $p) }}">{{ $p->po_number }}</a>
+                                <tr class="border-b hover:bg-gray-50 transition-colors">
+                                    <td class="px-3 lg:px-4 py-3">
+                                        <a class="text-[#005281] hover:underline font-medium" href="{{ route('owner.purchases.show', $p) }}">{{ $p->po_number }}</a>
+                                        <div class="text-xs text-gray-500 sm:hidden mt-1">{{ \Carbon\Carbon::parse($p->order_date)->format('d M Y') }}</div>
                                     </td>
-                                    <td class="px-3 py-2">{{ \Carbon\Carbon::parse($p->order_date)->format('d M Y') }}</td>
-                                    <td class="px-3 py-2">
-                                        <span class="px-2 py-1 rounded text-xs {{ $p->purchase_type === 'kain' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
+                                    <td class="px-3 lg:px-4 py-3 hidden sm:table-cell">{{ \Carbon\Carbon::parse($p->order_date)->format('d M Y') }}</td>
+                                    <td class="px-3 lg:px-4 py-3">
+                                        <span class="px-2 py-1 rounded text-xs font-medium {{ $p->purchase_type === 'kain' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
                                             {{ $p->purchase_type === 'kain' ? 'Kain' : 'Produk Jadi' }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-2">{{ $p->supplier?->name ?? '-' }}</td>
-                                    <td class="px-3 py-2">Rp {{ number_format($p->grand_total,0,',','.') }}</td>
-                                    <td class="px-3 py-2">
-                                        <span class="px-2 py-1 rounded text-xs
+                                    <td class="px-3 lg:px-4 py-3 hidden md:table-cell">
+                                        <div class="text-sm">{{ $p->supplier?->name ?? '-' }}</div>
+                                        <div class="text-xs text-gray-500 lg:hidden">Rp {{ number_format($p->grand_total,0,',','.') }}</div>
+                                    </td>
+                                    <td class="px-3 lg:px-4 py-3 hidden lg:table-cell font-medium">Rp {{ number_format($p->grand_total,0,',','.') }}</td>
+                                    <td class="px-3 lg:px-4 py-3">
+                                        <span class="px-2 py-1 rounded text-xs font-medium
                                         @if($p->status === 'draft') bg-gray-100 text-gray-800
                                         @elseif($p->status === 'pending') bg-yellow-100 text-yellow-800
                                         @elseif($p->status === 'request_kain') bg-blue-100 text-blue-800
@@ -148,130 +146,153 @@
                                             {{ $p->getStatusLabel() }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-2">
+                                    <td class="px-3 lg:px-4 py-3 hidden lg:table-cell">
                                         @if($p->purchase_type === 'kain')
-                                            <!-- Progress bar untuk kain -->
                                             @php
                                                 $steps = ['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
-                                            <div class="w-24 bg-gray-200 rounded-full h-2">
-                                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
+                                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                </div>
+                                                <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
-                                            <div class="text-xs text-gray-500 mt-1">{{ round($progress) }}%</div>
                                         @else
-                                            <!-- Progress bar untuk produk jadi -->
                                             @php
                                                 $steps = ['draft', 'pending', 'request_kain', 'payment', 'printing', 'selesai'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
-                                            <div class="w-24 bg-gray-200 rounded-full h-2">
-                                                <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
+                                                    <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                </div>
+                                                <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
-                                            <div class="text-xs text-gray-500 mt-1">{{ round($progress) }}%</div>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2">
-    <div class="flex flex-wrap gap-1">
-        <!-- TOMBOL DETAIL -->
-        <a href="{{ route('owner.purchases.show', $p) }}" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Detail</a>
+                                    <td class="px-3 lg:px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1 flex-wrap">
+                                            <!-- Detail Button -->
+                                            <a href="{{ route('owner.purchases.show', $p) }}" 
+                                               class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors inline-flex items-center" title="Detail">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
 
-        <!-- TOMBOL DRAFT -->
-        @if($p->status === 'draft')
-            <form method="POST" action="{{ route('owner.purchases.submit', $p) }}" class="inline">
-                @csrf
-                <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Ajukan</button>
-            </form>
-        @endif
+                                            <!-- Draft: Submit -->
+                                            @if($p->status === 'draft')
+                                                <form method="POST" action="{{ route('owner.purchases.submit', $p) }}" class="inline">
+                                                    @csrf
+                                                    <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors" title="Ajukan">
+                                                        <i class="bi bi-send"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
 
-        <!-- TOMBOL APPROVE -->
-        @if($p->status === 'pending')
-            <form method="POST" action="{{ route('owner.purchases.approve', $p) }}" class="inline">
-                @csrf
-                <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
-            </form>
-        @endif
+                                            <!-- Approve -->
+                                            @if($p->status === 'pending')
+                                                <form method="POST" action="{{ route('owner.purchases.approve', $p) }}" class="inline">
+                                                    @csrf
+                                                    <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Approve">
+                                                        <i class="bi bi-check-circle"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
 
-        <!-- TOMBOL PAYMENT -->
-        @if($p->status === 'request_kain')
-            <button onclick="openModal('payment-modal-{{ $p->id }}')" class="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">Payment</button>
-        @endif
+                                            <!-- Payment -->
+                                            @if($p->status === 'request_kain')
+                                                <button onclick="openModal('payment-modal-{{ $p->id }}')" 
+                                                        class="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors" title="Payment">
+                                                    <i class="bi bi-cash"></i>
+                                                </button>
+                                            @endif
 
-        <!-- TOMBOL WORKFLOW MANUAL -->
-        @if($p->status === 'payment')
-            @if($p->purchase_type === 'kain')
-                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                    @csrf
-                    <input type="hidden" name="new_status" value="proses_jahit">
-                    <button class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Kain Diterima</button>
-                </form>
-            @else
-                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                    @csrf
-                    <input type="hidden" name="new_status" value="selesai">
-                    <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Selesai</button>
-                </form>
-            @endif
-        @endif
+                                            <!-- Workflow Status -->
+                                            @if($p->status === 'payment')
+                                                @if($p->purchase_type === 'kain')
+                                                    <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                                                        @csrf
+                                                        <input type="hidden" name="new_status" value="proses_jahit">
+                                                        <button class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors" title="Kain Diterima">
+                                                            <i class="bi bi-box-arrow-in-down"></i>
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                                                        @csrf
+                                                        <input type="hidden" name="new_status" value="selesai">
+                                                        <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Selesai">
+                                                            <i class="bi bi-check2-all"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endif
 
-        @if($p->status === 'proses_jahit')
-            <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                @csrf
-                <input type="hidden" name="new_status" value="printing">
-                <button class="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700">Printing</button>
-            </form>
-        @endif
+                                            @if($p->status === 'proses_jahit')
+                                                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                                                    @csrf
+                                                    <input type="hidden" name="new_status" value="printing">
+                                                    <button class="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors" title="Printing">
+                                                        <i class="bi bi-printer"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
 
-        @if($p->status === 'printing')
-            <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                @csrf
-                <input type="hidden" name="new_status" value="selesai">
-                <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Selesai</button>
-            </form>
-        @endif
+                                            @if($p->status === 'printing')
+                                                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                                                    @csrf
+                                                    <input type="hidden" name="new_status" value="selesai">
+                                                    <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Selesai">
+                                                        <i class="bi bi-check2-all"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
 
-        <!-- TOMBOL BATAL -->
-        @if(in_array($p->status, ['draft', 'pending', 'request_kain']))
-            <form method="POST" action="{{ route('owner.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
-                @csrf @method('PATCH')
-                <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Batalkan</button>
-            </form>
-        @endif
-    </div>
+                                            <!-- Cancel -->
+                                            @if(in_array($p->status, ['draft', 'pending', 'request_kain']))
+                                                <form method="POST" action="{{ route('owner.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
+                                                    @csrf @method('PATCH')
+                                                    <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors" title="Batalkan">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
 
-    <!-- Modal Payment -->
-    @if($p->status === 'request_kain')
-    <div id="payment-modal-{{ $p->id }}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $p->po_number }}</h3>
-            <form action="{{ route('owner.purchases.payment', $p->id) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG)</label>
-                    <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG)</label>
-                    <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
-                </div>
-                <div class="flex justify-end space-x-2">
-                    <button type="button" onclick="closeModal('payment-modal-{{ $p->id }}')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    @endif
-</td>
+                                        <!-- Modal Payment -->
+                                        @if($p->status === 'request_kain')
+                                        <div id="payment-modal-{{ $p->id }}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+                                            <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                                                <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $p->po_number }}</h3>
+                                                <form action="{{ route('owner.purchases.payment', $p->id) }}" method="POST" enctype="multipart/form-data">
+                                                    @csrf
+                                                    <div class="mb-4">
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
+                                                        <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                                                    </div>
+                                                    <div class="mb-4">
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                                                        <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                                                    </div>
+                                                    <div class="flex justify-end space-x-2">
+                                                        <button type="button" onclick="closeModal('payment-modal-{{ $p->id }}')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
+                                                        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                        @endif
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
 
-                    <div class="mt-3">{{ $purchases->withQueryString()->links() }}</div>
+                    <!-- Pagination -->
+                    <div class="mt-4">{{ $purchases->withQueryString()->links() }}</div>
                 </div>
             </div>
         </div>

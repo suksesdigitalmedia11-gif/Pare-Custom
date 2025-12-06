@@ -69,47 +69,104 @@
         </a>
     @endif
 
-    <!-- Sisanya tetap sama (tombol proses jahit, dll) -->
-    @if($salesOrder->status === 'pending' && $salesOrder->approved_by !== null && $salesOrder->paid_total >= $salesOrder->grand_total * 0.5 && $activeShift && Auth::user()->hasRole('admin'))
-        <form action="{{ route('admin.sales.startProcess', $salesOrder) }}" method="POST">
+    @php
+        $userType = strtolower(Auth::user()->usertype ?? Auth::user()->role ?? '');
+        $hasPO = $salesOrder->hasRelatedPO();
+        $canPendingToRequestKain = in_array($userType, ['owner', 'kepala_toko', 'finance']);
+        $canRequestKainToPayment = $userType === 'finance';
+        $canPaymentToProsesJahit = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+        $canProsesJahitToPrinting = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+        $canPrintingToDiterimaToko = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+        $canDiterimaTokoToSelesai = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+        
+        // Validasi pembayaran untuk pending → request_kain
+        $paymentValid = true;
+        if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
+            $invalidPayments = $salesOrder->payments()
+                ->whereNull('proof_path')
+                ->where(function($q) {
+                    $q->whereNull('reference_number')
+                      ->orWhere('reference_number', '')
+                      ->orWhere('reference_number', ' ')
+                      ->orWhere('reference_number', 'null')
+                      ->orWhere('reference_number', 'NULL');
+                })
+                ->count();
+            $paymentValid = $invalidPayments == 0;
+        }
+    @endphp
+
+    <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
+    
+    <!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
+    @if($salesOrder->status === 'pending' && $hasPO && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $activeShift && $canPendingToRequestKain)
+        <form action="{{ route('admin.sales.move-to-request-kain', $salesOrder) }}" method="POST">
             @csrf
             <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-play-circle"></i> Mulai Proses
+                <i class="bi bi-play-circle"></i> Mulai Proses (Request Kain)
             </button>
         </form>
     @endif
-                        @if($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'request_kain' && $activeShift && Auth::user()->hasRole('admin'))
-                            <form action="{{ route('admin.sales.processJahit', $salesOrder) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-scissors"></i> Proses Jahit
-                                </button>
-                            </form>
-                        @endif
-                        @if($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'proses_jahit' && $activeShift && Auth::user()->hasRole('admin'))
-                            <form action="{{ route('admin.sales.markAsJadi', $salesOrder) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-check-circle"></i> Tandai Printing
-                                </button>
-                            </form>
-                        @endif
-                        @if(($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment') && $activeShift && Auth::user()->hasRole('admin'))
-                            <form action="{{ route('admin.sales.markAsDiterimaToko', $salesOrder) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-shop"></i> Diterima Toko
-                                </button>
-                            </form>
-                        @endif
-                        @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $activeShift && Auth::user()->hasRole('admin'))
-                            <form action="{{ route('admin.sales.complete', $salesOrder) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                                    <i class="bi bi-check2-all"></i> Selesaikan
-                                </button>
-                            </form>
-                        @endif
+
+    <!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
+    @if($salesOrder->status === 'pending' && !$hasPO && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && $activeShift && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+        <form action="{{ route('admin.sales.complete-without-po', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-check2-all"></i> Selesaikan (Tanpa PO)
+            </button>
+        </form>
+    @endif
+
+    <!-- request_kain → payment - Hanya Finance -->
+    @if($salesOrder->status === 'request_kain' && $hasPO && $activeShift && $canRequestKainToPayment)
+        <form action="{{ route('admin.sales.move-to-payment', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-credit-card"></i> Ubah ke Payment
+            </button>
+        </form>
+    @endif
+
+    <!-- payment → proses_jahit (untuk jahit_sendiri) - Admin, Finance, Kepala Toko -->
+    @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $activeShift && $canPaymentToProsesJahit)
+        <form action="{{ route('admin.sales.process-jahit', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-scissors"></i> Proses Jahit
+            </button>
+        </form>
+    @endif
+
+    <!-- proses_jahit → printing - Admin, Finance, Kepala Toko -->
+    @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $activeShift && $canProsesJahitToPrinting)
+        <form action="{{ route('admin.sales.mark-as-jadi', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-check-circle"></i> Tandai Printing
+            </button>
+        </form>
+    @endif
+
+    <!-- printing → diterima_toko (jahit_sendiri) atau payment → diterima_toko (beli_jadi) - Admin, Finance, Kepala Toko -->
+    @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $hasPO && $activeShift && $canPrintingToDiterimaToko)
+        <form action="{{ route('admin.sales.mark-as-diterima-toko', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-shop"></i> Diterima Toko
+            </button>
+        </form>
+    @endif
+
+    <!-- diterima_toko → selesai - Admin, Finance, Kepala Toko -->
+    @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $activeShift && $canDiterimaTokoToSelesai)
+        <form action="{{ route('admin.sales.complete', $salesOrder) }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                <i class="bi bi-check2-all"></i> Selesaikan
+            </button>
+        </form>
+    @endif
                     </div>
                 </div>
             </div>
@@ -197,9 +254,10 @@
                                 @endif
                             </span>
                         </div>
-                        @if($salesOrder->deadline)
-                            <div class="flex justify-between"><span class="text-gray-600">Deadline:</span><span>{{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d/m/Y') }}</span></div>
-                        @endif
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Deadline:</span>
+                            <span>{{ $salesOrder->deadline ? \Carbon\Carbon::parse($salesOrder->deadline)->format('d/m/Y') : '-' }}</span>
+                        </div>
                         <div class="flex justify-between"><span class="text-gray-600">Dibuat Oleh:</span><span>{{ $salesOrder->creator->name ?? 'System' }}</span></div>
                         @if($salesOrder->approved_by)
                             <div class="flex justify-between"><span class="text-gray-600">Disetujui Oleh:</span><span>{{ $salesOrder->approver->name ?? 'System' }}</span></div>
@@ -455,44 +513,177 @@
                                 <th class="px-4 py-2 border text-right">Harga</th>
                                 <th class="px-4 py-2 border text-center">Qty</th>
                                 <th class="px-4 py-2 border text-right">Diskon</th>
+                                @php
+                                    $hasDesignItems = $salesOrder->items->contains(function($item) {
+                                        return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+                                    });
+                                @endphp
+                                @if($hasDesignItems)
+                                    <th class="px-4 py-2 border text-center">Status Desain</th>
+                                @endif
                                 <th class="px-4 py-2 border text-right">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($salesOrder->items as $item)
                                 <tr class="border-b hover:bg-gray-50">
-                                    <td class="px-4 py-2 border">{{ $item->product_name }}
-                                        @if($item->product_id)<br><small class="text-gray-500">ID: {{ $item->product_id }}</small>@endif</td>
+                                    <td class="px-4 py-2 border">
+                                        {{ $item->product_name }}
+                                        @if($item->product_id)<br><small class="text-gray-500">ID: {{ $item->product_id }}</small>@endif
+                                        @if($item->requires_design || in_array($item->product_type, ['dtf', 'jersey']))
+                                            <br><span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700 mt-1">
+                                                <i class="bi bi-brush mr-1"></i> Butuh Desain
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 border">{{ $item->sku ?? '-' }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->sale_price, 0, ',', '.') }}</td>
                                     <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->discount, 0, ',', '.') }}</td>
+                                    @if($hasDesignItems)
+                                        <td class="px-4 py-2 border text-center">
+                                            @if($item->requires_design || in_array($item->product_type, ['dtf', 'jersey']))
+                                                @php
+                                                    $statusColors = [
+                                                        'pending' => 'bg-amber-100 text-amber-800',
+                                                        'in_progress' => 'bg-blue-100 text-blue-800',
+                                                        'waiting_customer' => 'bg-purple-100 text-purple-800',
+                                                        'approved' => 'bg-emerald-100 text-emerald-800',
+                                                        'rejected' => 'bg-red-100 text-red-800',
+                                                    ];
+                                                    $statusLabels = \App\Models\SalesOrderItem::designStatusOptions();
+                                                @endphp
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600' }}">
+                                                    {{ $statusLabels[$item->design_status] ?? $item->design_status ?? 'Belum Ditetapkan' }}
+                                                </span>
+                                                @if($item->design_preview_path)
+                                                    <br><a href="{{ Storage::url($item->design_preview_path) }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center">
+                                                        <i class="bi bi-eye mr-1"></i> Preview
+                                                    </a>
+                                                @endif
+                                            @else
+                                                <span class="text-xs text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                    @endif
                                     <td class="px-4 py-2 border text-right font-semibold">Rp {{ number_format($item->line_total, 0, ',', '.') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="bg-gray-50">
+    @php
+        $colspan = $hasDesignItems ? 7 : 6;
+    @endphp
     <tr>
-        <td colspan="5" class="px-4 py-2 border text-right font-semibold">Subtotal:</td>
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Subtotal:</td>
         <td class="px-4 py-2 border text-right font-semibold">Rp {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</td>
     </tr>
     <tr>
-        <td colspan="5" class="px-4 py-2 border text-right font-semibold">Total Diskon:</td>
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Total Diskon:</td>
         <td class="px-4 py-2 border text-right font-semibold text-red-600">- Rp {{ number_format($salesOrder->discount_total, 0, ',', '.') }}</td>
     </tr>
     <!-- ✅ TAMBAH ROW ONGKIR DI SINI -->
     <tr>
-        <td colspan="5" class="px-4 py-2 border text-right font-semibold">Ongkir:</td>
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Ongkir:</td>
         <td class="px-4 py-2 border text-right font-semibold text-green-600">+ Rp {{ number_format($salesOrder->shipping_cost, 0, ',', '.') }}</td>
     </tr>
     <tr>
-        <td colspan="5" class="px-4 py-2 border text-right font-semibold">Grand Total:</td>
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Grand Total:</td>
         <td class="px-4 py-2 border text-right font-semibold text-blue-600">Rp {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</td>
     </tr>
 </tfoot>
                     </table>
                 </div>
             </div>
+
+            @php
+                use Illuminate\Support\Facades\Storage;
+                use Illuminate\Support\Str;
+                $designItems = $salesOrder->items->filter(function($item) {
+                    return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+                });
+            @endphp
+            @if($designItems->isNotEmpty())
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <i class="bi bi-brush text-purple-600"></i>
+                                Status Desain (DTF & Jersey)
+                            </h2>
+                            <p class="text-sm text-gray-500 mt-1">Pantau progress desain untuk item DTF dan Jersey yang membutuhkan desain.</p>
+                        </div>
+                        <a href="{{ route('editor.dashboard', ['search' => $salesOrder->so_number]) }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                            Buka di Editor
+                        </a>
+                    </div>
+                    <div class="space-y-4">
+                        @foreach($designItems as $item)
+                            <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-800">{{ $item->product_name }}</h3>
+                                        <p class="text-sm text-gray-500 mt-1">Qty: {{ $item->qty }} • SKU: {{ $item->sku ?? '-' }}</p>
+                                        @if($item->design_brief)
+                                            <p class="text-sm text-gray-600 mt-2">
+                                                <strong>Brief:</strong> {{ Str::limit($item->design_brief, 100) }}
+                                            </p>
+                                        @endif
+                                        @if($item->design_notes)
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                <strong>Catatan Editor:</strong> {{ Str::limit($item->design_notes, 100) }}
+                                            </p>
+                                        @endif
+                                        @if($item->design_feedback)
+                                            <p class="text-sm text-amber-700 mt-1 bg-amber-50 p-2 rounded">
+                                                <strong>Feedback Customer:</strong> {{ Str::limit($item->design_feedback, 100) }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <div class="ml-4 text-right">
+                                        @php
+                                            $statusColors = [
+                                                'pending' => 'bg-amber-100 text-amber-800 border-amber-300',
+                                                'in_progress' => 'bg-blue-100 text-blue-800 border-blue-300',
+                                                'waiting_customer' => 'bg-purple-100 text-purple-800 border-purple-300',
+                                                'approved' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                                                'rejected' => 'bg-red-100 text-red-800 border-red-300',
+                                            ];
+                                            $statusLabels = \App\Models\SalesOrderItem::designStatusOptions();
+                                        @endphp
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600 border-gray-300' }}">
+                                            {{ $statusLabels[$item->design_status] ?? $item->design_status ?? 'Belum Ditetapkan' }}
+                                        </span>
+                                        @if($item->design_confirmed_at)
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Disetujui: {{ $item->design_confirmed_at->format('d/m/Y H:i') }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4 mt-3 pt-3 border-t">
+                                    @if($item->design_reference_path)
+                                        <a href="{{ Storage::url($item->design_reference_path) }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                            <i class="bi bi-cloud-arrow-down"></i>
+                                            Download Brief
+                                        </a>
+                                    @endif
+                                    @if($item->design_preview_path)
+                                        <a href="{{ Storage::url($item->design_preview_path) }}" target="_blank" class="text-sm text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
+                                            <i class="bi bi-eye"></i>
+                                            Lihat Preview
+                                        </a>
+                                    @endif
+                                    @if(!$item->design_reference_path && !$item->design_preview_path)
+                                        <span class="text-sm text-gray-400">Belum ada file desain</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             <div class="bg-white p-6 rounded-xl shadow-lg mt-6">
                 <h2 class="text-lg font-semibold mb-4 text-gray-800">Informasi Sistem</h2>

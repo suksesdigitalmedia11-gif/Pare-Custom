@@ -7,6 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" />
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Raleway', sans-serif; }
     </style>
@@ -33,18 +37,15 @@
 
             <!-- Date Range Filter -->
             <div class="bg-white p-4 rounded-xl shadow mb-6">
-                <form method="GET" class="flex flex-col md:flex-row gap-4 items-end">
-                    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Dari Tanggal</label>
-                            <input type="date" name="start_date" value="{{ $startDate }}" 
-                                   class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Sampai Tanggal</label>
-                            <input type="date" name="end_date" value="{{ $endDate }}" 
-                                   class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
+                <form method="GET" id="filterForm" class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rentang Tanggal</label>
+                        <input type="text" id="dateRangePicker" name="date_range" 
+                               value="{{ $startDate }} to {{ $endDate }}" 
+                               placeholder="Pilih rentang tanggal" 
+                               class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" readonly>
+                        <input type="hidden" name="start_date" id="start_date" value="{{ $startDate }}">
+                        <input type="hidden" name="end_date" id="end_date" value="{{ $endDate }}">
                     </div>
                     <div class="flex gap-2 flex-wrap">
                         <button type="submit" 
@@ -71,249 +72,237 @@
                 </div>
             </div>
 
-            <!-- INCOME STATEMENT -->
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+            <!-- ADVERTISEMENT PERFORMANCE - 3 CARDS COMPACT -->
+            @if(isset($advertisementChatCount))
+            <div class="bg-white p-4 rounded-xl shadow-lg mb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="bi bi-megaphone text-blue-600"></i>
+                        Data Iklan
+                    </h2>
+                    <p class="text-xs text-gray-500">Periode: {{ \Carbon\Carbon::parse($startDate)->format('d M Y') }} - {{ \Carbon\Carbon::parse($endDate)->format('d M Y') }}</p>
+                </div>
+                
+                <!-- 3 CARDS COMPACT -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-xs text-blue-600 font-medium mb-1">Chat Masuk</p>
+                                <p class="text-2xl font-bold text-blue-800">{{ $advertisementChatCount ?? 0 }}</p>
+                            </div>
+                            <i class="bi bi-chat-left-text text-blue-500 text-2xl"></i>
+                        </div>
+                        <p class="text-xs text-blue-600">Total chat masuk periode ini</p>
+                    </div>
+                    
+                    <div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-xs text-orange-600 font-medium mb-1">Follow Up</p>
+                                <p class="text-2xl font-bold text-orange-800">{{ $advertisementFollowupCount ?? 0 }}</p>
+                            </div>
+                            <i class="bi bi-telephone text-orange-500 text-2xl"></i>
+                        </div>
+                        <p class="text-xs text-orange-600">Total follow up periode ini</p>
+                    </div>
+                    
+                    <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-xs text-green-600 font-medium mb-1">Closing</p>
+                                <p class="text-2xl font-bold text-green-800">{{ $advertisementClosingCount ?? 0 }}</p>
+                                <p class="text-sm text-green-700 mt-1">Rp {{ number_format($advertisementClosingAmount ?? 0, 0, ',', '.') }}</p>
+                            </div>
+                            <i class="bi bi-currency-dollar text-green-500 text-2xl"></i>
+                        </div>
+                        <p class="text-xs text-green-600">Total closing periode ini</p>
+                    </div>
+                </div>
+                
+                <!-- GRAFIK COMPACT -->
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h3 class="text-xs font-semibold text-gray-700 mb-2">Grafik Data Iklan (Per Hari)</h3>
+                    <canvas id="advertisementChart" height="60"></canvas>
+                </div>
+            </div>
+            @endif
+
+            <!-- INCOME STATEMENT COMPACT -->
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
                 <!-- OMSET -->
-                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
+                    <div class="flex items-center justify-between mb-2">
                         <div>
-                            <p class="text-gray-500 text-sm font-medium">OMSET</p>
-                            <p class="text-2xl font-bold text-green-600">
+                            <p class="text-xs text-gray-500 font-medium">OMSET</p>
+                            <p class="text-xl font-bold text-green-600">
                                 Rp {{ number_format($omset, 0, ',', '.') }}
                             </p>
                         </div>
-                        <div class="p-3 bg-green-100 rounded-full">
-                            <i class="bi bi-arrow-down-circle text-green-600 text-xl"></i>
-                        </div>
+                        <i class="bi bi-arrow-down-circle text-green-500 text-lg"></i>
                     </div>
-                    <div class="space-y-1 text-xs text-gray-600">
-                        <div class="flex justify-between">
-                            <span>Penjualan:</span>
-                            <span>Rp {{ number_format($totalSales, 0, ',', '.') }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Pemasukan Manual:</span>
-                            <span>Rp {{ number_format($manualIncome, 0, ',', '.') }}</span>
-                        </div>
-                    </div>
-                    @if($omsetGrowth != 0)
-                    <p class="text-xs mt-2 {{ $omsetGrowth >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                        <i class="bi bi-{{ $omsetGrowth >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
-                        {{ number_format(abs($omsetGrowth), 1) }}% vs bulan lalu
-                    </p>
-                    @endif
+                    <p class="text-xs text-gray-500">Penjualan: Rp {{ number_format($totalSales, 0, ',', '.') }}</p>
                 </div>
 
                 <!-- HPP -->
-                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-red-500">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500">
+                    <div class="flex items-center justify-between mb-2">
                         <div>
-                            <p class="text-gray-500 text-sm font-medium">HPP</p>
-                            <p class="text-2xl font-bold text-red-600">
+                            <p class="text-xs text-gray-500 font-medium">HPP</p>
+                            <p class="text-xl font-bold text-red-600">
                                 Rp {{ number_format($hpp, 0, ',', '.') }}
                             </p>
                         </div>
-                        <div class="p-3 bg-red-100 rounded-full">
-                            <i class="bi bi-box-seam text-red-600 text-xl"></i>
-                        </div>
+                        <i class="bi bi-box-seam text-red-500 text-lg"></i>
                     </div>
-                    <p class="text-xs text-gray-600">Cost of Goods Sold</p>
-                    <p class="text-xs text-gray-500 mt-1">Total pembelian barang</p>
+                    <p class="text-xs text-gray-500">Cost of Goods Sold</p>
                 </div>
 
                 <!-- OPERASIONAL -->
-                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-orange-500">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
+                    <div class="flex items-center justify-between mb-2">
                         <div>
-                            <p class="text-gray-500 text-sm font-medium">OPERASIONAL</p>
-                            <p class="text-2xl font-bold text-orange-600">
+                            <p class="text-xs text-gray-500 font-medium">OPERASIONAL</p>
+                            <p class="text-xl font-bold text-orange-600">
                                 Rp {{ number_format($operasional, 0, ',', '.') }}
                             </p>
                         </div>
-                        <div class="p-3 bg-orange-100 rounded-full">
-                            <i class="bi bi-tools text-orange-600 text-xl"></i>
-                        </div>
+                        <i class="bi bi-tools text-orange-500 text-lg"></i>
                     </div>
-                    <p class="text-xs text-gray-600">Operating Expenses</p>
-                    <p class="text-xs text-gray-500 mt-1">Pengeluaran operasional</p>
+                    <p class="text-xs text-gray-500">Operating Expenses</p>
                 </div>
 
-                    <!-- CASH TRANSFER (CARD BARU) -->
-    <div class="bg-white p-6 rounded-xl shadow border-l-4 border-purple-500">
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <p class="text-gray-500 text-sm font-medium">TRANSFER TUNAI</p>
-                <p class="text-2xl font-bold text-purple-600">
-                    @php
-                        $totalCashTransfer = \App\Models\CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
-                    @endphp
-                    Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
-                </p>
-            </div>
-            <div class="p-3 bg-purple-100 rounded-full">
-                <i class="bi bi-arrow-left-right text-purple-600 text-xl"></i>
-            </div>
-        </div>
-        <p class="text-xs text-gray-600">Setor/Tukar Tunai</p>
-        <p class="text-xs text-purple-500 mt-1">Tidak mempengaruhi profit</p>
-    </div>
+                <!-- CASH TRANSFER -->
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-purple-500">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">TRANSFER TUNAI</p>
+                            <p class="text-xl font-bold text-purple-600">
+                                @php
+                                    $totalCashTransfer = \App\Models\CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+                                @endphp
+                                Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
+                            </p>
+                        </div>
+                        <i class="bi bi-arrow-left-right text-purple-500 text-lg"></i>
+                    </div>
+                    <p class="text-xs text-gray-500">Setor/Tukar Tunai</p>
+                </div>
 
                 <!-- PROFIT -->
-                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-blue-500">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between mb-2">
                         <div>
-                            <p class="text-gray-500 text-sm font-medium">PROFIT</p>
-                            <p class="text-2xl font-bold text-blue-600">
+                            <p class="text-xs text-gray-500 font-medium">PROFIT</p>
+                            <p class="text-xl font-bold {{ $profit >= 0 ? 'text-blue-600' : 'text-red-600' }}">
                                 Rp {{ number_format($profit, 0, ',', '.') }}
                             </p>
                         </div>
-                        <div class="p-3 bg-blue-100 rounded-full">
-                            <i class="bi bi-graph-up text-blue-600 text-xl"></i>
-                        </div>
+                        <i class="bi bi-graph-up {{ $profit >= 0 ? 'text-blue-500' : 'text-red-500' }} text-lg"></i>
                     </div>
-                    <p class="text-xs text-gray-600">Net Profit</p>
-                    <p class="text-xs {{ $profit >= 0 ? 'text-green-600' : 'text-red-600' }} mt-1 font-medium">
+                    <p class="text-xs {{ $profit >= 0 ? 'text-green-600' : 'text-red-600' }} font-medium">
                         {{ $profit >= 0 ? 'Laba' : 'Rugi' }}
                     </p>
                 </div>
             </div>
 
-            <!-- BREAKDOWN STATUS PEMBAYARAN -->
-<div class="bg-white p-6 rounded-xl shadow mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">📊 Breakdown Status Pembayaran</h2>
+            <!-- BREAKDOWN STATUS PEMBAYARAN COMPACT -->
+<div class="bg-white p-4 rounded-xl shadow mb-4">
+    <h2 class="text-sm font-semibold text-gray-800 mb-3">📊 Breakdown Status Pembayaran</h2>
     
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <!-- TOTAL ORDERS -->
-        <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-            <div class="flex justify-between items-start">
+        <div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+            <div class="flex justify-between items-center">
                 <div>
-                    <p class="text-blue-600 text-sm font-medium">Total Orders</p>
-                    <p class="text-2xl font-bold text-blue-800">{{ $salesBreakdown->total_orders ?? 0 }}</p>
+                    <p class="text-blue-600 text-xs font-medium">Total Orders</p>
+                    <p class="text-xl font-bold text-blue-800">{{ $salesBreakdown->total_orders ?? 0 }}</p>
                 </div>
-                <i class="bi bi-receipt text-blue-500 text-xl"></i>
+                <i class="bi bi-receipt text-blue-500"></i>
             </div>
-            <p class="text-xs text-blue-600 mt-2">Exclude Draft</p>
         </div>
 
         <!-- LUNAS -->
-        <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-            <div class="flex justify-between items-start">
+        <div class="bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+            <div class="flex justify-between items-center mb-1">
                 <div>
-                    <p class="text-green-600 text-sm font-medium">Lunas</p>
-                    <p class="text-2xl font-bold text-green-800">{{ $salesBreakdown->lunas_count ?? 0 }}</p>
-                    <p class="text-sm text-green-700">Rp {{ number_format($salesBreakdown->lunas_amount ?? 0, 0, ',', '.') }}</p>
+                    <p class="text-green-600 text-xs font-medium">Lunas</p>
+                    <p class="text-xl font-bold text-green-800">{{ $salesBreakdown->lunas_count ?? 0 }}</p>
                 </div>
-                <i class="bi bi-check-circle text-green-500 text-xl"></i>
+                <i class="bi bi-check-circle text-green-500"></i>
             </div>
-            <div class="w-full bg-green-200 rounded-full h-2 mt-2">
-                <div class="bg-green-600 h-2 rounded-full" style="width: {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->lunas_count / $salesBreakdown->total_orders) * 100) : 0 }}%"></div>
-            </div>
-            <p class="text-xs text-green-600 mt-1">
-                {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->lunas_count / $salesBreakdown->total_orders) * 100) : 0 }}% dari total
-            </p>
+            <p class="text-xs text-green-700">Rp {{ number_format($salesBreakdown->lunas_amount ?? 0, 0, ',', '.') }}</p>
         </div>
 
         <!-- DP -->
-        <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
-            <div class="flex justify-between items-start">
+        <div class="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+            <div class="flex justify-between items-center mb-1">
                 <div>
-                    <p class="text-yellow-600 text-sm font-medium">DP</p>
-                    <p class="text-2xl font-bold text-yellow-800">{{ $salesBreakdown->dp_count ?? 0 }}</p>
-                    <p class="text-sm text-yellow-700">Rp {{ number_format($salesBreakdown->dp_amount ?? 0, 0, ',', '.') }}</p>
+                    <p class="text-yellow-600 text-xs font-medium">DP</p>
+                    <p class="text-xl font-bold text-yellow-800">{{ $salesBreakdown->dp_count ?? 0 }}</p>
                 </div>
-                <i class="bi bi-currency-dollar text-yellow-500 text-xl"></i>
+                <i class="bi bi-currency-dollar text-yellow-500"></i>
             </div>
-            <div class="w-full bg-yellow-200 rounded-full h-2 mt-2">
-                <div class="bg-yellow-600 h-2 rounded-full" style="width: {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->dp_count / $salesBreakdown->total_orders) * 100) : 0 }}%"></div>
-            </div>
-            <p class="text-xs text-yellow-600 mt-1">
-                {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->dp_count / $salesBreakdown->total_orders) * 100) : 0 }}% dari total
-            </p>
+            <p class="text-xs text-yellow-700">Rp {{ number_format($salesBreakdown->dp_amount ?? 0, 0, ',', '.') }}</p>
         </div>
 
         <!-- BELUM BAYAR -->
-        <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-            <div class="flex justify-between items-start">
+        <div class="bg-red-50 p-3 rounded-lg border-l-4 border-red-500">
+            <div class="flex justify-between items-center mb-1">
                 <div>
-                    <p class="text-red-600 text-sm font-medium">Belum Bayar</p>
-                    <p class="text-2xl font-bold text-red-800">{{ $salesBreakdown->belum_bayar_count ?? 0 }}</p>
-                    <p class="text-sm text-red-700">Rp {{ number_format($salesBreakdown->belum_bayar_amount ?? 0, 0, ',', '.') }}</p>
+                    <p class="text-red-600 text-xs font-medium">Belum Bayar</p>
+                    <p class="text-xl font-bold text-red-800">{{ $salesBreakdown->belum_bayar_count ?? 0 }}</p>
                 </div>
-                <i class="bi bi-clock text-red-500 text-xl"></i>
+                <i class="bi bi-clock text-red-500"></i>
             </div>
-            <div class="w-full bg-red-200 rounded-full h-2 mt-2">
-                <div class="bg-red-600 h-2 rounded-full" style="width: {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->belum_bayar_count / $salesBreakdown->total_orders) * 100) : 0 }}%"></div>
-            </div>
-            <p class="text-xs text-red-600 mt-1">
-                {{ $salesBreakdown->total_orders > 0 ? round(($salesBreakdown->belum_bayar_count / $salesBreakdown->total_orders) * 100) : 0 }}% dari total
-            </p>
+            <p class="text-xs text-red-700">Rp {{ number_format($salesBreakdown->belum_bayar_amount ?? 0, 0, ',', '.') }}</p>
         </div>
     </div>
 
-    <!-- PELUNASAN (BAYAR BERTAHAP) -->
     @if($pelunasanData && $pelunasanData->count > 0)
-    <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="font-semibold text-purple-800 flex items-center">
-                    <i class="bi bi-arrow-repeat mr-2"></i> Pembayaran Pelunasan
-                </h3>
-                <p class="text-sm text-purple-600">
-                    {{ $pelunasanData->count }} transaksi pelunasan • 
-                    Rp {{ number_format($pelunasanData->amount, 0, ',', '.') }}
-                </p>
-            </div>
-            <span class="bg-purple-200 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                Bayar Bertahap
-            </span>
-        </div>
+    <div class="bg-purple-50 p-2 rounded-lg border border-purple-200 text-xs">
+        <span class="font-semibold text-purple-800">Pelunasan:</span>
+        <span class="text-purple-600">{{ $pelunasanData->count }} transaksi • Rp {{ number_format($pelunasanData->amount, 0, ',', '.') }}</span>
     </div>
     @endif
 </div>
 
-<!-- THREE COLUMN LAYOUT -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<!-- THREE COLUMN LAYOUT COMPACT - SAMA TINGGI -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
     <!-- PAYMENT METHODS BREAKDOWN -->
-    <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">💳 Metode Pembayaran</h2>
+    <div class="bg-white p-4 rounded-xl shadow flex flex-col" style="height: 400px;">
+        <h2 class="text-sm font-semibold text-gray-800 mb-3">💳 Metode Pembayaran</h2>
         
-        <div class="space-y-4">
+        <div class="space-y-2 overflow-y-auto flex-1">
             @foreach($salesByPaymentMethod as $method)
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div class="flex items-center">
+            <div class="flex justify-between items-center p-2 bg-gray-50 rounded text-xs">
+                <div class="flex items-center gap-2">
                     @if($method->method === 'cash')
-                        <i class="bi bi-cash-coin text-green-500 mr-3 text-lg"></i>
+                        <i class="bi bi-cash-coin text-green-500"></i>
                     @elseif($method->method === 'transfer')
-                        <i class="bi bi-bank text-blue-500 mr-3 text-lg"></i>
+                        <i class="bi bi-bank text-blue-500"></i>
                     @else
-                        <i class="bi bi-arrow-left-right text-purple-500 mr-3 text-lg"></i>
+                        <i class="bi bi-arrow-left-right text-purple-500"></i>
                     @endif
-                    <div>
-                        <p class="font-medium capitalize">{{ $method->method }}</p>
-                        <p class="text-xs text-gray-500">{{ $method->transaction_count }} transaksi</p>
-                    </div>
+                    <span class="font-medium capitalize">{{ $method->method }}</span>
                 </div>
                 <div class="text-right">
-                    <p class="font-semibold text-gray-800">
-                        Rp {{ number_format($method->total_amount, 0, ',', '.') }}
-                    </p>
-                    <p class="text-xs text-gray-500">
-                        {{ $omset > 0 ? number_format(($method->total_amount / $omset) * 100, 1) : 0 }}%
-                    </p>
+                    <p class="font-semibold">Rp {{ number_format($method->total_amount, 0, ',', '.') }}</p>
+                    <p class="text-gray-500">{{ $method->transaction_count }} transaksi</p>
                 </div>
             </div>
             @endforeach
         </div>
     </div>
 
-<!-- RECENT TRANSACTIONS -->
-<div class="bg-white p-6 rounded-xl shadow">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">📋 Transaksi Terbaru</h2>
+<!-- RECENT TRANSACTIONS COMPACT -->
+<div class="bg-white p-4 rounded-xl shadow flex flex-col" style="height: 400px;">
+    <h2 class="text-sm font-semibold text-gray-800 mb-3">📋 Transaksi Terbaru</h2>
     
     @if($recentSales->count() > 0)
-    <div class="space-y-3">
+    <div class="space-y-2 overflow-y-auto flex-1">
         @foreach($recentSales as $sale)
-        <div class="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+        <div class="flex justify-between items-center p-2 border rounded text-xs hover:bg-gray-50">
             <div class="flex-1">
                 <div class="flex justify-between items-start mb-1">
                     <div>
@@ -365,47 +354,144 @@
         @endforeach
     </div>
     @else
-    <div class="text-center py-8 text-gray-500">
-        <i class="bi bi-receipt text-3xl text-gray-400 mb-2"></i>
-        <p>Tidak ada transaksi</p>
-        <p class="text-sm">(Exclude draft orders)</p>
+    <div class="flex-1 flex items-center justify-center text-gray-500 text-xs">
+        <div class="text-center">
+            <i class="bi bi-receipt text-3xl text-gray-400 mb-2"></i>
+            <p>Tidak ada transaksi</p>
+            <p class="text-sm">(Exclude draft orders)</p>
+        </div>
     </div>
     @endif
 </div>
 
-    <!-- PRODUK TERLARIS -->
-    <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">🏆 Produk Terlaris</h2>
+    <!-- PRODUK TERLARIS COMPACT -->
+    <div class="bg-white p-4 rounded-xl shadow flex flex-col" style="height: 400px;">
+        <h2 class="text-sm font-semibold text-gray-800 mb-3">🏆 Produk Terlaris</h2>
         
         @if($bestSellingProducts->count() > 0)
-        <div class="space-y-4">
+        <div class="space-y-2 overflow-y-auto flex-1">
             @foreach($bestSellingProducts as $product)
-            <div class="flex justify-between items-center p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center mr-3">
-                        <span class="text-white text-xs font-bold">#{{ $loop->iteration }}</span>
-                    </div>
+            <div class="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xs font-bold">#{{ $loop->iteration }}</span>
                     <div>
-                        <p class="font-medium text-sm">{{ $product->product_name }}</p>
-                        <p class="text-xs text-gray-500">{{ $product->product_sku }}</p>
+                        <p class="font-medium">{{ $product->product_name }}</p>
+                        <p class="text-gray-500">{{ $product->product_sku }}</p>
                     </div>
                 </div>
-                <div class="text-right">
-                    <p class="text-xs text-gray-500">
-    {{ number_format($product->total_terjual) }} pcs terjual
-</p>
-                </div>
+                <span class="font-semibold text-yellow-700">{{ number_format($product->total_terjual) }} pcs</span>
             </div>
             @endforeach
         </div>
         @else
-        <div class="text-center py-8 text-gray-500">
-            <i class="bi bi-box text-3xl text-gray-400 mb-2"></i>
-            <p>Belum ada penjualan produk</p>
+        <div class="flex-1 flex items-center justify-center text-gray-500 text-xs">
+            <div class="text-center">
+                <i class="bi bi-box text-2xl text-gray-400 mb-1"></i>
+                <p>Belum ada penjualan produk</p>
+            </div>
         </div>
         @endif
     </div>
 </div>
+
+            <!-- === MONITORING IKLAN & TARGET COMPACT === -->
+            @if(isset($monthlySales) && isset($grossProfit))
+            <div class="bg-white p-4 rounded-xl shadow-lg mb-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="bi bi-megaphone text-blue-600"></i>
+                        Monitoring Iklan & Target
+                    </h2>
+                    <form method="GET" action="{{ route('finance.dashboard') }}" class="flex items-center gap-2">
+                        <input type="hidden" name="start_date" value="{{ $startDate }}">
+                        <input type="hidden" name="end_date" value="{{ $endDate }}">
+                        <label class="text-xs font-medium text-gray-700">Bulan:</label>
+                        <select name="advertisement_month" onchange="this.form.submit()" class="border rounded-lg px-2 py-1 text-xs">
+                            @foreach($availableMonths as $month)
+                                @php
+                                    $monthDate = \Carbon\Carbon::createFromFormat('Y-m', $month);
+                                    $isCurrentMonth = $month === now()->format('Y-m');
+                                    $isSelected = $month === $selectedMonth;
+                                @endphp
+                                <option value="{{ $month }}" {{ $isSelected ? 'selected' : '' }}>
+                                    {{ $monthDate->translatedFormat('F Y') }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+
+                @php
+                    $grossProfitIsPositive = $grossProfit >= 0;
+                    $statusColor = $grossProfit >= $targetGrossProfit ? 'text-green-600' : ($grossProfitIsPositive ? 'text-amber-600' : 'text-red-600');
+                    $invoiceStatusColor = ($currentMonthInvoiceCount ?? 0) >= ($invoiceTarget ?? 0) ? 'text-green-600' : 'text-amber-600';
+                @endphp
+
+                <!-- 2 COLUMNS: TARGET GROSS PROFIT & TARGET INVOICE -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <!-- Target Gross Profit -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 uppercase">Target Gross Profit</p>
+                                <h3 class="text-lg font-bold text-gray-900">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h3>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                                <p class="text-sm font-semibold {{ $statusColor }}">{{ $grossProfit >= $targetGrossProfit ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs font-medium text-gray-700">
+                                <span>Progress</span>
+                                <span>{{ number_format($grossProfitProgress, 1) }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}" style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-600">
+                                <span>Realisasi: <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span></span>
+                                @if($grossProfitShortfall > 0)
+                                    <span class="text-red-600">Kurang: Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Invoice -->
+                    @if(isset($invoiceTarget) && isset($currentMonthInvoiceCount))
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-3 rounded-lg border-l-4 border-indigo-500">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 uppercase">Target Invoice</p>
+                                <h3 class="text-lg font-bold text-gray-900">{{ number_format($invoiceTarget, 0, ',', '.') }} Nota</h3>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                                <p class="text-sm font-semibold {{ $invoiceStatusColor }}">{{ $currentMonthInvoiceCount >= $invoiceTarget ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs font-medium text-gray-700">
+                                <span>Progress</span>
+                                <span>{{ number_format($invoiceProgress, 1) }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full {{ $invoiceProgress >= 100 ? 'bg-green-500' : 'bg-indigo-500' }}" style="width: {{ min(100, max(0, $invoiceProgress)) }}%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-600">
+                                <span>Realisasi: <span class="font-semibold {{ $invoiceStatusColor }}">{{ number_format($currentMonthInvoiceCount, 0, ',', '.') }} nota</span></span>
+                                @if($remainingInvoiceTarget > 0)
+                                    <span class="text-red-600">Kurang: {{ number_format($remainingInvoiceTarget, 0, ',', '.') }} nota</span>
+                                @endif
+                            </div>
+                            <p class="text-xs text-gray-500">Bulan lalu: {{ number_format($previousMonthInvoiceCount, 0, ',', '.') }} nota</p>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endif
 
             <!-- QUICK ACTIONS -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -433,5 +519,94 @@
         </div>
     </div>
 </div>
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    // Date Range Picker untuk Filter Utama (FIX TIMEZONE ISSUE)
+    const dateRangePicker = flatpickr("#dateRangePicker", {
+        mode: "range",
+        dateFormat: "Y-m-d",
+        defaultDate: ["{{ $startDate }}", "{{ $endDate }}"],
+        time_24hr: true,
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length === 2) {
+                // Format tanggal tanpa timezone conversion (langsung ambil YYYY-MM-DD)
+                const startDate = selectedDates[0].getFullYear() + '-' + 
+                                 String(selectedDates[0].getMonth() + 1).padStart(2, '0') + '-' + 
+                                 String(selectedDates[0].getDate()).padStart(2, '0');
+                const endDate = selectedDates[1].getFullYear() + '-' + 
+                               String(selectedDates[1].getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(selectedDates[1].getDate()).padStart(2, '0');
+                document.getElementById('start_date').value = startDate;
+                document.getElementById('end_date').value = endDate;
+            }
+        }
+    });
+
+    @if(isset($advertisementChatCount))
+    // Chart.js untuk Grafik Iklan
+    @if(isset($advertisementChartData) && isset($advertisementChartDates))
+    const ctx = document.getElementById('advertisementChart').getContext('2d');
+    const chartData = @json($advertisementChartData);
+    const chartDates = @json($advertisementChartDates);
+    
+    const chatData = chartDates.map(date => chartData[date]?.chat || 0);
+    const followupData = chartDates.map(date => chartData[date]?.followup || 0);
+    const closingData = chartDates.map(date => chartData[date]?.closing || 0);
+    const labels = chartDates.map(date => {
+        const d = new Date(date);
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+    });
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Chat Masuk',
+                    data: chatData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Follow Up',
+                    data: followupData,
+                    borderColor: 'rgb(249, 115, 22)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Closing',
+                    data: closingData,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+    @endif
+    @endif
+</script>
 </body>
 </html>

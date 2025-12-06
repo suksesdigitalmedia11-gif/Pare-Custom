@@ -15,6 +15,8 @@ use App\Http\Controllers\Owner\SalesOrderController;
 use App\Http\Controllers\Owner\ShiftController;
 use App\Http\Controllers\Admin\ContactController as AdminContactController;
 use App\Http\Controllers\Editor\ContactController as EditorContactController;
+use App\Http\Controllers\Editor\DashboardController as EditorDashboardController;
+use App\Http\Controllers\Editor\DesignTaskController;
 use App\Http\Controllers\Finance\ContactController as FinanceContactController;
 use App\Http\Controllers\KepalaToko\ContactController as KepalaTokoContactController;
 
@@ -43,8 +45,8 @@ Route::middleware('auth')->group(function () {
 // Owner routes, protected by 'auth' and 'owner' middleware
 Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(function () {
     // Dashboard
-    Route::view('/', 'owner.dashboard')->name('index');
-    Route::get('dashboard', fn() => view('owner.dashboard'))->name('dashboard');
+    Route::get('/', [\App\Http\Controllers\Owner\DashboardController::class, 'index'])->name('index');
+    Route::get('dashboard', [\App\Http\Controllers\Owner\DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('shift/test-closing-summary', function () {
         $shift = \App\Models\Shift::latest()->first();
@@ -114,22 +116,30 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     Route::post('purchases/{purchase}/return', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'return'])
         ->name('purchases.return');
 
+    // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Owner (jauh dari toko)
+    Route::middleware(['auth', 'owner'])->group(function () {
+        Route::post('/sales/{salesOrder}/move-to-request-kain', [SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
+        Route::post('/sales/{salesOrder}/complete-without-po', [SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
+    });
+
     // Sales
     Route::middleware(['check.shift'])->group(function () {
         Route::resource('sales', SalesOrderController::class)
             ->parameters(['sales' => 'salesOrder']);
         Route::post('/sales/{salesOrder}/approve', [SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
-        Route::post('/sales/{salesOrder}/startProcess', [SalesOrderController::class, 'startProcess'])->name('sales.startProcess');
-        Route::post('/sales/{salesOrder}/processJahit', [SalesOrderController::class, 'processJahit'])->name('sales.processJahit');
-        Route::post('/sales/{salesOrder}/markAsJadi', [SalesOrderController::class, 'markAsJadi'])->name('sales.markAsJadi');
-        Route::post('/sales/{salesOrder}/markAsDiterimaToko', [SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.markAsDiterimaToko');
+        // ✅ WORKFLOW BARU - Route untuk transisi status (Owner) - yang perlu shift
+        Route::post('/sales/{salesOrder}/process-jahit', [SalesOrderController::class, 'processJahit'])->name('sales.process-jahit');
+        Route::post('/sales/{salesOrder}/mark-as-jadi', [SalesOrderController::class, 'markAsJadi'])->name('sales.mark-as-jadi');
+        Route::post('/sales/{salesOrder}/mark-as-diterima-toko', [SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.mark-as-diterima-toko');
         Route::post('/sales/{salesOrder}/complete', [SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         Route::put('/sales/{salesOrder}/payments/{payment}/update-method', [SalesOrderController::class, 'updatePaymentMethod'])
     ->name('sales.payments.update-method');
+        // ✅ TAMBAH ROUTE RELATED PO UNTUK OWNER
+        Route::get('/sales/{salesOrder}/related-po', [SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
         // Tambahkan ini di DALAM group owner (sekitar line yang ada route sales)
         Route::get('/sales/payment-proof/{payment}', function (\App\Models\Payment $payment) {
             // Cek apakah user punya akses
@@ -287,19 +297,28 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         // TIDAK ADA route post (start, end, expense) untuk finance
     });
 
+    // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Finance (jauh dari toko)
+    Route::middleware(['auth', 'finance'])->group(function () {
+        Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
+        Route::post('/sales/{salesOrder}/move-to-payment', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToPayment'])->name('sales.move-to-payment');
+        Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
+    });
+
     Route::middleware(['auth', 'finance', 'check.shift'])->group(function () {
         Route::resource('sales', \App\Http\Controllers\Finance\SalesOrderController::class)
             ->parameters(['sales' => 'salesOrder']);
         Route::post('/sales/{salesOrder}/approve', [\App\Http\Controllers\Finance\SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [\App\Http\Controllers\Finance\SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
-        Route::post('/sales/{salesOrder}/startProcess', [\App\Http\Controllers\Finance\SalesOrderController::class, 'startProcess'])->name('sales.startProcess');
-        Route::post('/sales/{salesOrder}/processJahit', [\App\Http\Controllers\Finance\SalesOrderController::class, 'processJahit'])->name('sales.processJahit');
-        Route::post('/sales/{salesOrder}/markAsJadi', [\App\Http\Controllers\Finance\SalesOrderController::class, 'markAsJadi'])->name('sales.markAsJadi');
-        Route::post('/sales/{salesOrder}/markAsDiterimaToko', [\App\Http\Controllers\Finance\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.markAsDiterimaToko');
+        // ✅ WORKFLOW BARU - Route untuk transisi status (Finance) - yang perlu shift
+        Route::post('/sales/{salesOrder}/process-jahit', [\App\Http\Controllers\Finance\SalesOrderController::class, 'processJahit'])->name('sales.process-jahit');
+        Route::post('/sales/{salesOrder}/mark-as-jadi', [\App\Http\Controllers\Finance\SalesOrderController::class, 'markAsJadi'])->name('sales.mark-as-jadi');
+        Route::post('/sales/{salesOrder}/mark-as-diterima-toko', [\App\Http\Controllers\Finance\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.mark-as-diterima-toko');
         Route::post('/sales/{salesOrder}/complete', [\App\Http\Controllers\Finance\SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\Finance\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\Finance\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\Finance\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
+        // ✅ TAMBAH ROUTE RELATED PO UNTUK FINANCE
+        Route::get('/sales/{salesOrder}/related-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
     });
 
 });
@@ -396,15 +415,22 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
     Route::get('/shift/{shift}/print-summary', [App\Http\Controllers\KepalaToko\ShiftController::class, 'printSummary'])->name('shift.print-summary');
     Route::post('shift/income', [ShiftController::class, 'income'])->name('shift.income');
 
+    // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Kepala Toko (move-to-request-kain)
+    Route::middleware(['auth', 'kepala_toko'])->group(function () {
+        Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
+        Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
+    });
+
     Route::middleware(['auth', 'kepala_toko', 'check.shift'])->group(function () {
         Route::resource('sales', \App\Http\Controllers\KepalaToko\SalesOrderController::class)
             ->parameters(['sales' => 'salesOrder']);
         Route::post('/sales/{salesOrder}/approve', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
-        Route::post('/sales/{salesOrder}/startProcess', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'startProcess'])->name('sales.startProcess');
-        Route::post('/sales/{salesOrder}/processJahit', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'processJahit'])->name('sales.processJahit');
-        Route::post('/sales/{salesOrder}/markAsJadi', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'markAsJadi'])->name('sales.markAsJadi');
-        Route::post('/sales/{salesOrder}/markAsDiterimaToko', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.markAsDiterimaToko');
+        // ✅ WORKFLOW BARU - Route untuk transisi status (Kepala Toko) - yang perlu shift
+        Route::post('/sales/{salesOrder}/move-to-payment', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'moveToPayment'])->name('sales.move-to-payment');
+        Route::post('/sales/{salesOrder}/process-jahit', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'processJahit'])->name('sales.process-jahit');
+        Route::post('/sales/{salesOrder}/mark-as-jadi', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'markAsJadi'])->name('sales.mark-as-jadi');
+        Route::post('/sales/{salesOrder}/mark-as-diterima-toko', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.mark-as-diterima-toko');
         Route::post('/sales/{salesOrder}/complete', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
@@ -544,11 +570,14 @@ Route::prefix('advertisement')->name('advertisement.')->group(function () {
         Route::get('sales/{salesOrder}/related-po', [\App\Http\Controllers\Admin\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
         Route::post('/sales/{salesOrder}/approve', [\App\Http\Controllers\Admin\SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [\App\Http\Controllers\Admin\SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
-        Route::post('/sales/{salesOrder}/startProcess', [\App\Http\Controllers\Admin\SalesOrderController::class, 'startProcess'])->name('sales.startProcess');
-        Route::post('/sales/{salesOrder}/processJahit', [\App\Http\Controllers\Admin\SalesOrderController::class, 'processJahit'])->name('sales.processJahit');
-        Route::post('/sales/{salesOrder}/markAsJadi', [\App\Http\Controllers\Admin\SalesOrderController::class, 'markAsJadi'])->name('sales.markAsJadi');
-        Route::post('/sales/{salesOrder}/markAsDiterimaToko', [\App\Http\Controllers\Admin\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.markAsDiterimaToko');
+        // ✅ WORKFLOW BARU - Route untuk transisi status
+        Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\Admin\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
+        Route::post('/sales/{salesOrder}/move-to-payment', [\App\Http\Controllers\Admin\SalesOrderController::class, 'moveToPayment'])->name('sales.move-to-payment');
+        Route::post('/sales/{salesOrder}/process-jahit', [\App\Http\Controllers\Admin\SalesOrderController::class, 'processJahit'])->name('sales.process-jahit');
+        Route::post('/sales/{salesOrder}/mark-as-jadi', [\App\Http\Controllers\Admin\SalesOrderController::class, 'markAsJadi'])->name('sales.mark-as-jadi');
+        Route::post('/sales/{salesOrder}/mark-as-diterima-toko', [\App\Http\Controllers\Admin\SalesOrderController::class, 'markAsDiterimaToko'])->name('sales.mark-as-diterima-toko');
         Route::post('/sales/{salesOrder}/complete', [\App\Http\Controllers\Admin\SalesOrderController::class, 'complete'])->name('sales.complete');
+        Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\Admin\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\Admin\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\Admin\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\Admin\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
@@ -572,8 +601,11 @@ Route::prefix('advertisement')->name('advertisement.')->group(function () {
 
 // Editor routes
 Route::middleware(['auth', 'editor'])->prefix('editor')->name('editor.')->group(function () {
-    Route::view('/', 'editor.dashboard')->name('index');
-    Route::get('dashboard', fn() => view('editor.dashboard'))->name('dashboard');
+    Route::get('/', [EditorDashboardController::class, 'index'])->name('index');
+    Route::get('dashboard', [EditorDashboardController::class, 'index'])->name('dashboard');
+    Route::get('sales', [\App\Http\Controllers\Editor\SalesOrderController::class, 'indexDesign'])->name('sales.index');
+    Route::patch('design-tasks/{salesOrderItem}', [DesignTaskController::class, 'update'])->name('design-tasks.update');
+    Route::get('sales/{salesOrder}', [\App\Http\Controllers\Editor\SalesOrderController::class, 'showDesign'])->name('sales.show');
 
     // Contacts (Customer & Supplier)
     Route::get('contacts', [EditorContactController::class, 'index'])->name('contacts.index');

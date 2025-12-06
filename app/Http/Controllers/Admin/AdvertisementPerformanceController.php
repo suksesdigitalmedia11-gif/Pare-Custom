@@ -99,28 +99,34 @@ class AdvertisementPerformanceController extends Controller
         $isOnTrackOmset = $projectedOmset >= $omsetTarget;
         $isOnTrack = $isOnTrackOmset; // KEEP THIS
     
-        // === TARGET INVOICE 50% ===
+        // === TARGET INVOICE (JUMLAH NOTA PEMBAYARAN) ===
         $previousMonth = now()->subMonth()->format('Y-m');
         
-        // Total invoice bulan lalu (grand_total dari sales orders)
-        $previousMonthInvoices = \App\Models\SalesOrder::where('order_date', 'like', "{$previousMonth}%")
-            ->sum('grand_total');
+        // Jumlah nota yang tercetak bulan lalu (count Payment berdasarkan paid_at, bukan SalesOrder)
+        // Setiap Payment = 1 nota (bisa DP, pelunasan, dll)
+        $previousMonthInvoiceCount = \App\Models\Payment::where('paid_at', 'like', "{$previousMonth}%")
+            ->count();
         
-        // Target bulan ini = 50% dari invoice bulan lalu
-        $invoiceTarget = $previousMonthInvoices * 0.5;
+        // Target bulan ini = jumlah nota bulan lalu + 100% (jadi 200% dari bulan lalu)
+        // Contoh: bulan lalu 2 nota, target = 2 + (2 × 100%) = 2 + 2 = 4 nota
+        $invoiceTarget = $previousMonthInvoiceCount * 2.0; // 200% = 2.0
         
-        // Realisasi pembayaran bulan ini
-        $currentMonthPayments = \App\Models\Payment::where('paid_at', 'like', "{$currentMonth}%")
-            ->sum('amount');
+        // Realisasi invoice bulan ini (jumlah nota yang tercetak bulan ini berdasarkan paid_at)
+        $currentMonthInvoiceCount = \App\Models\Payment::where('paid_at', 'like', "{$currentMonth}%")
+            ->count();
         
-        // Progress calculation untuk invoice
-        $invoiceProgress = $invoiceTarget > 0 ? min(100, ($currentMonthPayments / $invoiceTarget) * 100) : 0;
+        // Progress calculation untuk invoice (berdasarkan jumlah nota)
+        $invoiceProgress = $invoiceTarget > 0 ? min(100, ($currentMonthInvoiceCount / $invoiceTarget) * 100) : 0;
         
         // Additional stats untuk invoice
-        $remainingInvoiceTarget = max(0, $invoiceTarget - $currentMonthPayments);
+        $remainingInvoiceTarget = max(0, $invoiceTarget - $currentMonthInvoiceCount);
         $remainingTarget = $remainingInvoiceTarget; // Define variable yang missing di view
         $dailyInvoiceTargetNeeded = $daysLeft > 0 ? $remainingInvoiceTarget / $daysLeft : $remainingInvoiceTarget;
         $dailyTargetNeeded = $dailyInvoiceTargetNeeded; // Define variable yang missing di view
+        
+        // Untuk backward compatibility (jika ada view yang masih pakai variabel lama)
+        $previousMonthInvoices = $previousMonthInvoiceCount;
+        $currentMonthPayments = $currentMonthInvoiceCount;
         
         // Data detail inputan hari ini (untuk history)
         $todayDetails = AdvertisementPerformance::today()
@@ -172,15 +178,17 @@ class AdvertisementPerformanceController extends Controller
             'daysInMonth',
             'daysLeft', // SEKARANG SUDAH ADA
             
-            // Invoice Target
-            'previousMonthInvoices',
-            'invoiceTarget', 
-            'currentMonthPayments', 
-            'invoiceProgress', 
-            'remainingInvoiceTarget',
-            'remainingTarget', // SEKARANG SUDAH ADA
-            'dailyInvoiceTargetNeeded',
-            'dailyTargetNeeded', // SEKARANG SUDAH ADA
+            // Invoice Target (berdasarkan jumlah nota)
+            'previousMonthInvoices', // Jumlah nota bulan lalu (untuk backward compatibility)
+            'previousMonthInvoiceCount', // Jumlah nota bulan lalu (baru)
+            'invoiceTarget', // Target jumlah nota bulan ini
+            'currentMonthPayments', // Realisasi jumlah nota bulan ini (untuk backward compatibility)
+            'currentMonthInvoiceCount', // Realisasi jumlah nota bulan ini (baru)
+            'invoiceProgress', // Progress persentase
+            'remainingInvoiceTarget', // Sisa target yang perlu dicapai
+            'remainingTarget', // Alias untuk remainingInvoiceTarget
+            'dailyInvoiceTargetNeeded', // Target harian yang perlu dicapai
+            'dailyTargetNeeded', // Alias untuk dailyInvoiceTargetNeeded
             
             // History inputan hari ini
             'todayDetails',

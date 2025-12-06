@@ -1,128 +1,124 @@
-<style>
-    body {
-        font-family: 'Raleway', sans-serif;
-    }
-    .nav-text {
-        position: relative;
-        display: inline-block;
-    }
-    .nav-text::after {
-        content: '';
-        position: absolute;
-        width: 0;
-        height: 2px;
-        bottom: -2px;
-        left: 0;
-        background-color: #e17f12;
-        transition: width 0.2s ease-in-out;
-    }
-    .hover-link:hover .nav-text::after {
-        width: 100%;
-    }
-</style>
-<div
-    id="sidebar"
-    class="fixed lg:sticky top-0 left-0 w-64 lg:w-1/6 bg-[#FCFCFC] h-screen flex flex-col transition-transform transform -translate-x-full lg:translate-x-0 text-[#000000] border-r-2 z-40 text-sm"
->
-    <!-- Sidebar Header -->
-    <div class="flex items-center justify-between mb-4 p-4">
-        <img src="{{ asset('https://parecustom.com/public/assets/logo.png') }}" alt="" class="w-auto h-40 mx-auto xl:h-40 lg:h-36">
-        <button
-            class="lg:hidden text-gray-400 hover:text-gray-600"
-            onclick="toggleSidebar()"
-        >
-            <i class="bi bi-x text-2xl"></i>
-        </button>
-    </div>
+@php
+    $menuItems = [
+        [
+            'label' => 'Dashboard',
+            'icon' => 'bi-speedometer2',
+            'route' => route('editor.dashboard'),
+            'active' => request()->routeIs('editor.dashboard') && !request()->has('status'),
+        ],
+        [
+            'label' => 'Board Desain',
+            'icon' => 'bi-kanban',
+            'route' => route('editor.dashboard') . '#board',
+            'active' => request()->routeIs('editor.dashboard') && request()->has('status') && request('status') !== 'approved',
+        ],
+        [
+            'label' => 'Daftar Sales',
+            'icon' => 'bi-list-check',
+            'route' => route('editor.sales.index'),
+            'active' => request()->routeIs('editor.sales.index'),
+        ],
+        [
+            'label' => 'Aktivitas',
+            'icon' => 'bi-clock-history',
+            'route' => route('editor.dashboard') . '#activity',
+            'active' => request()->routeIs('editor.dashboard') && request()->get('section') === 'activity',
+        ],
+    ];
+@endphp
 
-    <div class="w-full border-b-2 border-gray-300"></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Raleway', sans-serif; }
+        .sidebar-transition { transition: all 0.3s ease-in-out; }
+        .nav-item { position: relative; transition: all 0.2s ease; }
+        .nav-item.active { background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); color: white; }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: white;
+            border-radius: 0 4px 4px 0;
+        }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body>
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden hidden" onclick="toggleSidebar()"></div>
 
-    <!-- Menu Items -->
-    <div class="flex-1 p-4">
-        <!-- Beranda -->
-        <a href="{{ route('editor.dashboard') }}" class="flex items-center p-3 rounded-md bg-none transition hover-link">
-            <i class="bi bi-house-door-fill"></i>
-            <span class="ml-3 nav-text font-semibold">Beranda</span>
-        </a>
-
-        <!-- Produk Dropdown -->
-        <div>
-            <button
-                onclick="toggleDropdown(this)"
-                class="flex items-center justify-between w-full p-3 rounded-md bg-none transition focus:outline-none hover-link">
-                <span class="flex items-center">
-                    <i class="bi bi-box-seam"></i>
-                    <span class="ml-3 nav-text font-semibold">Katalog</span>
-                </span>
-                <i class="bi bi-chevron-down transition-transform"></i>
+    <div
+        id="sidebar"
+        class="fixed lg:sticky top-0 left-0 w-80 lg:w-72 bg-white h-screen flex flex-col sidebar-transition transform -translate-x-full lg:translate-x-0 shadow-xl z-40 border-r border-gray-200"
+    >
+        <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
+            <div class="flex items-center space-x-3">
+                <img src="{{ asset('https://parecustom.com/public/assets/logo.png') }}" alt="Pare Custom" class="w-10 h-10 object-contain">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">PareCustom</h1>
+                    <p class="text-xs text-gray-500">Editor Panel</p>
+                </div>
+            </div>
+            <button class="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" onclick="toggleSidebar()">
+                <i class="bi bi-x-lg text-lg"></i>
             </button>
-            <div class="dropdown-menu space-y-2 overflow-hidden max-h-0 transition-all duration-300">
-                <a href="{{ route('editor.product.index') }}" class="block p-3 rounded-md bg-none transition mt-2 hover-link">
-                    <span class="nav-text font-semibold">Produk</span>
-                </a>
-                <a href="{{ route('editor.category.index') }}" class="block p-3 rounded-md bg-none transition mt-2 hover-link">
-                    <span class="nav-text font-semibold">Kategori</span>
-                </a>
+        </div>
+
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex items-center space-x-3">
+                @php
+                    $avatarPath = auth()->user()->avatar 
+                        ? asset('storage/avatars/' . auth()->user()->avatar) 
+                        : 'https://placehold.co/40x40/6B7280/FFFFFF?text=' . strtoupper(substr(auth()->user()->name, 0, 1));
+                @endphp
+                <img src="{{ $avatarPath }}" alt="{{ auth()->user()->name }}" class="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 truncate">{{ auth()->user()->name }}</p>
+                    <p class="text-xs text-gray-500 capitalize">{{ auth()->user()->usertype }}</p>
+                </div>
             </div>
         </div>
 
+        <div class="flex-1 overflow-y-auto sidebar-scroll py-4">
+            <nav class="space-y-1 px-4">
+                @foreach($menuItems as $item)
+                    <a href="{{ $item['route'] }}" class="nav-item flex items-center px-4 py-3 rounded-lg {{ $item['active'] ? 'active' : 'text-gray-700 hover:bg-gray-100' }}">
+                        <i class="bi {{ $item['icon'] }} text-lg"></i>
+                        <span class="ml-3 font-medium">{{ $item['label'] }}</span>
+                    </a>
+                @endforeach
+            </nav>
+        </div>
 
-        <!-- Customer & Supplier -->
-        <a href="{{ route('editor.contacts.index') }}" class="flex items-center p-3 rounded-md bg-none transition hover-link">
-            <i class="bi bi-people-fill"></i>
-            <span class="ml-3 nav-text font-semibold">Customer & Supplier</span>
-        </a>
-
-    <!-- Inventory -->
-    <a href="{{ url('editor/inventory') }}" class="flex items-center p-3 rounded-md bg-none transition hover-link">
-      <i class="bi bi-clipboard-data"></i>
-      <span class="ml-3 nav-text font-semibold">Inventory</span>
-    </a>
-
-        <a href="{{ route('editor.dashboard') }}" class="flex items-center p-3 rounded-md bg-none transition hover-link">
-            <i class="bi bi-cash-stack"></i>
-            <span class="ml-3 nav-text font-semibold">Penjualan</span>
-        </a>
-
-        <!-- Pembelian -->
-        <div>
-      <button
-        onclick="toggleDropdown(this)"
-        class="flex items-center justify-between w-full p-3 rounded-md bg-none transition focus:outline-none hover-link">
-        <span class="flex items-center">
-        <i class="bi bi-cart-check"></i>
-          <span class="ml-3 nav-text font-semibold">Pembelian</span>
-        </span>
-        <i class="bi bi-chevron-down transition-transform"></i>
-      </button>
-      <div class="dropdown-menu space-y-2 overflow-hidden max-h-0 transition-all duration-300">
-        <a href="{{ route('editor.purchases.index') }}" class="block p-3 rounded-md bg-none transition mt-2 hover-link">
-          <span class="nav-text font-semibold">Purchase List</span>
-        </a>
-      </div>
-    </div>
+        <form action="{{ route('logout') }}" method="POST" class="p-4 border-t border-gray-200 bg-white">
+            @csrf
+            <button type="submit" class="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg py-2">
+                <i class="bi bi-box-arrow-right"></i>
+                Logout
+            </button>
+        </form>
     </div>
 
-    <form action="{{ route('logout') }}" method="POST" class="flex items-center p-3 rounded-md bg-none transition hover-link mt-auto mx-4 mb-4">
-        @csrf
-        <button type="submit" class="flex items-center">
-            <i class="bi bi-box-arrow-right"></i>
-            <span class="ml-3 nav-text font-semibold">Logout</span>
-        </button>
-    </form>
-</div>
-<script>
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('-translate-x-full');
-    }
-
-    function toggleDropdown(button) {
-        const dropdownMenu = button.nextElementSibling;
-        const chevronIcon = button.querySelector('.bi-chevron-down');
-        
-        dropdownMenu.classList.toggle('max-h-0');
-        dropdownMenu.classList.toggle('max-h-40');
-        chevronIcon.classList.toggle('rotate-180');
-    }
-</script>
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const isHidden = sidebar.classList.contains('-translate-x-full');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden', !isHidden);
+        }
+    </script>
+</body>
+</html>

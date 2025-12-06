@@ -244,89 +244,77 @@
                     <div class="hidden md:block">
                         <div class="overflow-x-auto custom-scrollbar">
                             <table class="w-full">
-                                <thead class="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SO Number</th>
-                                        <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            <div class="flex items-center">
-                                                Tanggal Order
-                                                <i class="bi bi-arrow-down ml-1 text-blue-500 text-xs"></i>
-                                            </div>
-                                        </th>
-                                        <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
-                                        <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                        <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-                                        <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Dibayar</th>
-                                        <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Sisa</th>
-                                        <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Status Bayar</th>
-                                        <th class="px-4 lg:px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @forelse ($salesOrders as $so)
-                                        <tr class="hover:bg-gray-50 smooth-transition group" data-id="{{ $so->id }}">
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm font-medium text-gray-900 group-hover:text-blue-600">{{ $so->so_number }}</div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm text-gray-900">{{ \Carbon\Carbon::parse($so->order_date)->format('d/m/Y') }}</div>
-                                                <div class="text-xs text-gray-500">{{ $so->created_at->format('H:i') }}</div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm text-gray-900">{{ $so->customer ? $so->customer->name : 'Umum' }}</div>
-                                            <div class="text-xs text-gray-500">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit' : 'Beli Jadi' }}</div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <span class="status-badge 
-                                                    @if($so->status === 'selesai') bg-green-100 text-green-800
-                                                    @elseif($so->status === 'di proses') bg-yellow-100 text-yellow-800
-                                                    @elseif($so->status === 'pending') bg-blue-100 text-blue-800
-                                                    @elseif($so->status === 'draft') bg-gray-100 text-gray-800
-                                                    @else bg-orange-100 text-orange-800 @endif">
-                                                    {{ ucfirst(str_replace('_', ' ', $so->status)) }}
-                                                </span>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm font-medium text-gray-900">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm font-medium text-green-600">Rp {{ number_format($so->paid_total, 0, ',', '.') }}</div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <div class="text-sm font-medium @if($so->remaining_amount > 0) text-red-600 @else text-green-600 @endif">
-                                                    Rp {{ number_format($so->remaining_amount, 0, ',', '.') }}
-                                                </div>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
-                                                <span class="status-badge 
-                                                    @if($so->payment_status === 'lunas') bg-green-100 text-green-800
-                                                    @else bg-yellow-100 text-yellow-800 @endif">
-                                                    {{ ucfirst($so->payment_status) }}
-                                                </span>
-                                            </td>
-                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-center" onclick="event.stopPropagation();">
-                                                @if(in_array($so->status, ['draft', 'pending', 'di proses', 'request_kain', 'proses_jahit']))
-                                                    <button onclick="confirmDelete('{{ $so->id }}', '{{ $so->so_number }}')" 
-                                                            class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm smooth-transition">
-                                                        <i class="bi bi-trash"></i> Hapus
-                                                    </button>
-                                                @else
-                                                    <span class="text-gray-400 text-sm">Tidak dapat dihapus</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="9" class="px-4 lg:px-6 py-8 text-center">
-                                                <div class="text-gray-500">
-                                                    <i class="bi bi-inbox text-4xl mb-2"></i>
-                                                    <p class="text-lg font-medium">Tidak ada data</p>
-                                                    <p class="text-sm">Tidak ada sales order yang ditemukan</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
+                            <thead class="bg-gray-50 border-b border-gray-200">
+    <tr>
+        <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">SO Number</th>
+        <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Tanggal</th>
+        <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+        <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Dibayar</th>
+        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Sisa</th>
+        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Status Bayar</th>
+        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
+    </tr>
+</thead>
+<tbody class="divide-y divide-gray-200">
+    @forelse ($salesOrders as $so)
+        <tr class="hover:bg-gray-50 smooth-transition group" data-id="{{ $so->id }}">
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm font-medium text-gray-900">{{ $so->so_number }}</div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm text-gray-900">{{ \Carbon\Carbon::parse($so->order_date)->format('d/m/Y') }}</div>
+                <div class="text-xs text-gray-500">{{ $so->created_at->format('H:i') }}</div>
+            </td>
+            <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm text-gray-900 truncate max-w-[150px]">{{ $so->customer ? $so->customer->name : 'Umum' }}</div>
+                <div class="text-xs text-gray-500">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit' : 'Beli Jadi' }}</div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <span class="status-badge inline-block">
+                    {{ ucfirst(str_replace('_', ' ', $so->status)) }}
+                </span>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm font-medium text-gray-900">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm font-medium text-green-600">Rp {{ number_format($so->paid_total, 0, ',', '.') }}</div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <div class="text-sm font-medium @if($so->remaining_amount > 0) text-red-600 @else text-green-600 @endif">
+                    Rp {{ number_format($so->remaining_amount, 0, ',', '.') }}
+                </div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                <span class="status-badge inline-block">
+                    {{ ucfirst($so->payment_status) }}
+                </span>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-center" onclick="event.stopPropagation();">
+                @if(in_array($so->status, ['draft', 'pending', 'di proses', 'request_kain', 'proses_jahit']))
+                    <button onclick="confirmDelete('{{ $so->id }}', '{{ $so->so_number }}')" 
+                            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs smooth-transition">
+                        <i class="bi bi-trash"></i> Hapus
+                    </button>
+                @else
+                    <span class="text-gray-400 text-xs">-</span>
+                @endif
+            </td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="9" class="px-6 py-8 text-center">
+                <div class="text-gray-500">
+                    <i class="bi bi-inbox text-4xl mb-2"></i>
+                    <p class="text-lg font-medium">Tidak ada data</p>
+                    <p class="text-sm">Tidak ada sales order yang ditemukan</p>
+                </div>
+            </td>
+        </tr>
+    @endforelse
+</tbody>
                             </table>
                         </div>
                     </div>

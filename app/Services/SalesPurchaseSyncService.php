@@ -27,12 +27,14 @@ class SalesPurchaseSyncService
 
         try {
             DB::transaction(function () use ($salesOrder, $purchaseOrder, $userId) {
+                // ✅ WORKFLOW BARU: Mapping status SO ke PO
                 $targetStatus = match ($salesOrder->status) {
                     'request_kain' => PurchaseOrder::STATUS_REQUEST_KAIN,
                     'payment' => PurchaseOrder::STATUS_PAYMENT,
                     'proses_jahit' => PurchaseOrder::STATUS_PROSES_JAHIT,
                     'printing' => PurchaseOrder::STATUS_PRINTING,
-                    'diterima_toko', 'selesai' => PurchaseOrder::STATUS_SELESAI,
+                    'diterima_toko' => PurchaseOrder::STATUS_SELESAI, // ✅ Ketika SO diterima_toko, PO selesai
+                    'selesai' => PurchaseOrder::STATUS_SELESAI,
                     default => null,
                 };
 

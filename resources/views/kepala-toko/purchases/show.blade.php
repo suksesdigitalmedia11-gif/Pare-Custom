@@ -102,6 +102,12 @@
                                     <div class="text-sm text-gray-500">Tanggal Pembelian</div>
                                     <div>{{ \Carbon\Carbon::parse($purchase->order_date)->format('d M Y') }}</div>
                                 </div>
+                                @if($purchase->deadline)
+                                <div>
+                                    <div class="text-sm text-gray-500">Deadline</div>
+                                    <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
+                                </div>
+                                @endif
                                 <div>
                                     <div class="text-sm text-gray-500">Supplier</div>
                                     <div>{{ $purchase->supplier?->name ?? '-' }}</div>
@@ -110,6 +116,24 @@
                                     <div class="text-sm text-gray-500">Dibuat Oleh</div>
                                     <div>{{ $purchase->creator->name ?? 'System' }}</div>
                                 </div>
+                                
+                                <!-- 🔧 FIX: Tampilkan informasi customer jika dari sales -->
+                                @if($purchase->is_from_sales)
+                                <div class="md:col-span-2 border-t pt-4 mt-4">
+                                    <div class="text-sm text-gray-500 mb-2">Informasi Customer</div>
+                                    <div class="bg-blue-50 p-3 rounded-lg">
+                                        <div class="flex items-center space-x-2">
+                                            <i class="bi bi-person text-blue-600"></i>
+                                            <div>
+                                                <div class="font-medium text-blue-800">{{ $purchase->customer_name }}</div>
+                                                @if($purchase->salesOrder && $purchase->salesOrder->so_number)
+                                                <div class="text-sm text-blue-600">Dari Sales Order: {{ $purchase->salesOrder->so_number }}</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
 
                             <!-- Financial Summary -->
@@ -157,6 +181,39 @@
                                             <td class="px-6 py-4 whitespace-nowrap font-semibold">Rp {{ number_format($item->line_total,0,',','.') }}</td>
                                         </tr>
                                         @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAMBAH SECTION RIWAYAT AKTIVITAS -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg mt-6">
+                            <h2 class="text-lg font-semibold mb-4 text-gray-800">Riwayat Aktivitas</h2>
+                            <div class="overflow-x-auto">
+                                <table class="w-full table-auto border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-left text-sm font-semibold text-gray-600">
+                                            <th class="px-4 py-2 border">Waktu</th>
+                                            <th class="px-4 py-2 border">Aksi</th>
+                                            <th class="px-4 py-2 border">Deskripsi</th>
+                                            <th class="px-4 py-2 border">Oleh</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($purchase->logs as $log)
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-4 py-2 border">{{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
+                                                <td class="px-4 py-2 border">
+                                                    <span class="capitalize">{{ str_replace('_', ' ', $log->action) }}</span>
+                                                </td>
+                                                <td class="px-4 py-2 border">{{ $log->description }}</td>
+                                                <td class="px-4 py-2 border">{{ $log->user->name ?? 'System' }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="4" class="text-center text-gray-500 px-4 py-4">Belum ada log aktivitas</td>
+                                            </tr>
+                                        @endforelse
                                     </tbody>
                                 </table>
                             </div>

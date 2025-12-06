@@ -42,6 +42,11 @@
                                 <label class="block mb-1 text-sm text-gray-600">Tanggal</label>
                                 <input type="date" name="order_date" class="border rounded p-2 w-full text-gray-900" value="{{ date('Y-m-d') }}" />
                             </div>
+
+                            <div>
+                                <label class="block mb-1 text-sm text-gray-600">Deadline/Target Selesai (Opsional)</label>
+                                <input type="date" name="deadline" class="border rounded p-2 w-full text-gray-900" value="{{ old('deadline') }}" />
+                            </div>
                             
                             <!-- Field baru untuk tipe pembelian -->
                             <div>

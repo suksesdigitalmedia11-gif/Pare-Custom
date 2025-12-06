@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SalesOrder extends Model
 {
@@ -74,6 +75,19 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderLog::class)->orderBy('created_at', 'desc');
     }
 
+    public function purchaseOrder(): HasOne
+    {
+        return $this->hasOne(PurchaseOrder::class, 'sales_order_id');
+    }
+
+    /**
+     * Cek apakah Sales Order memiliki Purchase Order terkait
+     */
+    public function hasRelatedPO(): bool
+    {
+        return $this->purchaseOrder()->exists();
+    }
+
     // === ACCESSOR ===
     public function getPaidTotalAttribute()
     {
@@ -100,18 +114,36 @@ class SalesOrder extends Model
         ];
     }
 
+    /**
+     * Validasi transisi status berdasarkan workflow baru
+     * - Jika ada PO terkait: pending → request_kain → payment → proses_jahit → printing → diterima_toko → selesai
+     * - Jika TIDAK ada PO: pending → selesai (setelah approved)
+     */
     public function isValidTransition(string $newStatus): bool
     {
         $currentStatus = $this->status;
-        $transitions = [
-            'draft' => ['pending'],
-            'pending' => ['request_kain', 'payment'],
-            'request_kain' => ['payment', 'proses_jahit'],
-            'payment' => ['proses_jahit', 'diterima_toko'],
-            'proses_jahit' => ['printing'],
-            'printing' => ['diterima_toko'],
-            'diterima_toko' => ['selesai'],
-        ];
+        $hasPO = $this->hasRelatedPO();
+        
+        // Workflow untuk SO dengan PO terkait
+        if ($hasPO) {
+            $transitions = [
+                'draft' => ['pending'],
+                'pending' => ['request_kain'], // Hanya request_kain untuk yang ada PO
+                'request_kain' => ['payment'],
+                'payment' => ['proses_jahit', 'diterima_toko'], // proses_jahit untuk jahit_sendiri, diterima_toko untuk beli_jadi
+                'proses_jahit' => ['printing'],
+                'printing' => ['diterima_toko'],
+                'diterima_toko' => ['selesai'],
+            ];
+        } else {
+            // Workflow untuk SO tanpa PO (lebih singkat)
+            $transitions = [
+                'draft' => ['pending'],
+                'pending' => ['selesai'], // Langsung selesai setelah approved
+                'selesai' => [], // Final status
+            ];
+        }
+        
         return in_array($newStatus, $transitions[$currentStatus] ?? []);
     }
 
