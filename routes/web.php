@@ -325,8 +325,8 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
 
 // Kepala Toko routes
 Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-toko.')->group(function () {
-    Route::view('/', 'kepala-toko.dashboard')->name('index');
-    Route::get('dashboard', fn() => view('kepala-toko.dashboard'))->name('dashboard');
+    Route::get('/', [App\Http\Controllers\KepalaToko\DashboardController::class, 'index'])->name('index');
+    Route::get('dashboard', [App\Http\Controllers\KepalaToko\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/products/search', [App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('products.search');
     Route::get('/customers/search', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'searchCustomers'])->name('customers.search');
     Route::get('/suppliers/search', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'searchSuppliers'])->name('suppliers.search');

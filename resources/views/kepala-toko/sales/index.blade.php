@@ -350,7 +350,7 @@
                     <div class="md:hidden">
                         @forelse ($salesOrders as $so)
                             <div class="border-b border-gray-200 p-4 hover:bg-gray-50 smooth-transition cursor-pointer"
-                                onclick="window.location='{{ route('finance.sales.show', $so) }}'">
+                                onclick="window.location='{{ route('kepala-toko.sales.show', $so) }}'">
                                 <div class="flex justify-between items-start mb-2">
                                     <div>
                                         <div class="font-medium text-gray-900">{{ $so->so_number }}</div>
