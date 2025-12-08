@@ -29,7 +29,7 @@ class ContactController extends Controller
             ->orderBy('name')
             ->paginate(10, pageName: 'suppliers_page');
 
-        return view('kepala_toko.contacts.index', compact('customers', 'suppliers'));
+        return view('kepala-toko.contacts.index', compact('customers', 'suppliers'));
     }
 
     public function storeCustomer(Request $request): RedirectResponse

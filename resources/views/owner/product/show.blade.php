@@ -101,10 +101,6 @@
   }
   @endphp
     <div class="flex">
-        <!-- Sidebar Toggle -->
-        <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-gray-700 lg:hidden focus:outline-none z-50" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
-        </button>
         
         <!-- Sidebar -->
         <x-navbar-owner></x-navbar-owner>

@@ -290,9 +290,6 @@
 </head>
 <body class="bg-gray-100">
     <div class="flex">
-        <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-indigo-600 hover:bg-indigo-700 lg:hidden focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 z-50 transition-all duration-200" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
-        </button>
         
         <x-navbar-owner></x-navbar-owner>
         

@@ -19,9 +19,6 @@
 </head>
 <body class="bg-gray-100">
   <div class="flex">
-    <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-gray-700 lg:hidden focus:outline-none z-50" onclick="toggleSidebar()">
-      <i class="bi bi-list"></i>
-    </button>
 
     <x-navbar-kepala-toko></x-navbar-kepala-toko>
 
