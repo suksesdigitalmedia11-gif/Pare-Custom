@@ -1308,7 +1308,7 @@ function centerText(text, width) {
 function alignLeftRight(left, right, width) {
     const leftStr = String(left || '');
     const rightStr = String(right || '');
-    
+
     if (leftStr.length + rightStr.length > width) {
         return leftStr + '\n' + ' '.repeat(width - rightStr.length) + rightStr;
     }
@@ -1544,7 +1544,7 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         if (!document.getElementById('editPaymentMethodModal').classList.contains('hidden')) {
         closeEditPaymentMethodModal();
-        }
+    }
         if (!document.getElementById('printModal').classList.contains('hidden')) {
             closePrintModal();
         }

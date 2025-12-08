@@ -739,15 +739,15 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         if (!$salesOrder->hasRelatedPO()) {
             return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
         }
-
+    
         if ($salesOrder->approved_by === null) {
             return back()->withErrors(['status' => 'Sales order harus di-approve terlebih dahulu.']);
         }
-
+    
         if ($salesOrder->paid_total <= 0) {
             return back()->withErrors(['payment' => 'Harus ada pembayaran untuk mulai proses.']);
         }
-
+    
         // Validasi pembayaran transfer/split
         if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
             $invalidPayments = $salesOrder->payments()
@@ -765,7 +765,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
             }
         }
-
+    
         try {
             DB::transaction(function () use ($salesOrder) {
                 $this->updateStockOnPayment($salesOrder);
@@ -1410,5 +1410,5 @@ private function calculateRealCashTotalForShift(Shift $shift): float
                 'error' => 'Error loading PO data: ' . $e->getMessage()
             ], 500);
         }
-    }
+}
 }

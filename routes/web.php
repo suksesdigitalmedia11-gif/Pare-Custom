@@ -328,6 +328,8 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
     Route::view('/', 'kepala-toko.dashboard')->name('index');
     Route::get('dashboard', fn() => view('kepala-toko.dashboard'))->name('dashboard');
     Route::get('/products/search', [App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('products.search');
+    Route::get('/customers/search', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'searchCustomers'])->name('customers.search');
+    Route::get('/suppliers/search', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'searchSuppliers'])->name('suppliers.search');
 
     // Contacts (Customer & Supplier)
     Route::get('contacts', [KepalaTokoContactController::class, 'index'])->name('contacts.index');
@@ -385,6 +387,8 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
         Route::get('create', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'store'])->name('store');
         Route::get('{purchase}', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'show'])->name('show');
+        Route::get('{purchase}/edit', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'edit'])->name('edit');
+        Route::put('{purchase}', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'update'])->name('update');
         Route::post('{purchase}/submit', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'submit'])->name('submit');
         Route::post('{purchase}/approve', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'approve'])->name('approve');
         Route::post('{purchase}/update-status', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
@@ -414,6 +418,7 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
     Route::get('/shift/{shift}/print-preview', [App\Http\Controllers\KepalaToko\ShiftController::class, 'printPreview'])->name('shift.print-preview');
     Route::get('/shift/{shift}/print-summary', [App\Http\Controllers\KepalaToko\ShiftController::class, 'printSummary'])->name('shift.print-summary');
     Route::post('shift/income', [ShiftController::class, 'income'])->name('shift.income');
+    Route::post('shift/cash-transfer', [App\Http\Controllers\KepalaToko\ShiftController::class, 'cashTransfer'])->name('shift.cashTransfer');
 
     // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Kepala Toko (move-to-request-kain)
     Route::middleware(['auth', 'kepala_toko'])->group(function () {
@@ -435,6 +440,9 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
+        Route::post('sales/{salesOrder}/link-to-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'linkToPurchaseOrder'])->name('sales.link-to-po');
+        Route::post('sales/{salesOrder}/unlink-from-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'unlinkFromPurchaseOrder'])->name('sales.unlink-from-po');
+        Route::get('sales/{salesOrder}/related-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
         // Tambahkan ini di DALAM group owner (sekitar line yang ada route sales)
         Route::get('/sales/payment-proof/{payment}', function (\App\Models\Payment $payment) {
             // Cek apakah user punya akses

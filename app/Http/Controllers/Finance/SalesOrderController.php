@@ -883,5 +883,5 @@ public function search(Request $request)
                 'error' => 'Error loading PO data: ' . $e->getMessage()
             ], 500);
         }
-    }
+}
 }

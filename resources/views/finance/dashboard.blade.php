@@ -175,19 +175,19 @@
                 <!-- CASH TRANSFER -->
                 <div class="bg-white p-4 rounded-xl shadow border-l-4 border-purple-500">
                     <div class="flex items-center justify-between mb-2">
-                        <div>
+            <div>
                             <p class="text-xs text-gray-500 font-medium">TRANSFER TUNAI</p>
                             <p class="text-xl font-bold text-purple-600">
-                                @php
-                                    $totalCashTransfer = \App\Models\CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
-                                @endphp
-                                Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
-                            </p>
-                        </div>
+                    @php
+                        $totalCashTransfer = \App\Models\CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+                    @endphp
+                    Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
+                </p>
+            </div>
                         <i class="bi bi-arrow-left-right text-purple-500 text-lg"></i>
-                    </div>
+            </div>
                     <p class="text-xs text-gray-500">Setor/Tukar Tunai</p>
-                </div>
+    </div>
 
                 <!-- PROFIT -->
                 <div class="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500">
@@ -356,9 +356,9 @@
     @else
     <div class="flex-1 flex items-center justify-center text-gray-500 text-xs">
         <div class="text-center">
-            <i class="bi bi-receipt text-3xl text-gray-400 mb-2"></i>
-            <p>Tidak ada transaksi</p>
-            <p class="text-sm">(Exclude draft orders)</p>
+        <i class="bi bi-receipt text-3xl text-gray-400 mb-2"></i>
+        <p>Tidak ada transaksi</p>
+        <p class="text-sm">(Exclude draft orders)</p>
         </div>
     </div>
     @endif
@@ -387,7 +387,7 @@
         <div class="flex-1 flex items-center justify-center text-gray-500 text-xs">
             <div class="text-center">
                 <i class="bi bi-box text-2xl text-gray-400 mb-1"></i>
-                <p>Belum ada penjualan produk</p>
+            <p>Belum ada penjualan produk</p>
             </div>
         </div>
         @endif

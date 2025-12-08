@@ -52,10 +52,6 @@
 </head>
 <body class="bg-gray-100">
     <div class="flex">
-        <!-- Toggle Button for Sidebar -->
-        <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-gray-700 lg:hidden focus:outline-none z-50" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
-        </button>
 
         <!-- Sidebar -->
         <x-navbar-owner></x-navbar-owner>
@@ -252,10 +248,17 @@
 
     <!-- Scripts -->
     <script>
-        function toggleSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            sidebar.classList.toggle('hidden');
-        }
+      function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('-translate-x-full');
+      }
+      function toggleDropdown(button) {
+        const dropdownMenu = button.nextElementSibling;
+        const chevronIcon = button.querySelector('.bi-chevron-down');
+        dropdownMenu.classList.toggle('max-h-0');
+        dropdownMenu.classList.toggle('max-h-40');
+        chevronIcon.classList.toggle('rotate-180');
+      }
 
         function toggleDeleteModal() {
             const modal = document.getElementById('deleteModal');
@@ -303,18 +306,6 @@
                 toggleDeleteModal();
             }
         });
-    </script>
-    <script>
-        function toggleDropdown(button) {
-            const dropdownMenus = document.querySelectorAll(".dropdown-menu");
-            const dropdownArrows = document.querySelectorAll("i.bi-chevron-down");
-
-            dropdownMenus.forEach((menu) => {
-                if (menu !== button.nextElementSibling) {
-                    menu.classList.add("max-h-0");
-                    menu.classList.remove("max-h-40");
-                }
-            });
 
             dropdownArrows.forEach((arrow) => {
                 if (arrow !== button.querySelector("i.bi-chevron-down")) {
@@ -334,7 +325,7 @@
                 dropdownMenu.classList.remove("max-h-40");
                 dropdownArrow.classList.remove("rotate-180");
             }
-        }
+        
     </script>
 </body>
 </html>

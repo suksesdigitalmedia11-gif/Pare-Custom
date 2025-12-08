@@ -40,62 +40,62 @@
                 <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
                     <!-- Filter Tabs -->
                     <div class="mb-4">
-                        <div class="flex flex-wrap gap-2">
-                            <a href="{{ route('owner.purchases.index', ['group' => 'todo']) }}" 
+                            <div class="flex flex-wrap gap-2">
+                                <a href="{{ route('owner.purchases.index', ['group' => 'todo']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='todo' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Butuh Diproses
-                            </a>
-                            <a href="{{ route('owner.purchases.index', ['group' => 'request_kain']) }}" 
+                                    Butuh Diproses
+                                </a>
+                                <a href="{{ route('owner.purchases.index', ['group' => 'request_kain']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='request_kain' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Request Kain
-                            </a>
-                            <a href="{{ route('owner.purchases.index', ['group' => 'in_progress']) }}" 
+                                    Request Kain
+                                </a>
+                                <a href="{{ route('owner.purchases.index', ['group' => 'in_progress']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='in_progress' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Dalam Proses
-                            </a>
-                            <a href="{{ route('owner.purchases.index', ['group' => 'completed']) }}" 
+                                    Dalam Proses
+                                </a>
+                                <a href="{{ route('owner.purchases.index', ['group' => 'completed']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='completed' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Selesai
-                            </a>
-                            <a href="{{ route('owner.purchases.index', ['group' => 'cancelled']) }}" 
+                                    Selesai
+                                </a>
+                                <a href="{{ route('owner.purchases.index', ['group' => 'cancelled']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='cancelled' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Dibatalkan
-                            </a>
+                                    Dibatalkan
+                                </a>
+                            </div>
                         </div>
-                    </div>
 
                     <!-- Search and Filter -->
                     <form method="GET" class="mb-6">
-                        <input type="hidden" name="group" value="{{ $group }}" />
+                                <input type="hidden" name="group" value="{{ $group }}" />
                         <div class="flex flex-col lg:flex-row gap-3">
-                            <div class="flex-1 lg:max-w-xs">
-                                <input type="text" 
-                                       name="q" 
-                                       value="{{ $q }}" 
-                                       placeholder="Cari No/Supplier" 
+                                <div class="flex-1 lg:max-w-xs">
+                                    <input type="text" 
+                                           name="q" 
+                                           value="{{ $q }}" 
+                                           placeholder="Cari No/Supplier" 
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent" />
-                            </div>
-                            <div class="flex flex-col sm:flex-row gap-3">
-                                <select name="type" 
+                                </div>
+                                <div class="flex flex-col sm:flex-row gap-3">
+                                    <select name="type" 
                                         class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                    <option value="">Semua Tipe</option>
-                                    <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
-                                    <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
-                                </select>
-                                <select name="status" 
+                                        <option value="">Semua Tipe</option>
+                                        <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
+                                        <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
+                                    </select>
+                                    <select name="status" 
                                         class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                    <option value="">Semua Status</option>
-                                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
-                                    <option value="{{ $st }}" @selected($status==$st)>
-                                        {{ ucfirst(str_replace('_', ' ', $st)) }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                                <button type="submit" 
+                                        <option value="">Semua Status</option>
+                                        @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
+                                        <option value="{{ $st }}" @selected($status==$st)>
+                                            {{ ucfirst(str_replace('_', ' ', $st)) }}
+                                        </option>
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" 
                                         class="bg-[#005281] hover:bg-[#004070] text-white px-4 lg:px-6 py-2 rounded-lg text-sm font-medium transition-colors">
-                                    Filter
-                                </button>
-                            </div>
+                                        Filter
+                                    </button>
+                                </div>
                         </div>
                     </form>
 
@@ -155,7 +155,7 @@
                                             @endphp
                                             <div class="flex items-center gap-2">
                                                 <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
                                                 </div>
                                                 <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
@@ -167,7 +167,7 @@
                                             @endphp
                                             <div class="flex items-center gap-2">
                                                 <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                                                    <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
                                                 </div>
                                                 <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
@@ -182,109 +182,109 @@
                                             </a>
 
                                             <!-- Draft: Submit -->
-                                            @if($p->status === 'draft')
-                                                <form method="POST" action="{{ route('owner.purchases.submit', $p) }}" class="inline">
-                                                    @csrf
+        @if($p->status === 'draft')
+            <form method="POST" action="{{ route('owner.purchases.submit', $p) }}" class="inline">
+                @csrf
                                                     <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors" title="Ajukan">
                                                         <i class="bi bi-send"></i>
                                                     </button>
-                                                </form>
-                                            @endif
+            </form>
+        @endif
 
                                             <!-- Approve -->
-                                            @if($p->status === 'pending')
-                                                <form method="POST" action="{{ route('owner.purchases.approve', $p) }}" class="inline">
-                                                    @csrf
+        @if($p->status === 'pending')
+            <form method="POST" action="{{ route('owner.purchases.approve', $p) }}" class="inline">
+                @csrf
                                                     <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Approve">
                                                         <i class="bi bi-check-circle"></i>
                                                     </button>
-                                                </form>
-                                            @endif
+            </form>
+        @endif
 
                                             <!-- Payment -->
-                                            @if($p->status === 'request_kain')
+        @if($p->status === 'request_kain')
                                                 <button onclick="openModal('payment-modal-{{ $p->id }}')" 
                                                         class="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors" title="Payment">
                                                     <i class="bi bi-cash"></i>
                                                 </button>
-                                            @endif
+        @endif
 
                                             <!-- Workflow Status -->
-                                            @if($p->status === 'payment')
-                                                @if($p->purchase_type === 'kain')
-                                                    <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                                                        @csrf
-                                                        <input type="hidden" name="new_status" value="proses_jahit">
+        @if($p->status === 'payment')
+            @if($p->purchase_type === 'kain')
+                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                    @csrf
+                    <input type="hidden" name="new_status" value="proses_jahit">
                                                         <button class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors" title="Kain Diterima">
                                                             <i class="bi bi-box-arrow-in-down"></i>
                                                         </button>
-                                                    </form>
-                                                @else
-                                                    <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                                                        @csrf
-                                                        <input type="hidden" name="new_status" value="selesai">
+                </form>
+            @else
+                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                    @csrf
+                    <input type="hidden" name="new_status" value="selesai">
                                                         <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Selesai">
                                                             <i class="bi bi-check2-all"></i>
                                                         </button>
-                                                    </form>
-                                                @endif
-                                            @endif
+                </form>
+            @endif
+        @endif
 
-                                            @if($p->status === 'proses_jahit')
-                                                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                                                    @csrf
-                                                    <input type="hidden" name="new_status" value="printing">
+        @if($p->status === 'proses_jahit')
+            <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                @csrf
+                <input type="hidden" name="new_status" value="printing">
                                                     <button class="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors" title="Printing">
                                                         <i class="bi bi-printer"></i>
                                                     </button>
-                                                </form>
-                                            @endif
+            </form>
+        @endif
 
-                                            @if($p->status === 'printing')
-                                                <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
-                                                    @csrf
-                                                    <input type="hidden" name="new_status" value="selesai">
+        @if($p->status === 'printing')
+            <form method="POST" action="{{ route('owner.purchases.update-status', $p) }}" class="inline">
+                @csrf
+                <input type="hidden" name="new_status" value="selesai">
                                                     <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title="Selesai">
                                                         <i class="bi bi-check2-all"></i>
                                                     </button>
-                                                </form>
-                                            @endif
+            </form>
+        @endif
 
                                             <!-- Cancel -->
-                                            @if(in_array($p->status, ['draft', 'pending', 'request_kain']))
-                                                <form method="POST" action="{{ route('owner.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
-                                                    @csrf @method('PATCH')
+        @if(in_array($p->status, ['draft', 'pending', 'request_kain']))
+            <form method="POST" action="{{ route('owner.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
+                @csrf @method('PATCH')
                                                     <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors" title="Batalkan">
                                                         <i class="bi bi-x-circle"></i>
                                                     </button>
-                                                </form>
-                                            @endif
-                                        </div>
+            </form>
+        @endif
+    </div>
 
-                                        <!-- Modal Payment -->
-                                        @if($p->status === 'request_kain')
-                                        <div id="payment-modal-{{ $p->id }}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <!-- Modal Payment -->
+    @if($p->status === 'request_kain')
+    <div id="payment-modal-{{ $p->id }}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
                                             <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-                                                <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $p->po_number }}</h3>
-                                                <form action="{{ route('owner.purchases.payment', $p->id) }}" method="POST" enctype="multipart/form-data">
-                                                    @csrf
-                                                    <div class="mb-4">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $p->po_number }}</h3>
+            <form action="{{ route('owner.purchases.payment', $p->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="mb-4">
                                                         <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
                                                         <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                                                    </div>
-                                                    <div class="mb-4">
+                </div>
+                <div class="mb-4">
                                                         <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
                                                         <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                                                    </div>
-                                                    <div class="flex justify-end space-x-2">
-                                                        <button type="button" onclick="closeModal('payment-modal-{{ $p->id }}')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                                                        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                        @endif
-                                    </td>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('payment-modal-{{ $p->id }}')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+</td>
                                 </tr>
                                 @endforeach
                             </tbody>

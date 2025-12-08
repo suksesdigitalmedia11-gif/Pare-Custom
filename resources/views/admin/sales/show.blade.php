@@ -131,42 +131,42 @@
     <!-- payment → proses_jahit (untuk jahit_sendiri) - Admin, Finance, Kepala Toko -->
     @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $activeShift && $canPaymentToProsesJahit)
         <form action="{{ route('admin.sales.process-jahit', $salesOrder) }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-scissors"></i> Proses Jahit
-            </button>
-        </form>
-    @endif
+                                @csrf
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                                    <i class="bi bi-scissors"></i> Proses Jahit
+                                </button>
+                            </form>
+                        @endif
 
     <!-- proses_jahit → printing - Admin, Finance, Kepala Toko -->
     @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $activeShift && $canProsesJahitToPrinting)
         <form action="{{ route('admin.sales.mark-as-jadi', $salesOrder) }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-check-circle"></i> Tandai Printing
-            </button>
-        </form>
-    @endif
+                                @csrf
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                                    <i class="bi bi-check-circle"></i> Tandai Printing
+                                </button>
+                            </form>
+                        @endif
 
     <!-- printing → diterima_toko (jahit_sendiri) atau payment → diterima_toko (beli_jadi) - Admin, Finance, Kepala Toko -->
     @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $hasPO && $activeShift && $canPrintingToDiterimaToko)
         <form action="{{ route('admin.sales.mark-as-diterima-toko', $salesOrder) }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-shop"></i> Diterima Toko
-            </button>
-        </form>
-    @endif
+                                @csrf
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                                    <i class="bi bi-shop"></i> Diterima Toko
+                                </button>
+                            </form>
+                        @endif
 
     <!-- diterima_toko → selesai - Admin, Finance, Kepala Toko -->
     @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $activeShift && $canDiterimaTokoToSelesai)
-        <form action="{{ route('admin.sales.complete', $salesOrder) }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-check2-all"></i> Selesaikan
-            </button>
-        </form>
-    @endif
+                            <form action="{{ route('admin.sales.complete', $salesOrder) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+                                    <i class="bi bi-check2-all"></i> Selesaikan
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>

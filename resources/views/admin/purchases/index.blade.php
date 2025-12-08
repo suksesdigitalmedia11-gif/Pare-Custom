@@ -50,64 +50,64 @@
                 <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
                     <!-- Filter Tabs -->
                     <div class="mb-4">
-                        <div class="flex flex-wrap gap-2">
-                            <a href="{{ route('admin.purchases.index', ['group' => 'todo']) }}" 
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('admin.purchases.index', ['group' => 'todo']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='todo' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Butuh Diproses
-                            </a>
-                            <a href="{{ route('admin.purchases.index', ['group' => 'request_kain']) }}" 
+                Butuh Diproses
+            </a>
+            <a href="{{ route('admin.purchases.index', ['group' => 'request_kain']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='request_kain' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Request Kain
-                            </a>
-                            <a href="{{ route('admin.purchases.index', ['group' => 'in_progress']) }}" 
+                Request Kain
+            </a>
+            <a href="{{ route('admin.purchases.index', ['group' => 'in_progress']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='in_progress' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Dalam Proses
-                            </a>
-                            <a href="{{ route('admin.purchases.index', ['group' => 'completed']) }}" 
+                Dalam Proses
+            </a>
+            <a href="{{ route('admin.purchases.index', ['group' => 'completed']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='completed' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Selesai
-                            </a>
-                            <a href="{{ route('admin.purchases.index', ['group' => 'cancelled']) }}" 
+                Selesai
+            </a>
+            <a href="{{ route('admin.purchases.index', ['group' => 'cancelled']) }}" 
                                class="px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors whitespace-nowrap {{ ($group ?? '')==='cancelled' ? 'bg-[#005281] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                Dibatalkan
-                            </a>
-                        </div>
-                    </div>
+                Dibatalkan
+            </a>
+        </div>
+    </div>
 
                     <!-- Search and Filter -->
                     <form method="GET" class="mb-6">
-                        <input type="hidden" name="group" value="{{ $group }}" />
+            <input type="hidden" name="group" value="{{ $group }}" />
                         <div class="flex flex-col lg:flex-row gap-3">
-                            <div class="flex-1 lg:max-w-xs">
-                                <input type="text" 
-                                       name="q" 
-                                       value="{{ $q }}" 
-                                       placeholder="Cari No/Supplier" 
+            <div class="flex-1 lg:max-w-xs">
+                <input type="text" 
+                       name="q" 
+                       value="{{ $q }}" 
+                       placeholder="Cari No/Supplier" 
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent" />
-                            </div>
-                            <div class="flex flex-col sm:flex-row gap-3">
-                                <select name="type" 
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <select name="type" 
                                         class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                    <option value="">Semua Tipe</option>
-                                    <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
-                                    <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
-                                </select>
-                                <select name="status" 
+                    <option value="">Semua Tipe</option>
+                    <option value="kain" @selected(($type ?? '') === 'kain')>Pembelian Kain</option>
+                    <option value="produk_jadi" @selected(($type ?? '') === 'produk_jadi')>Pembelian Produk Jadi</option>
+                </select>
+                <select name="status" 
                                         class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
-                                    <option value="">Semua Status</option>
-                                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
-                                    <option value="{{ $st }}" @selected($status==$st)>
-                                        {{ ucfirst(str_replace('_', ' ', $st)) }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                                <button type="submit" 
+                    <option value="">Semua Status</option>
+                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
+                    <option value="{{ $st }}" @selected($status==$st)>
+                        {{ ucfirst(str_replace('_', ' ', $st)) }}
+                    </option>
+                    @endforeach
+                </select>
+                <button type="submit" 
                                         class="bg-[#005281] hover:bg-[#004070] text-white px-4 lg:px-6 py-2 rounded-lg text-sm font-medium transition-colors">
-                                    Filter
-                                </button>
+                    Filter
+                </button>
                             </div>
-                        </div>
-                    </form>
+            </div>
+        </form>
 
                     <!-- Table -->
                     <div class="overflow-x-auto">
@@ -165,7 +165,7 @@
                                             @endphp
                                             <div class="flex items-center gap-2">
                                                 <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
                                                 </div>
                                                 <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
@@ -177,7 +177,7 @@
                                             @endphp
                                             <div class="flex items-center gap-2">
                                                 <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                                                    <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
+                                                <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
                                                 </div>
                                                 <span class="text-xs text-gray-600 font-medium">{{ round($progress) }}%</span>
                                             </div>
@@ -185,11 +185,11 @@
                                     </td>
                                     <td class="px-3 lg:px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
-                                            @php
-                                                $availableStatuses = $p->getNextAvailableStatuses();
+        @php
+            $availableStatuses = $p->getNextAvailableStatuses();
                                                 $hasActions = false;
-                                            @endphp
-                                            
+        @endphp
+        
                                             <!-- Detail Button -->
                                             <a href="{{ route('admin.purchases.show', $p) }}" 
                                                class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors inline-flex items-center">
@@ -197,46 +197,46 @@
                                             </a>
                                             
                                             <!-- Draft: Submit -->
-                                            @if($p->status === 'draft')
-                                                <form method="POST" action="{{ route('admin.purchases.submit', $p) }}" class="inline">
-                                                    @csrf
+        @if($p->status === 'draft')
+            <form method="POST" action="{{ route('admin.purchases.submit', $p) }}" class="inline">
+                @csrf
                                                     <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors" title="Ajukan">
                                                         <i class="bi bi-send"></i>
                                                     </button>
-                                                </form>
+            </form>
                                                 @php $hasActions = true; @endphp
-                                            @endif
+        @endif
 
-                                            <!-- Workflow Status: Printing, Jahit, Selesai untuk Admin -->
-                                            @if(count($availableStatuses) > 0 && !in_array($p->status, ['draft', 'pending', 'request_kain']))
-                                                @foreach($availableStatuses as $nextStatus)
-                                                    @if(in_array($nextStatus, ['proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->usertype, ['admin', 'owner']))
-                                                        <form method="POST" action="{{ route('admin.purchases.update-status', $p) }}" class="inline">
-                                                            @csrf
-                                                            <input type="hidden" name="new_status" value="{{ $nextStatus }}">
+        <!-- Workflow Status: Printing, Jahit, Selesai untuk Admin -->
+        @if(count($availableStatuses) > 0 && !in_array($p->status, ['draft', 'pending', 'request_kain']))
+            @foreach($availableStatuses as $nextStatus)
+                @if(in_array($nextStatus, ['proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->usertype, ['admin', 'owner']))
+                    <form method="POST" action="{{ route('admin.purchases.update-status', $p) }}" class="inline">
+                        @csrf
+                        <input type="hidden" name="new_status" value="{{ $nextStatus }}">
                                                             <button class="px-2 py-1 text-xs bg-[#005281] text-white rounded hover:opacity-90 transition-colors" 
                                                                     onclick="return confirm('Update status ke {{ ucfirst(str_replace('_', ' ', $nextStatus)) }}?')"
                                                                     title="{{ ucfirst(str_replace('_', ' ', $nextStatus)) }}">
                                                                 <i class="bi bi-arrow-right-circle"></i>
-                                                            </button>
-                                                        </form>
+                        </button>
+                    </form>
                                                         @php $hasActions = true; @endphp
-                                                    @endif
-                                                @endforeach
-                                            @endif
+                @endif
+            @endforeach
+        @endif
 
-                                            <!-- Cancel -->
-                                            @if(!in_array($p->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
-                                                <form method="POST" action="{{ route('admin.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
-                                                    @csrf @method('PATCH')
+        <!-- Cancel -->
+        @if(!in_array($p->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
+            <form method="POST" action="{{ route('admin.purchases.cancel', $p) }}" class="inline" onsubmit="return confirm('Batalkan pembelian ini?')">
+                @csrf @method('PATCH')
                                                     <button class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors" title="Batalkan">
                                                         <i class="bi bi-x-circle"></i>
                                                     </button>
-                                                </form>
+            </form>
                                                 @php $hasActions = true; @endphp
-                                            @endif
-                                        </div>
-                                    </td>
+        @endif
+    </div>
+</td>
                                 </tr>
                                 @endforeach
                             </tbody>

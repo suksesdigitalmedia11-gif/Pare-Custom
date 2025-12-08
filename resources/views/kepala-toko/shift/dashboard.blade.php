@@ -200,30 +200,40 @@
                         </table>
                     </div>
 
-                    <!-- Kolom Kanan - Kas Keluar & Summary -->
-                    <div class="bg-red-50 p-4 rounded-lg">
-                        <h2 class="text-lg font-semibold mb-4 text-red-800">💸 Kas Keluar & Summary</h2>
-                        <table class="w-full table-auto text-sm">
-                            <tbody>
-                                <tr class="border-b">
-                                    <td class="px-3 py-2 font-medium">Pengeluaran</td>
-                                    <td class="px-3 py-2 text-right">Rp {{ number_format($pengeluaran, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr class="border-b">
-                                    <td class="px-3 py-2 font-medium">Awal Laci</td>
-                                    <td class="px-3 py-2 text-right">Rp {{ number_format($awalLaci, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr class="border-b bg-blue-50">
-                                    <td class="px-3 py-2 font-semibold">Tunai di Laci</td>
-                                    <td class="px-3 py-2 text-right font-semibold">Rp {{ number_format($tunaiDiLaci, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr class="bg-blue-100 font-semibold">
-                                    <td class="px-3 py-2">Total Diharapkan</td>
-                                    <td class="px-3 py-2 text-right">Rp {{ number_format($totalDiharapkan, 0, ',', '.') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+<!-- Kolom Kanan - Kas Keluar & Summary -->
+<div class="bg-red-50 p-4 rounded-lg">
+    <h2 class="text-lg font-semibold mb-4 text-red-800">💸 Kas Keluar & Summary</h2>
+    <table class="w-full table-auto text-sm">
+        <tbody>
+            <tr class="border-b">
+                <td class="px-3 py-2 font-medium">Pengeluaran</td>
+                <td class="px-3 py-2 text-right">Rp {{ number_format($pengeluaran, 0, ',', '.') }}</td>
+            </tr>
+            <tr class="border-b">
+                <td class="px-3 py-2 font-medium">Setor/Tukar Tunai</td>
+                <td class="px-3 py-2 text-right text-purple-600">
+                    @php
+                        $totalCashTransfer = $shift->cashTransfers->sum('amount') ?? 0;
+                    @endphp
+                    Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
+                </td>
+            </tr>
+            <tr class="border-b">
+                <td class="px-3 py-2 font-medium">Awal Laci</td>
+                <td class="px-3 py-2 text-right">Rp {{ number_format($awalLaci, 0, ',', '.') }}</td>
+            </tr>
+            <tr class="border-b bg-blue-50">
+                <td class="px-3 py-2 font-semibold">Tunai di Laci</td>
+                <td class="px-3 py-2 text-right font-semibold">
+                    @php
+                        $tunaiDiLaci = $shift->initial_cash + ($cashLunas + $cashDp + $cashPelunasan) + $pemasukanManual - $pengeluaran - $totalCashTransfer;
+                    @endphp
+                    Rp {{ number_format($tunaiDiLaci, 0, ',', '.') }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
                 </div>
 
                 <!-- Debug Section (untuk memeriksa data pembayaran) -->
@@ -313,6 +323,53 @@
                 </div>
                 @endif
 
+                <!-- Form Setor/Tukar Tunai -->
+@if($shift)
+<div class="mt-4 bg-purple-50 p-4 rounded-lg">
+    <h2 class="text-lg font-semibold mb-3 text-purple-800">💸 Setor/Tukar Tunai</h2>
+    <form action="{{ route('kepala-toko.shift.cashTransfer') }}" method="POST">
+        @csrf
+        <div class="grid md:grid-cols-4 gap-4 mb-3">
+            <div>
+                <label for="transfer_amount" class="block font-medium mb-1">Jumlah *</label>
+                <input type="number" name="transfer_amount" id="transfer_amount" min="1" step="0.01" required 
+       class="border rounded px-3 py-2 w-full focus:ring focus:ring-purple-300"
+       placeholder="Contoh: 500, 1000, 2500">
+            </div>
+            <div>
+                <label for="transfer_description" class="block font-medium mb-1">Keterangan *</label>
+                <input type="text" name="transfer_description" id="transfer_description" required 
+                       class="border rounded px-3 py-2 w-full focus:ring focus:ring-purple-300" 
+                       placeholder="Contoh: Setor ke bank, Tukar uang, dll">
+            </div>
+            <div>
+                <label for="transfer_type" class="block font-medium mb-1">Jenis *</label>
+                <select name="transfer_type" id="transfer_type" required 
+                        class="border rounded px-3 py-2 w-full focus:ring focus:ring-purple-300">
+                    <option value="setor">Setor Bank</option>
+                    <option value="tukar">Tukar Uang</option>
+                    <option value="other">Lainnya</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded shadow w-full">
+                    <i class="bi bi-arrow-left-right"></i> Catat Transfer
+                </button>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="transfer_notes" class="block font-medium mb-1">Catatan (Opsional)</label>
+            <textarea name="transfer_notes" id="transfer_notes" rows="2"
+                      class="border rounded px-3 py-2 w-full focus:ring focus:ring-purple-300"
+                      placeholder="Catatan tambahan..."></textarea>
+        </div>
+        <p class="text-xs text-purple-600">
+            ⚡ <strong>Fitur Baru:</strong> Transfer tunai tidak mempengaruhi laporan profit/operasional
+        </p>
+    </form>
+</div>
+@endif
+
 <!-- Form Tutup/Mulai Shift -->
 <div class="mt-6">
 <!-- Form Tutup Shift -->
@@ -332,7 +389,10 @@
                 </div>
                 <div class="bg-white p-3 rounded border">
                     <p class="font-semibold text-green-600">
-                        <strong>Kas Akhir:</strong> Rp {{ number_format($totalDiharapkan, 0, ',', '.') }}
+                        @php
+                            $totalCashTransfer = $shift->cashTransfers->sum('amount') ?? 0;
+                        @endphp
+                        <strong>Kas Akhir:</strong> Rp {{ number_format($totalDiharapkan - $totalCashTransfer , 0, ',', '.') }}
                     </p>
                     <p class="text-xs text-gray-600 mt-1">
                         Sistem otomatis menghitung berdasarkan transaksi

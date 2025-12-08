@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Buat Pembelian - Custom Pare</title>
+    <title>Edit Purchase Order - Custom Pare</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" />
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet">
@@ -11,50 +11,43 @@
 </head>
 <body class="bg-gray-100" x-data="purchaseForm()">
     <div class="flex">
-        <!-- Toggle Button for Sidebar -->
-        <button class="fixed text-white text-3xl top-5 left-4 p-2 rounded-md bg-gray-700 lg:hidden focus:outline-none z-50" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
-        </button>
+        <x-navbar-kepala-toko></x-navbar-kepala-toko>
 
-        <!-- Sidebar -->
-        <x-navbar-finance></x-navbar-finance>
-
-        <!-- Main Content -->
         <div class="flex-1 lg:w-5/6">
-            <!-- Top Navbar -->
-            <x-navbar-top-finance></x-navbar-top-finance>
+            <x-navbar-top-kepala-toko></x-navbar-top-kepala-toko>
 
-            <!-- Content Wrapper -->
             <div class="p-4 lg:p-8">
                 <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-semibold text-gray-700">Buat Pembelian</h2>
-                        <a href="{{ route('finance.purchases.index') }}" class="px-4 py-2 border rounded">Kembali</a>
+                        <h2 class="text-xl font-semibold text-gray-700">Edit Purchase Order - {{ $purchase->po_number }}</h2>
+                        <a href="{{ route('kepala-toko.purchases.show', $purchase) }}" class="px-4 py-2 border rounded">Kembali</a>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <form method="POST" action="{{ route('finance.purchases.store') }}">
+                    <form method="POST" action="{{ route('kepala-toko.purchases.update', $purchase) }}">
                         @csrf
+                        @method('PUT')
 
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                             <div>
                                 <label class="block mb-1 text-sm text-gray-600">Tanggal</label>
-                                <input type="date" name="order_date" class="border rounded p-2 w-full text-gray-900" value="{{ date('Y-m-d') }}" />
+                                <input type="date" name="order_date" class="border rounded p-2 w-full text-gray-900" 
+                                       value="{{ old('order_date', \Carbon\Carbon::parse($purchase->order_date)->format('Y-m-d')) }}" />
                             </div>
                             
                             <div>
                                 <label class="block mb-1 text-sm text-gray-600">Deadline/Target Selesai (Opsional)</label>
-                                <input type="date" name="deadline" class="border rounded p-2 w-full text-gray-900" value="{{ old('deadline') }}" />
+                                <input type="date" name="deadline" class="border rounded p-2 w-full text-gray-900" 
+                                       value="{{ old('deadline', $purchase->deadline ? \Carbon\Carbon::parse($purchase->deadline)->format('Y-m-d') : '') }}" />
                             </div>
                             
-                            <!-- Field baru untuk tipe pembelian -->
                             <div>
                                 <label class="block mb-1 text-sm text-gray-600">Tipe Pembelian <span class="text-red-500">*</span></label>
                                 <select name="purchase_type" x-model="purchaseType" class="border rounded p-2 w-full text-gray-900" required>
                                     <option value="">- Pilih Tipe -</option>
-                                    <option value="kain">Pembelian Kain</option>
-                                    <option value="produk_jadi">Pembelian Produk Jadi</option>
+                                    <option value="kain" {{ $purchase->purchase_type == 'kain' ? 'selected' : '' }}>Pembelian Kain</option>
+                                    <option value="produk_jadi" {{ $purchase->purchase_type == 'produk_jadi' ? 'selected' : '' }}>Pembelian Produk Jadi</option>
                                 </select>
                             </div>
                             
@@ -63,13 +56,9 @@
                                 <select name="supplier_id" class="border rounded p-2 w-full text-gray-900">
                                     <option value="">- Pilih -</option>
                                     @foreach($suppliers as $s)
-                                    <option value="{{ $s->id }}">{{ $s->name }}</option>
+                                    <option value="{{ $s->id }}" {{ $purchase->supplier_id == $s->id ? 'selected' : '' }}>{{ $s->name }}</option>
                                     @endforeach
                                 </select>
-                            </div>
-                            <div>
-                                <label class="block mb-1 text-sm text-gray-600">Atau Nama Supplier Baru</label>
-                                <input name="supplier_name" placeholder="Supplier Baru" class="border rounded p-2 w-full text-gray-900" />
                             </div>
                         </div>
 
@@ -113,7 +102,12 @@
                                             <tr class="border-b">
                                                 <td class="px-2 py-2">
                                                     <div class="space-y-1">
-                                                        <input class="border rounded p-2 text-gray-900 w-64" :name="`items[${idx}][product_name]`" x-model="it.product_name" placeholder="Ketik nama/SKU..." @input.debounce.300ms="search(idx, it.product_name)" required />
+                                                        <input class="border rounded p-2 text-gray-900 w-64" 
+                                                               :name="`items[${idx}][product_name]`" 
+                                                               x-model="it.product_name" 
+                                                               placeholder="Ketik nama/SKU..." 
+                                                               @input.debounce.300ms="search(idx, it.product_name)" 
+                                                               required />
                                                         <input type="hidden" :name="`items[${idx}][product_id]`" :value="it.product_id">
                                                         <div class="bg-white border rounded shadow max-h-40 overflow-auto" x-show="it.suggestions && it.suggestions.length">
                                                             <template x-for="p in it.suggestions">
@@ -126,16 +120,24 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-2 py-2">
-                                                    <input class="border rounded p-2 text-gray-900" :name="`items[${idx}][sku]`" x-model="it.sku" />
+                                                    <input class="border rounded p-2 text-gray-900" 
+                                                           :name="`items[${idx}][sku]`" 
+                                                           x-model="it.sku" />
                                                 </td>
                                                 <td class="px-2 py-2">
-                                                    <input type="number" step="0.01" class="border rounded p-2 text-gray-900 w-28" :name="`items[${idx}][cost_price]`" x-model="it.cost_price" required />
+                                                    <input type="number" step="0.01" class="border rounded p-2 text-gray-900 w-28" 
+                                                           :name="`items[${idx}][cost_price]`" 
+                                                           x-model="it.cost_price" required />
                                                 </td>
                                                 <td class="px-2 py-2">
-                                                    <input type="number" class="border rounded p-2 text-gray-900 w-20" :name="`items[${idx}][qty]`" x-model="it.qty" required />
+                                                    <input type="number" class="border rounded p-2 text-gray-900 w-20" 
+                                                           :name="`items[${idx}][qty]`" 
+                                                           x-model="it.qty" required />
                                                 </td>
                                                 <td class="px-2 py-2">
-                                                    <input type="number" step="0.01" class="border rounded p-2 text-gray-900 w-28" :name="`items[${idx}][discount]`" x-model="it.discount" />
+                                                    <input type="number" step="0.01" class="border rounded p-2 text-gray-900 w-28" 
+                                                           :name="`items[${idx}][discount]`" 
+                                                           x-model="it.discount" />
                                                 </td>
                                                 <td class="px-2 py-2">
                                                     <button type="button" @click="removeItem(idx)" class="px-2 py-1 bg-red-600 text-white rounded text-xs">Hapus</button>
@@ -148,8 +150,8 @@
                         </div>
 
                         <div class="pt-4 flex justify-end gap-2">
-                            <button class="bg-[#005281] text-white px-4 py-2 rounded">Simpan (Draft)</button>
-                            <a href="{{ route('finance.purchases.index') }}" class="px-4 py-2 rounded border">Batal</a>
+                            <button class="bg-[#005281] text-white px-4 py-2 rounded">Update Purchase Order</button>
+                            <a href="{{ route('kepala-toko.purchases.show', $purchase) }}" class="px-4 py-2 rounded border">Batal</a>
                         </div>
                     </form>
                 </div>
@@ -163,14 +165,26 @@
 
         function purchaseForm() {
             return {
-                purchaseType: '',
-                items: [ { product_id: '', product_name: '', sku: '', cost_price: '', qty: 1, discount: 0, suggestions: [] } ],
+                purchaseType: '{{ $purchase->purchase_type }}',
+                items: [
+                    @foreach($purchase->items as $item)
+                    { 
+                        product_id: '{{ $item->product_id }}', 
+                        product_name: '{{ $item->product_name }}', 
+                        sku: '{{ $item->sku }}', 
+                        cost_price: '{{ $item->cost_price }}', 
+                        qty: {{ $item->qty }}, 
+                        discount: {{ $item->discount ?? 0 }}, 
+                        suggestions: [] 
+                    },
+                    @endforeach
+                ],
                 addItem() { this.items.push({ product_id: '', product_name: '', sku: '', cost_price: '', qty: 1, discount: 0, suggestions: [] }); },
                 removeItem(i) { this.items.splice(i, 1); },
                 async search(idx, q) {
                     if (!q || q.length < 2) { this.items[idx].suggestions = []; return; }
                     try {
-                        const resp = await fetch(`/finance/catalog/products/search?q=${encodeURIComponent(q)}`);
+                        const resp = await fetch(`/kepala-toko/catalog/products/search?q=${encodeURIComponent(q)}`);
                         const data = await resp.json();
                         this.items[idx].suggestions = data;
                     } catch (e) { this.items[idx].suggestions = []; }

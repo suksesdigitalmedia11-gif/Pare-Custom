@@ -129,33 +129,33 @@
                     <!-- Target Gross Profit -->
                     <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-blue-500">
                         <div class="flex items-center justify-between mb-3">
-                            <div>
+                        <div>
                                 <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Target Gross Profit</p>
                                 <h2 class="text-2xl font-bold text-gray-900 mt-1">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h2>
-                            </div>
-                            <div class="text-right">
+    </div>
+                        <div class="text-right">
                                 <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
                                 <p class="text-sm font-semibold {{ $statusColor }} mt-1">{{ $statusLabel }}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="space-y-2">
+</div>
+    </div>
+
+                    <div class="space-y-2">
                             <div class="flex justify-between text-xs font-medium text-gray-700">
                                 <span>Progress</span>
-                                <span>{{ number_format($grossProfitProgress, 1) }}%</span>
-                            </div>
+                            <span>{{ number_format($grossProfitProgress, 1) }}%</span>
+            </div>
                             <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                                 <div class="h-2 rounded-full transition-all duration-500 {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}"
-                                     style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
-                            </div>
+                                 style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
+        </div>
                             <div class="flex justify-between text-xs text-gray-600 mt-2">
                                 <span>Realisasi: <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span></span>
-                                @if($grossProfitShortfall > 0)
+                        @if($grossProfitShortfall > 0)
                                     <span class="text-red-600">Kurang: Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }}</span>
-                                @endif
+    @endif
                             </div>
                         </div>
-                    </div>
+</div>
 
                     <!-- Target Invoice -->
                     <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-indigo-500">
@@ -167,8 +167,8 @@
                             <div class="text-right">
                                 <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
                                 <p class="text-sm font-semibold {{ $invoiceStatusColor }} mt-1">{{ $invoiceStatusLabel }}</p>
-                            </div>
-                        </div>
+            </div>
+        </div>
                         
                         <div class="space-y-2">
                             <div class="flex justify-between text-xs font-medium text-gray-700">
@@ -184,11 +184,11 @@
                                 @if($remainingInvoiceTarget > 0)
                                     <span class="text-red-600">Kurang: {{ number_format($remainingInvoiceTarget, 0, ',', '.') }} nota</span>
                                 @endif
-                            </div>
+            </div>
                             <p class="text-xs text-gray-500 mt-1">Bulan lalu: {{ number_format($previousMonthInvoiceCount, 0, ',', '.') }} nota</p>
-                        </div>
-                    </div>
-                </div>
+            </div>
+        </div>
+    </div>
 
                 <!-- Grafik Real-time Chat, Follow Up, dan Closing -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">

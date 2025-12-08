@@ -105,11 +105,11 @@
                                     <div>{{ \Carbon\Carbon::parse($purchase->order_date)->format('d M Y') }}</div>
                                 </div>
                                 @if($purchase->deadline)
-                                <div>
+    <div>
                                     <div class="text-sm text-gray-500">Deadline</div>
                                     <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
-                                </div>
-                                @endif
+    </div>
+    @endif
                                 <div>
                                     <div class="text-sm text-gray-500">Supplier</div>
                                     <div>{{ $purchase->supplier?->name ?? '-' }}</div>

@@ -223,6 +223,136 @@ class PurchaseOrderController extends BaseController
 
         return parent::receive($purchase);
     }
+
+    public function edit(PurchaseOrder $purchase): View
+    {
+        if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
+            abort(403, 'Akses ditolak untuk kepala-toko');
+        }
+
+        $purchase->load(['supplier', 'items']);
+        $suppliers = Supplier::orderBy('name')->get();
+        return view('kepala-toko.purchases.edit', compact('purchase', 'suppliers'));
+    }
+
+    public function update(Request $request, PurchaseOrder $purchase): RedirectResponse
+    {
+        if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
+            abort(403, 'Akses ditolak untuk kepala-toko');
+        }
+
+        $validated = $request->validate([
+            'order_date' => ['required','date'],
+            'deadline' => ['nullable','date'],
+            'supplier_id' => ['nullable','exists:suppliers,id'],
+            'supplier_name' => ['nullable','string','max:255'],
+            'purchase_type' => ['required','in:kain,produk_jadi'],
+            'items' => ['required','array','min:1'],
+            'items.*.product_id' => ['nullable','exists:products,id'],
+            'items.*.product_name' => ['required','string','max:255'],
+            'items.*.sku' => ['nullable','string','max:100'],
+            'items.*.cost_price' => ['required','numeric','min:0'],
+            'items.*.qty' => ['required','integer','min:1'],
+            'items.*.discount' => ['nullable','numeric','min:0'],
+        ]);
+
+        $supplierId = $validated['supplier_id'] ?? null;
+        if (!$supplierId) {
+            if (!empty($validated['supplier_name'])) {
+                $supplier = Supplier::firstOrCreate(
+                    ['name' => $validated['supplier_name']],
+                    ['is_active' => true]
+                );
+                $supplierId = $supplier->id;
+            } else {
+                return back()->withErrors(['supplier_id' => 'Pilih supplier atau isi nama supplier.'])->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($purchase, $validated, $supplierId) {
+            // SIMPAN DATA LAMA SEBELUM UPDATE
+            $oldData = $purchase->getOriginal();
+            $oldItems = $purchase->items->toArray();
+            
+            $subtotal = 0; $discountTotal = 0; $grandTotal = 0;
+            foreach ($validated['items'] as $item) {
+                $line = ((float)$item['cost_price'] * (int)$item['qty']);
+                $disc = (float)($item['discount'] ?? 0);
+                $subtotal += $line;
+                $discountTotal += $disc;
+            }
+            $grandTotal = $subtotal - $discountTotal;
+
+            $purchase->update([
+                'order_date' => $validated['order_date'],
+                'deadline' => $validated['deadline'] ?? null,
+                'supplier_id' => $supplierId,
+                'purchase_type' => $validated['purchase_type'],
+                'subtotal' => $subtotal,
+                'discount_total' => $discountTotal,
+                'grand_total' => $grandTotal,
+            ]);
+
+            // Hapus items lama dan buat yang baru
+            $purchase->items()->delete();
+            foreach ($validated['items'] as $item) {
+                $line = ((float)$item['cost_price'] * (int)$item['qty']) - (float)($item['discount'] ?? 0);
+                PurchaseOrderItem::create([
+                    'purchase_order_id' => $purchase->id,
+                    'product_id' => $item['product_id'] ?? null,
+                    'product_name' => $item['product_name'],
+                    'sku' => $item['sku'] ?? null,
+                    'cost_price' => $item['cost_price'],
+                    'qty' => $item['qty'],
+                    'discount' => $item['discount'] ?? 0,
+                    'line_total' => $line,
+                ]);
+            }
+
+            // Log perubahan
+            $changes = [];
+            $oldDate = Carbon::parse($oldData['order_date'])->format('Y-m-d');
+            $newDate = Carbon::parse($validated['order_date'])->format('Y-m-d');
+            if ($oldDate != $newDate) {
+                $changes[] = "Tanggal order dari " . Carbon::parse($oldData['order_date'])->format('d/m/Y') . " ke " . Carbon::parse($validated['order_date'])->format('d/m/Y');
+            }
+
+            $oldDeadline = $oldData['deadline'] ? Carbon::parse($oldData['deadline'])->format('Y-m-d') : null;
+            $newDeadline = $validated['deadline'] ? Carbon::parse($validated['deadline'])->format('Y-m-d') : null;
+            if ($oldDeadline != $newDeadline) {
+                if ($oldDeadline && $newDeadline) {
+                    $changes[] = "Deadline dari " . Carbon::parse($oldData['deadline'])->format('d/m/Y') . " ke " . Carbon::parse($validated['deadline'])->format('d/m/Y');
+                } elseif ($newDeadline) {
+                    $changes[] = "Deadline ditambahkan: " . Carbon::parse($validated['deadline'])->format('d/m/Y');
+                } elseif ($oldDeadline) {
+                    $changes[] = "Deadline dihapus";
+                }
+            }
+
+            if ($oldData['purchase_type'] != $validated['purchase_type']) {
+                $oldType = $purchase->getTypeLabel($oldData['purchase_type']);
+                $newType = $purchase->getTypeLabel($validated['purchase_type']);
+                $changes[] = "Tipe pembelian dari {$oldType} ke {$newType}";
+            }
+
+            if ((float)$oldData['grand_total'] != (float)$grandTotal) {
+                $changes[] = "Total dari Rp " . number_format($oldData['grand_total'], 0, ',', '.') . " ke Rp " . number_format($grandTotal, 0, ',', '.');
+            }
+
+            if (!empty($changes)) {
+                \App\Models\PurchaseOrderLog::create([
+                    'purchase_order_id' => $purchase->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'updated',
+                    'description' => "Purchase order diupdate: " . implode(', ', $changes),
+                    'created_at' => now(),
+                ]);
+            }
+        });
+
+        return redirect()->route('kepala-toko.purchases.show', $purchase)->with('success', 'Purchase order berhasil diupdate.');
+    }
+
     private function generatePoNumber(): string
     {
         $date = Carbon::now()->format('ymd');

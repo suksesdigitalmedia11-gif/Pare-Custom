@@ -989,8 +989,8 @@ public function searchSuppliers(Request $request)
      * ✅ WORKFLOW BARU: diterima_toko → selesai
      * Admin, Finance, Kepala Toko bisa
      */
-    public function complete(SalesOrder $salesOrder): RedirectResponse
-    {
+public function complete(SalesOrder $salesOrder): RedirectResponse
+{
         $shiftCheck = $this->checkActiveShift();
         if ($shiftCheck !== true) {
             return $shiftCheck;
@@ -1001,13 +1001,13 @@ public function searchSuppliers(Request $request)
             return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
         }
 
-        if ($salesOrder->status !== 'diterima_toko') {
+    if ($salesOrder->status !== 'diterima_toko') {
             return back()->withErrors(['status' => 'Hanya status diterima_toko yang bisa diselesaikan.']);
-        }
+    }
 
-        if ($salesOrder->remaining_amount > 0) {
-            return back()->withErrors(['payment' => 'Pembayaran harus lunas untuk menyelesaikan.']);
-        }
+    if ($salesOrder->remaining_amount > 0) {
+        return back()->withErrors(['payment' => 'Pembayaran harus lunas untuk menyelesaikan.']);
+    }
 
         try {
             $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
@@ -1019,8 +1019,8 @@ public function searchSuppliers(Request $request)
         } catch (\Exception $e) {
             \Log::error('Error completing sales order: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
     }
+}
 
 // ✅ TAMBAH METHOD BARU UNTUK SYNC PURCHASE ORDER
 private function syncPurchaseOrder(SalesOrder $salesOrder): void
@@ -1454,33 +1454,33 @@ foreach ($itemsForPurchase as $soItem) {
         if (!$salesOrder->hasRelatedPO()) {
             return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
         }
-
+    
         if ($salesOrder->approved_by === null) {
             return back()->withErrors(['status' => 'Sales order harus di-approve terlebih dahulu.']);
         }
-
+    
         if ($salesOrder->paid_total <= 0) {
             return back()->withErrors(['payment' => 'Harus ada pembayaran untuk mulai proses.']);
         }
-
+    
         // Validasi pembayaran transfer/split
-        if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
-            $invalidPayments = $salesOrder->payments()
-                ->whereNull('proof_path')
-                ->where(function($q) {
-                    $q->whereNull('reference_number')
-                      ->orWhere('reference_number', '')
-                      ->orWhere('reference_number', ' ')
-                      ->orWhere('reference_number', 'null')
-                      ->orWhere('reference_number', 'NULL');
-                })
-                ->count();
-            
-            if ($invalidPayments > 0) {
-                return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
-            }
-        }
-
+if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
+    $invalidPayments = $salesOrder->payments()
+        ->whereNull('proof_path')
+        ->where(function($q) {
+            $q->whereNull('reference_number')
+              ->orWhere('reference_number', '')
+              ->orWhere('reference_number', ' ')
+              ->orWhere('reference_number', 'null')
+              ->orWhere('reference_number', 'NULL');
+        })
+        ->count();
+    
+    if ($invalidPayments > 0) {
+        return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
+    }
+}
+    
         try {
             DB::transaction(function () use ($salesOrder) {
                 $this->updateStockOnPayment($salesOrder);

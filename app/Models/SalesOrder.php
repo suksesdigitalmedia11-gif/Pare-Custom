@@ -126,15 +126,15 @@ class SalesOrder extends Model
         
         // Workflow untuk SO dengan PO terkait
         if ($hasPO) {
-            $transitions = [
-                'draft' => ['pending'],
+        $transitions = [
+            'draft' => ['pending'],
                 'pending' => ['request_kain'], // Hanya request_kain untuk yang ada PO
                 'request_kain' => ['payment'],
                 'payment' => ['proses_jahit', 'diterima_toko'], // proses_jahit untuk jahit_sendiri, diterima_toko untuk beli_jadi
-                'proses_jahit' => ['printing'],
-                'printing' => ['diterima_toko'],
-                'diterima_toko' => ['selesai'],
-            ];
+            'proses_jahit' => ['printing'],
+            'printing' => ['diterima_toko'],
+            'diterima_toko' => ['selesai'],
+        ];
         } else {
             // Workflow untuk SO tanpa PO (lebih singkat)
             $transitions = [
