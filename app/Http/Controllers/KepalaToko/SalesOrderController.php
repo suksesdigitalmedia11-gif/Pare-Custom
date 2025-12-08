@@ -727,7 +727,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
             'transfer_amount' => ['nullable', 'required_if:payment_method,split', 'numeric', 'min:0'],
             'paid_at' => ['required', 'date'],
             'proof_path' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
-            'reference' => ['nullable', 'string', 'max:100'],
+            'reference_number' => ['nullable', 'string', 'max:100'], // nomor referensi transfer
             'note' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -737,21 +737,21 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         }
 
 // === PERBAIKAN: Validasi yang benar - bukti ATAU no referensi ===
-if (in_array($validated['payment_method'], ['transfer', 'split'])) {
-    $hasProof = $request->hasFile('proof_path');
-    $hasReference = !empty($validated['reference']);
-    
-    if (!$hasProof && !$hasReference) {
-        \Log::error('Missing proof OR reference for transfer/split payment', [
-            'payment_method' => $validated['payment_method'], 
-            'has_proof' => $hasProof,
-            'has_reference' => $hasReference
-        ]);
-        return back()->withErrors([
-            'proof_path' => 'Untuk metode transfer/split, wajib upload bukti transfer ATAU isi no referensi.'
-        ])->withInput();
-    }
-}
+        if (in_array($validated['payment_method'], ['transfer', 'split'])) {
+            $hasProof = $request->hasFile('proof_path');
+            $hasReference = !empty($validated['reference_number']);
+            
+            if (!$hasProof && !$hasReference) {
+                \Log::error('Missing proof OR reference for transfer/split payment', [
+                    'payment_method' => $validated['payment_method'], 
+                    'has_proof' => $hasProof,
+                    'has_reference' => $hasReference
+                ]);
+                return back()->withErrors([
+                    'proof_path' => 'Untuk metode transfer/split, wajib upload bukti transfer ATAU isi no referensi.'
+                ])->withInput();
+            }
+        }
         try {
             DB::transaction(function () use ($salesOrder, $validated, $request) {
                 $proofPath = $request->hasFile('proof_path')
@@ -774,7 +774,7 @@ if (in_array($validated['payment_method'], ['transfer', 'split'])) {
                     'cash_amount' => $cashAmount,
                     'transfer_amount' => $transferAmount,
                     'paid_at' => $validated['paid_at'],
-                    'reference_number' => $validated['reference'] ?? null, // PASTIKAN INI
+                    'reference_number' => $validated['reference_number'] ?? null, // PASTIKAN INI
                     'proof_path' => $proofPath,
                     'note' => $validated['note'] ?? null,
                     'created_by' => Auth::id(),
