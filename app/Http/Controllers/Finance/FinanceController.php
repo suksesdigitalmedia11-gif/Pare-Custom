@@ -43,6 +43,15 @@ class FinanceController extends Controller
         $hpp = PurchaseOrder::whereBetween('created_at', [$start, $end])
             ->where('status', 'selesai')
             ->sum('grand_total') ?? 0;
+
+        // 3b. HPP TERKAIT PENJUALAN (untuk Gross Profit khusus)
+        // Menghitung hanya purchase order yang terhubung ke sales (punya sales_order_id)
+        // dan status selesai, dengan patokan tanggal purchase order (order_date).
+        $linkedHpp = PurchaseOrder::whereNotNull('sales_order_id')
+            ->where('status', 'selesai')
+            ->whereBetween('order_date', [$startDate, $endDate])
+            ->sum('grand_total') ?? 0;
+        $grossProfitLinked = $totalSales - $linkedHpp;
     
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
@@ -115,6 +124,8 @@ class FinanceController extends Controller
             'totalSales' => $totalSales,
             'manualIncome' => $manualIncome,
             'hpp' => $hpp,
+            'linkedHpp' => $linkedHpp,
+            'grossProfitLinked' => $grossProfitLinked,
             'operasional' => $operasional,
             'profit' => $profit,
             'salesByPaymentMethod' => $salesByPaymentMethod,

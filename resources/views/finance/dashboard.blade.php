@@ -158,6 +158,24 @@
                     <p class="text-xs text-gray-500">Cost of Goods Sold</p>
                 </div>
 
+                <!-- GROSS PROFIT (HPP TERKAIT PENJUALAN) -->
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-teal-500">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">GROSS PROFIT</p>
+                            <p class="text-xl font-bold text-teal-700">
+                                Rp {{ number_format($grossProfitLinked ?? 0, 0, ',', '.') }}
+                            </p>
+                        </div>
+                        <i class="bi bi-graph-up-arrow text-teal-500 text-lg"></i>
+                    </div>
+                    <p class="text-xs text-gray-500">Pendapatan penjualan - HPP dari PO terhubung</p>
+                    <p class="text-[11px] text-gray-400 mt-1">
+                        Total nya :
+                        Rp {{ number_format($linkedHpp ?? 0, 0, ',', '.') }}
+                    </p>
+                </div>
+
                 <!-- OPERASIONAL -->
                 <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
                     <div class="flex items-center justify-between mb-2">

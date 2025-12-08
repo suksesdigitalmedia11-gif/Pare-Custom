@@ -4,6 +4,7 @@ namespace App\Http\Controllers\KepalaToko;
 
 use App\Http\Controllers\Owner\PurchaseOrderController as BaseController;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -16,6 +17,16 @@ use Carbon\Carbon;
 
 class PurchaseOrderController extends BaseController
 {
+    private function logAction(PurchaseOrder $purchaseOrder, string $action, string $description): void
+    {
+        PurchaseOrderLog::create([
+            'purchase_order_id' => $purchaseOrder->id,
+            'user_id' => Auth::id(),
+            'action' => $action,
+            'description' => $description,
+            'created_at' => now(),
+        ]);
+    }
     public function index(Request $request): View
     {
         // Authorization untuk kepala-toko
@@ -134,6 +145,12 @@ class PurchaseOrderController extends BaseController
                     'line_total' => $line,
                 ]);
             }
+
+            $this->logAction($po, 'created', 
+                "Purchase order dibuat: {$poNumber}, Tipe: {$validated['purchase_type']}, " .
+                "Supplier: " . ($po->supplier->name ?? 'Baru') . ", " .
+                "Total: Rp " . number_format($grandTotal, 0, ',', '.')
+            );
         });
 
         return redirect()->route('kepala-toko.purchases.index')->with('success', 'Pembelian tersimpan sebagai draft.');
@@ -355,8 +372,23 @@ class PurchaseOrderController extends BaseController
 
     private function generatePoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-        $seq = str_pad((string) (PurchaseOrder::whereDate('created_at', Carbon::today())->count() + 1), 4, '0', STR_PAD_LEFT);
-        return 'PO'.$date.$seq;
+        return DB::transaction(function () {
+            $today = now()->format('ymd');
+
+            $lastPo = DB::table('purchase_orders')
+                ->whereDate('created_at', today())
+                ->lockForUpdate()
+                ->orderBy('po_number', 'desc')
+                ->first();
+
+            if ($lastPo) {
+                $lastSeq = (int) substr($lastPo->po_number, -4);
+                $newSeq = $lastSeq + 1;
+            } else {
+                $newSeq = 1;
+            }
+
+            return 'PO' . $today . str_pad($newSeq, 4, '0', STR_PAD_LEFT);
+        });
     }
 }
