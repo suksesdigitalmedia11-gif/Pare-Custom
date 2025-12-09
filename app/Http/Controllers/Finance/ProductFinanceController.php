@@ -135,7 +135,7 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
                   ->orWhere('sku', 'like', "%{$query}%")
                   ->orWhere('barcode', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'sku', 'barcode', 'price', 'stock_qty')
+            ->select('id', 'name', 'sku', 'barcode', 'price', 'cost_price', 'stock_qty')
             ->orderBy('name')
             ->limit(10)
             ->get();

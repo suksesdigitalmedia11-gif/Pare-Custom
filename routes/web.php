@@ -280,9 +280,12 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::get('create', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'store'])->name('store');
         Route::get('{purchase}', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'show'])->name('show');
+        Route::get('{purchase}/edit', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'edit'])->name('edit');
+        Route::put('{purchase}', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'update'])->name('update');
         Route::post('{purchase}/submit', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'submit'])->name('submit');
         Route::post('{purchase}/approve', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'approve'])->name('approve');
         Route::post('{purchase}/payment', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'payment'])->name('payment');
+        Route::post('{purchase}/upload-proof', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'uploadProof'])->name('upload-proof');
         Route::post('{purchase}/update-status', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
         Route::patch('{purchase}/cancel', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'cancel'])->name('cancel');
     });

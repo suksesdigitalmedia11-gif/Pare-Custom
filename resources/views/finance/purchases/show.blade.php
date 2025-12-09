@@ -57,7 +57,14 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
                     <div class="flex items-center justify-between">
                         <h2 class="text-xl font-semibold text-gray-700">Detail Pembelian</h2>
-                        <a href="{{ route('finance.purchases.index') }}" class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">Kembali</a>
+                        <div class="flex gap-2">
+                            @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && !in_array($purchase->status, ['selesai', 'cancelled']))
+                            <a href="{{ route('finance.purchases.edit', $purchase) }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                <i class="bi bi-pencil mr-2"></i>Edit
+                            </a>
+                            @endif
+                            <a href="{{ route('finance.purchases.index') }}" class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">Kembali</a>
+                        </div>
                     </div>
                 </div>
 
@@ -216,10 +223,46 @@
                             </div>
                         </div>
 
-                        <!-- Document Files -->
-                        @if($purchase->status !== 'draft' && ($purchase->invoice_file || $purchase->payment_proof_file))
+                        <!-- Document Files & Upload Section -->
+                        @if($purchase->status !== 'draft')
                         <div class="bg-white p-6 rounded-xl shadow-lg">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Dokumen</h3>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Dokumen & Bukti Pembayaran</h3>
+                            
+                            <!-- Upload Section (jika belum ada atau ingin update) -->
+                            @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']))
+                            <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <h4 class="font-medium text-yellow-800 mb-3">Upload/Update Dokumen</h4>
+                                <form action="{{ route('finance.purchases.upload-proof', $purchase->id) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+                                    @csrf
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
+                                        <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                                        @if($purchase->invoice_file)
+                                        <p class="text-xs text-green-600 mt-1">File saat ini: <a href="{{ asset('storage/' . $purchase->invoice_file) }}" target="_blank" class="underline">Lihat</a></p>
+                                        @else
+                                        <p class="text-xs text-gray-500 mt-1">Belum ada file</p>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                                        <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                                        @if($purchase->payment_proof_file)
+                                        <p class="text-xs text-green-600 mt-1">File saat ini: <a href="{{ asset('storage/' . $purchase->payment_proof_file) }}" target="_blank" class="underline">Lihat</a></p>
+                                        @else
+                                        <p class="text-xs text-yellow-600 mt-1">Belum ada file - silakan upload bukti pembayaran</p>
+                                        @endif
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                            <i class="bi bi-upload mr-2"></i>Upload File
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            @endif
+
+                            <!-- Display Existing Files -->
+                            @if($purchase->invoice_file || $purchase->payment_proof_file)
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 @if($purchase->invoice_file)
                                 <div class="border rounded-lg p-4">
@@ -249,6 +292,15 @@
                                 </div>
                                 @endif
                             </div>
+                            @else
+                            <div class="text-center py-8 text-gray-500">
+                                <i class="bi bi-file-earmark-text text-4xl mb-2"></i>
+                                <p>Belum ada dokumen yang diunggah</p>
+                                @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']))
+                                <p class="text-sm mt-2">Gunakan form di atas untuk mengunggah dokumen</p>
+                                @endif
+                            </div>
+                            @endif
                         </div>
                         @endif
                     </div>
@@ -376,24 +428,27 @@
     @endif
 </div>
 
-<!-- Modal Payment (sudah ada dari Anda, ganti route ke finance.purchases.payment) -->
+<!-- Modal Payment -->
 @if($purchase->status === 'request_kain' && in_array(auth()->user()->usertype, ['finance', 'owner']))
 <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>
+        <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di section bukti pembayaran</p>
         <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG)</label>
-                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
+                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG)</label>
-                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
             </div>
             <div class="flex justify-end space-x-2">
                 <button type="button" onclick="closeModal('payment-modal')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses Pembayaran</button>
             </div>
         </form>
     </div>
@@ -412,19 +467,22 @@
 <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>
+        <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di section bukti pembayaran</p>
         <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG)</label>
-                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
+                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG)</label>
-                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" required class="w-full border rounded p-2 text-gray-900" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
+                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
             </div>
             <div class="flex justify-end space-x-2">
                 <button type="button" onclick="closeModal('payment-modal')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Submit</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses Pembayaran</button>
             </div>
         </form>
     </div>

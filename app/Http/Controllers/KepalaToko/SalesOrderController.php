@@ -640,8 +640,6 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                     }
                 }
 
-                $this->logAction($salesOrder, 'updated', "Sales order diperbarui: Tipe: {$validated['order_type']}, Total: Rp " . number_format($grandTotal, 0, ',', '.'));
-
                 $changes = [];
                 if ($salesOrder->getOriginal('order_type') !== $validated['order_type']) {
                     $changes[] = "Tipe order berubah dari {$salesOrder->getOriginal('order_type')} ke {$validated['order_type']}";
@@ -655,6 +653,9 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 if ($salesOrder->getOriginal('grand_total') != $grandTotal) {
                     $changes[] = "Grand total berubah dari Rp " . number_format($salesOrder->getOriginal('grand_total'), 0, ',', '.') . " ke Rp " . number_format($grandTotal, 0, ',', '.');
                 }
+                // Sinkronkan PO terkait jika ada
+                $this->syncPurchaseOrder($salesOrder);
+
                 if (!empty($changes)) {
                     $this->logAction($salesOrder, 'updated_details', implode(', ', $changes));
                 }
@@ -687,6 +688,66 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         } catch (\Exception $e) {
             \Log::error('Error uploading proof: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Gagal upload bukti: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Sinkronkan Purchase Order terkait ketika Sales Order diupdate (detail item/total).
+     */
+    private function syncPurchaseOrder(SalesOrder $salesOrder): void
+    {
+        $purchaseOrder = PurchaseOrder::where('sales_order_id', $salesOrder->id)->first();
+        if (!$purchaseOrder) {
+            return; // Tidak ada PO terkait
+        }
+
+        try {
+            DB::transaction(function () use ($salesOrder, $purchaseOrder) {
+                // Hapus items PO lama
+                $purchaseOrder->items()->delete();
+
+                // Bangun ulang items PO dari items SO
+                foreach ($salesOrder->items as $soItem) {
+                    $costPrice = 0;
+                    if ($soItem->product_id) {
+                        $product = Product::find($soItem->product_id);
+                        if ($product) {
+                            $costPrice = $product->cost_price ?? 0;
+                        }
+                    }
+
+                    PurchaseOrderItem::create([
+                        'purchase_order_id' => $purchaseOrder->id,
+                        'product_id' => $soItem->product_id,
+                        'product_name' => $soItem->product_name,
+                        'sku' => $soItem->sku,
+                        'cost_price' => $costPrice,
+                        'qty' => $soItem->qty,
+                        'discount' => 0,
+                        'line_total' => $costPrice * $soItem->qty,
+                    ]);
+                }
+
+                // Hitung ulang total PO
+                $subtotalPo = $purchaseOrder->items()->sum('line_total');
+                $purchaseOrder->update([
+                    'subtotal' => $subtotalPo,
+                    'grand_total' => $subtotalPo,
+                ]);
+
+                // Log di PO & SO
+                \App\Models\PurchaseOrderLog::create([
+                    'purchase_order_id' => $purchaseOrder->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'updated',
+                    'description' => "Purchase order di-update dari Sales Order: {$salesOrder->so_number}",
+                    'created_at' => now(),
+                ]);
+
+                $this->logAction($salesOrder, 'purchase_order_updated', "Purchase Order terkait di-update: {$purchaseOrder->po_number}");
+            });
+        } catch (\Exception $e) {
+            \Log::error('Error syncing purchase order for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
         }
     }
 
