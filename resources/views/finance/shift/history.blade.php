@@ -6,6 +6,7 @@
     <title>Data Shift - Finance</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="bg-gray-100">
 <div class="flex">
@@ -23,29 +24,42 @@
                         <a href="{{ route('finance.shift.dashboard') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
                             <i class="bi bi-arrow-left mr-2"></i> Kembali
                         </a>
-                        <a href="{{ route('finance.shift.export') }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
+                        <a href="{{ route('finance.shift.export', ['start_date' => $startDate, 'end_date' => $endDate]) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
                             <i class="bi bi-file-earmark-excel mr-2"></i> Export
                         </a>
                     </div>
                 </div>
 
-                <!-- Filter Options -->
+                <!-- Date Range Filter -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div class="flex flex-wrap gap-4 items-center">
-                        <span class="font-medium text-blue-800">Filter:</span>
-                        <a href="{{ request()->fullUrlWithQuery(['status' => '']) }}" 
-                           class="px-3 py-1 rounded-full text-sm {{ !request('status') ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border border-blue-300' }}">
-                            Semua
-                        </a>
-                        <a href="{{ request()->fullUrlWithQuery(['status' => 'open']) }}" 
-                           class="px-3 py-1 rounded-full text-sm {{ request('status') == 'open' ? 'bg-yellow-600 text-white' : 'bg-white text-yellow-600 border border-yellow-300' }}">
-                            Aktif
-                        </a>
-                        <a href="{{ request()->fullUrlWithQuery(['status' => 'closed']) }}" 
-                           class="px-3 py-1 rounded-full text-sm {{ request('status') == 'closed' ? 'bg-green-600 text-white' : 'bg-white text-green-600 border border-green-300' }}">
-                            Selesai
-                        </a>
-                    </div>
+                    <form method="GET" action="{{ route('finance.shift.history') }}" class="flex flex-col md:flex-row md:items-end gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-blue-900 mb-1">Rentang Tanggal</label>
+                            <input type="text" id="dateRangePicker" name="date_range"
+                                   value="{{ $startDate }} to {{ $endDate }}"
+                                   placeholder="Pilih rentang tanggal"
+                                   class="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" readonly>
+                            <input type="hidden" name="start_date" id="start_date" value="{{ $startDate }}">
+                            <input type="hidden" name="end_date" id="end_date" value="{{ $endDate }}">
+                        </div>
+                        <div class="flex gap-2 flex-wrap">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
+                                <i class="bi bi-funnel-fill mr-2"></i> Terapkan Filter
+                            </button>
+                            <a href="{{ route('finance.shift.history', ['start_date' => now()->format('Y-m-d'), 'end_date' => now()->format('Y-m-d')]) }}"
+                               class="bg-white border border-blue-200 text-blue-700 px-3 py-2 rounded shadow hover:bg-blue-100 text-sm">
+                                Hari Ini
+                            </a>
+                            <a href="{{ route('finance.shift.history', ['start_date' => now()->subDays(6)->format('Y-m-d'), 'end_date' => now()->format('Y-m-d')]) }}"
+                               class="bg-white border border-blue-200 text-blue-700 px-3 py-2 rounded shadow hover:bg-blue-100 text-sm">
+                                7 Hari
+                            </a>
+                            <a href="{{ route('finance.shift.history', ['start_date' => now()->startOfMonth()->format('Y-m-d'), 'end_date' => now()->endOfMonth()->format('Y-m-d')]) }}"
+                               class="bg-white border border-blue-200 text-blue-700 px-3 py-2 rounded shadow hover:bg-blue-100 text-sm">
+                                Bulan Ini
+                            </a>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- Data Table -->
@@ -138,5 +152,27 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    const dateRangePicker = flatpickr("#dateRangePicker", {
+        mode: "range",
+        dateFormat: "Y-m-d",
+        defaultDate: ["{{ $startDate }}", "{{ $endDate }}"],
+        onChange: function(selectedDates) {
+            if (selectedDates.length === 2) {
+                const [start, end] = selectedDates;
+                const format = (date) => {
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+                document.getElementById('start_date').value = format(start);
+                document.getElementById('end_date').value = format(end);
+            }
+        }
+    });
+</script>
 </body>
 </html>

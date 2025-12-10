@@ -209,8 +209,8 @@ public function dashboard(Request $request): View
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
         
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
 
         $shifts = Shift::with('user')
             ->where(function($query) use ($start, $end) {
@@ -292,9 +292,15 @@ public function dashboard(Request $request): View
     /**
      * Export Excel untuk Finance
      */
-    public function export()
+    public function export(Request $request)
     {
-        return Excel::download(new ShiftHistoryExport, 'shift_history_' . date('Ymd_His') . '.xlsx');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        return Excel::download(
+            new ShiftHistoryExport($startDate, $endDate),
+            'shift_history_' . date('Ymd_His') . '.xlsx'
+        );
     }
 
     /**
