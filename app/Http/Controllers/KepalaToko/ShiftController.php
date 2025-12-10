@@ -610,6 +610,7 @@ public function printPreview($id)
     {
         $incomes = Income::where('shift_id', $shift->id)->get();
         $expenses = Expense::where('shift_id', $shift->id)->get();
+        $cashTransfers = $shift->cashTransfers ?? collect();
     
         $salesOrders = SalesOrder::whereHas('payments', function ($query) use ($shift) {
             $query->where('created_by', $shift->user_id)
@@ -627,6 +628,10 @@ public function printPreview($id)
     
         foreach ($payments as $payment) {
             $so = $payment->salesOrder;
+            if (!$so) {
+                continue;
+            }
+
             $isLunasSekaliBayar = ($payment->category === 'pelunasan' && $so->payments->count() === 1);
             if ($payment->method === 'cash') {
                 if ($isLunasSekaliBayar) {
@@ -660,7 +665,20 @@ public function printPreview($id)
     
         $totalPendapatan = $cashLunas + $cashDp + $cashPelunasan + $transferLunas + $transferDp + $transferPelunasan;
     
-        return view('kepala-toko.shift.show', compact('shift', 'incomes', 'expenses', 'salesOrders', 'cashLunas', 'cashDp', 'cashPelunasan', 'transferLunas', 'transferDp', 'transferPelunasan', 'totalPendapatan'));
+        return view('kepala-toko.shift.show', compact(
+            'shift',
+            'incomes',
+            'expenses',
+            'salesOrders',
+            'cashTransfers',
+            'cashLunas',
+            'cashDp',
+            'cashPelunasan',
+            'transferLunas',
+            'transferDp',
+            'transferPelunasan',
+            'totalPendapatan'
+        ));
     }
 
     public function export()
