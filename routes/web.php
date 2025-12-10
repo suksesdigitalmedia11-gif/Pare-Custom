@@ -228,6 +228,10 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
 Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Finance\FinanceController::class, 'index'])->name('index');
     Route::get('dashboard', [\App\Http\Controllers\Finance\FinanceController::class, 'dashboard'])->name('dashboard');
+    
+    // Shift Auto-Close Approval
+    Route::get('shift-auto-closes', [\App\Http\Controllers\Finance\FinanceController::class, 'shiftAutoCloses'])->name('shift-auto-closes');
+    Route::post('shift-auto-closes/{id}/approve', [\App\Http\Controllers\Finance\FinanceController::class, 'approveShiftAutoClose'])->name('shift-auto-closes.approve');
 
     Route::get('/customers/search', [\App\Http\Controllers\Finance\SalesOrderController::class, 'searchCustomers'])->name('customers.search');
     Route::get('/products/search', [\App\Http\Controllers\Finance\SalesOrderController::class, 'search'])->name('products.search');
@@ -245,6 +249,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
     Route::get('catalog/products/search', [\App\Http\Controllers\Finance\ProductFinanceController::class, 'search'])->name('catalog.products.search');
     Route::post('finance/product/import', [\App\Http\Controllers\Finance\ProductFinanceController::class, 'import'])->name('product.import');
     Route::get('finance/product/download-template', [\App\Http\Controllers\Finance\ProductFinanceController::class, 'downloadTemplate'])->name('product.download-template');
+    Route::get('finance/product/export', [\App\Http\Controllers\Finance\ProductFinanceController::class, 'export'])->name('product.export');
 
     // Categories
     Route::resource('categories', App\Http\Controllers\Finance\CategoryFinanceController::class)
@@ -327,7 +332,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
 });
 
 // Kepala Toko routes
-Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-toko.')->group(function () {
+Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepala-toko')->name('kepala-toko.')->group(function () {
     Route::get('/', [App\Http\Controllers\KepalaToko\DashboardController::class, 'index'])->name('index');
     Route::get('dashboard', [App\Http\Controllers\KepalaToko\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/products/search', [App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('products.search');
@@ -422,6 +427,15 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
     Route::get('/shift/{shift}/print-summary', [App\Http\Controllers\KepalaToko\ShiftController::class, 'printSummary'])->name('shift.print-summary');
     Route::post('shift/income', [ShiftController::class, 'income'])->name('shift.income');
     Route::post('shift/cash-transfer', [App\Http\Controllers\KepalaToko\ShiftController::class, 'cashTransfer'])->name('shift.cashTransfer');
+    Route::post('shift/validate-empty-advertisement', [App\Http\Controllers\KepalaToko\ShiftController::class, 'validateEmptyAdvertisement'])->name('shift.validate-empty-advertisement');
+
+    // Advertisement routes
+    Route::prefix('advertisement')->name('advertisement.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\KepalaToko\AdvertisementPerformanceController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\KepalaToko\AdvertisementPerformanceController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\KepalaToko\AdvertisementPerformanceController::class, 'store'])->name('store');
+        Route::get('/descriptions', [\App\Http\Controllers\KepalaToko\AdvertisementPerformanceController::class, 'getDescriptions'])->name('descriptions');
+    });
 
     // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Kepala Toko (move-to-request-kain)
     Route::middleware(['auth', 'kepala_toko'])->group(function () {
@@ -466,7 +480,7 @@ Route::middleware(['auth', 'kepala_toko'])->prefix('kepala-toko')->name('kepala-
 });
 
 // Admin routes
-Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/', [DashboardController::class, 'index'])->name('index');
 
@@ -555,6 +569,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/shift/history', [App\Http\Controllers\Admin\ShiftController::class, 'history'])->name('shift.history');
     Route::post('shift/income', [App\Http\Controllers\Admin\ShiftController::class, 'income'])->name('shift.income'); // <-- TAMBAH INI
     Route::post('shift/cash-transfer', [\App\Http\Controllers\Admin\ShiftController::class, 'cashTransfer'])->name('shift.cashTransfer');
+    Route::post('shift/validate-empty-advertisement', [App\Http\Controllers\Admin\ShiftController::class, 'validateEmptyAdvertisement'])->name('shift.validate-empty-advertisement');
     Route::get('/shift/{shift}', [App\Http\Controllers\Admin\ShiftController::class, 'show'])->name('shift.show');
     Route::get('/shift/{shift}/export-detail', [App\Http\Controllers\Admin\ShiftController::class, 'exportDetail'])->name('shift.export-detail');
     Route::get('/shift/{shift}/export-detail-pdf', [App\Http\Controllers\Admin\ShiftController::class, 'exportDetailPdf'])->name('shift.export-detail-pdf');
