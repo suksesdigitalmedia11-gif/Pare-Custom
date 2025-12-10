@@ -14,7 +14,9 @@ use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use App\Imports\ProductImport;
+use App\Exports\ProductExport;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProductFinanceController extends Controller implements FromArray, WithHeadings
 {
@@ -204,5 +206,50 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
     public function downloadTemplate()
     {
         return Excel::download($this, 'product_template.xlsx');
+    }
+
+    /**
+     * Export produk ke Excel/CSV
+     * Mendukung filter berdasarkan query dan kategori
+     */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $q = $request->get('q');
+        $categoryId = $request->get('category_id');
+        $format = $request->get('format', 'xlsx'); // xlsx, csv
+
+        // Query produk dengan filter yang sama seperti di index
+        $products = Product::with('category')
+            ->when($q, function($query) use ($q) {
+                $query->where(function($subQuery) use ($q) {
+                    $subQuery->where('name', 'like', "%$q%")
+                             ->orWhere('sku', 'like', "%$q%")
+                             ->orWhere('barcode', 'like', "%$q%");
+                });
+            })
+            ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
+            ->orderByDesc('id')
+            ->get();
+
+        // Generate filename dengan timestamp dan filter info
+        $filename = 'produk_export_' . date('Y-m-d_His');
+        if ($q) {
+            $filename .= '_search-' . substr($q, 0, 10);
+        }
+        if ($categoryId) {
+            $category = \App\Models\Category::find($categoryId);
+            if ($category) {
+                $filename .= '_kategori-' . $category->name;
+            }
+        }
+        $filename .= '.' . $format;
+
+        $export = new ProductExport($products);
+
+        if ($format === 'csv') {
+            return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::CSV);
+        }
+
+        return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
     }
 }

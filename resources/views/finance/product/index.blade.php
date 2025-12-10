@@ -33,6 +33,29 @@
                         <div class="flex justify-between items-center mb-6">
                             <h1 class="text-3xl font-bold text-gray-800">Daftar Produk</h1>
                             <div class="flex space-x-2">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-download me-2"></i>Export
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('finance.product.export', array_merge(request()->query(), ['format' => 'xlsx'])) }}">
+                                                <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Export Excel (XLSX)
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('finance.product.export', array_merge(request()->query(), ['format' => 'csv'])) }}">
+                                                <i class="bi bi-filetype-csv text-primary me-2"></i>Export CSV
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('finance.product.export', ['format' => 'xlsx']) }}">
+                                                <i class="bi bi-download me-2"></i>Export Semua Produk (Excel)
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
                                     <i class="bi bi-upload me-2"></i>Import
                                 </button>
