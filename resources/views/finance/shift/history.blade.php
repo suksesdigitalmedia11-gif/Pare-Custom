@@ -58,6 +58,7 @@
                                 <th class="px-4 py-3 text-right">Kas Awal</th>
                                 <th class="px-4 py-3 text-right">Pendapatan</th>
                                 <th class="px-4 py-3 text-right">Pengeluaran</th>
+                                <th class="px-4 py-3 text-right">Setor/Tukar</th>
                                 <th class="px-4 py-3 text-right">Kas Akhir</th>
                                 <th class="px-4 py-3 text-right">Selisih</th>
                                 <th class="px-4 py-3 text-center">Status</th>
@@ -66,6 +67,9 @@
                         </thead>
                         <tbody>
                             @forelse ($shifts as $shift)
+                                @php
+                                    $totalCashTransfer = $shift->cashTransfers->sum('amount') ?? 0;
+                                @endphp
                                 <tr class="border-b hover:bg-gray-50">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center">
@@ -79,6 +83,7 @@
                                     <td class="px-4 py-3 text-right">Rp {{ number_format($shift->initial_cash, 0, ',', '.') }}</td>
                                     <td class="px-4 py-3 text-right text-green-600 font-medium">Rp {{ number_format($shift->cash_total, 0, ',', '.') }}</td>
                                     <td class="px-4 py-3 text-right text-red-600">Rp {{ number_format($shift->expense_total, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-3 text-right text-purple-600">Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}</td>
                                     <td class="px-4 py-3 text-right">
                                         @if($shift->final_cash)
                                             <span class="font-medium">Rp {{ number_format($shift->final_cash, 0, ',', '.') }}</span>
