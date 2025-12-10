@@ -61,16 +61,36 @@
               Data Iklan
             </h2>
             
-            <!-- PEMBERITAHUAN: Tidak ada data aktual -->
+            <!-- PEMBERITAHUAN: Tidak ada data iklan -->
             @if(isset($advertisementHasActualData) && !$advertisementHasActualData)
-            <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
-              <div class="flex items-center gap-2">
-                <i class="bi bi-info-circle-fill text-gray-600"></i>
-                <p class="text-sm text-gray-700">
-                  <strong>Tidak ada data iklan untuk periode ini.</strong> Admin telah memvalidasi bahwa tidak ada aktivitas iklan.
-                </p>
-              </div>
-            </div>
+                @if(!empty($advertisementHasValidatedEmpty))
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Tidak ada data iklan untuk periode ini.</strong> Admin telah memvalidasi bahwa tidak ada aktivitas iklan.
+                      </p>
+                    </div>
+                  </div>
+                @elseif(empty($advertisementHasAnyData))
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Belum ada data iklan untuk periode ini.</strong> Silakan input atau validasi aktivitas.
+                      </p>
+                    </div>
+                  </div>
+                @else
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Tidak ada data iklan untuk periode ini.</strong> Data ada, namun belum ada aktivitas (menunggu input).
+                      </p>
+                    </div>
+                  </div>
+                @endif
             @endif
             
             <!-- 3 CARDS -->

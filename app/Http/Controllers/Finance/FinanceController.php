@@ -31,8 +31,9 @@ class FinanceController extends Controller
         // Ambil filter bulan untuk iklan (default: bulan ini)
         $selectedMonth = $request->get('advertisement_month', now()->format('Y-m'));
         
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
+        // Pastikan rentang mencakup seluruh hari (00:00 s.d. 23:59)
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
     
         // 2. HITUNG OMSET - Total Penjualan + Pemasukan Manual (EXCLUDE DRAFT)
         $totalSales = SalesOrder::whereBetween('created_at', [$start, $end])
@@ -335,10 +336,14 @@ class FinanceController extends Controller
             }
         }
         
-        // Cek apakah ada data aktual (bukan hanya validasi kosong) untuk periode ini
+        // Flag data iklan
         $hasActualData = AdvertisementPerformance::whereBetween('date', [$start, $end])
             ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->exists();
+        $hasValidatedEmpty = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', 'Tidak ada aktivitas hari ini')
+            ->exists();
+        $hasAnyData = AdvertisementPerformance::whereBetween('date', [$start, $end])->exists();
         
         return [
             'advertisementStartDate' => $startDate,
@@ -350,6 +355,8 @@ class FinanceController extends Controller
             'advertisementChartData' => $formattedChartData,
             'advertisementChartDates' => $dates,
             'advertisementHasActualData' => $hasActualData,
+            'advertisementHasValidatedEmpty' => $hasValidatedEmpty,
+            'advertisementHasAnyData' => $hasAnyData,
         ];
     }
 

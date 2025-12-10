@@ -25,8 +25,9 @@ class DashboardController extends Controller
         // Filter bulan untuk iklan (default: bulan ini)
         $selectedMonth = $request->get('month', now()->format('Y-m'));
         
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
+        // Normalisasi ke awal/akhir hari agar satu tanggal pun terambil penuh
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
         
         // === FINANCIAL OVERVIEW (Income Statement) ===
         $totalSales = SalesOrder::whereBetween('created_at', [$start, $end])
@@ -418,10 +419,14 @@ class DashboardController extends Controller
             }
         }
         
-        // Cek apakah ada data aktual (bukan hanya validasi kosong) untuk periode ini
+        // Flag data iklan
         $hasActualData = AdvertisementPerformance::whereBetween('date', [$start, $end])
             ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->exists();
+        $hasValidatedEmpty = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', 'Tidak ada aktivitas hari ini')
+            ->exists();
+        $hasAnyData = AdvertisementPerformance::whereBetween('date', [$start, $end])->exists();
         
         return [
             'advertisementStartDate' => $startDate,
@@ -433,6 +438,8 @@ class DashboardController extends Controller
             'advertisementChartData' => $formattedChartData,
             'advertisementChartDates' => $dates,
             'advertisementHasActualData' => $hasActualData,
+            'advertisementHasValidatedEmpty' => $hasValidatedEmpty,
+            'advertisementHasAnyData' => $hasAnyData,
         ];
     }
 }
