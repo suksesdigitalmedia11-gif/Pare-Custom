@@ -3,31 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gross Profit Iklan - Admin</title>
+    <title>Gross Profit Iklan - Kepala Toko</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-gray-100">
     <div class="flex">
-        <x-navbar-admin></x-navbar-admin>
+        <x-navbar-kepala-toko></x-navbar-kepala-toko>
         
         <div class="flex-1 lg:w-5/6">
-            <x-navbar-top-admin></x-navbar-top-admin>
+            <x-navbar-top-kepala-toko></x-navbar-top-kepala-toko>
 
             <div class="p-4 lg:p-8 space-y-6">
                 @if(!$userActiveShift)
                     <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg shadow">
-                                <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3">
                             <i class="bi bi-info-circle-fill text-orange-600 text-xl"></i>
                             <div class="flex-1">
                                 <p class="font-semibold text-orange-800">Belum Buka Shift Hari Ini</p>
                                 <p class="text-sm text-orange-700 mt-1">
                                     Anda belum membuka shift hari ini. Buka shift terlebih dahulu sebelum input data iklan.
                                 </p>
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                    </div>
                 @endif
                 
                 @if(session('error'))
@@ -53,13 +53,13 @@
                                 <i class="bi bi-lock-fill"></i>
                                 Input Data Iklan (Belum Buka Shift)
                             </button>
-                @else
-                            <a href="{{ route('admin.advertisement.create') }}"
+                        @else
+                            <a href="{{ route('kepala-toko.advertisement.create') }}"
                                class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">
                                 <i class="bi bi-plus-circle-fill"></i>
                                 Input Data Iklan
                             </a>
-                @endif
+                        @endif
                     </div>
         </div>
 
@@ -323,3 +323,4 @@
     </script>
 </body>
 </html>
+

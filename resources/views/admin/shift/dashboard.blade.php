@@ -376,6 +376,61 @@
 <div class="mt-6">
 <!-- Form Tutup Shift -->
 @if($shift)
+    @php
+        $userTodayAdvertisementCount = \App\Models\AdvertisementPerformance::where('date', today())
+            ->where('user_id', Auth::id())
+            ->count();
+    @endphp
+    
+    <!-- ALERT: Data Iklan Kosong -->
+    @if($userTodayAdvertisementCount === 0)
+        <div class="bg-orange-50 border-l-4 border-orange-400 p-4 mb-4 rounded-lg shadow">
+            <div class="flex items-center gap-3">
+                <i class="bi bi-exclamation-triangle-fill text-orange-600 text-xl"></i>
+                <div class="flex-1">
+                    <p class="font-semibold text-orange-800">Data Iklan Hari Ini Masih Kosong</p>
+                    <p class="text-sm text-orange-700 mt-1">
+                        Anda belum menginput data iklan hari ini. Harap input data iklan terlebih dahulu atau validasi bahwa hari ini memang tidak ada aktivitas iklan.
+                    </p>
+                    <div class="mt-3">
+                        <form action="{{ route('admin.shift.validate-empty-advertisement') }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" 
+                                    class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2">
+                                <i class="bi bi-check-circle-fill"></i>
+                                Validasi Hari Ini Kosong (Input 0 untuk semua jenis)
+                            </button>
+                        </form>
+                        <a href="{{ route('admin.advertisement.create') }}" 
+                           class="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2">
+                            <i class="bi bi-plus-circle-fill"></i>
+                            Input Data Iklan
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+    
+    <!-- ALERT: Error dari Controller -->
+    @if(session('error') || (isset($errors) && $errors->has('advertisement_required')))
+        <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 rounded-lg shadow">
+            <div class="flex items-center gap-3">
+                <i class="bi bi-x-circle-fill text-red-600 text-xl"></i>
+                <div class="flex-1">
+                    <p class="font-semibold text-red-800">Error</p>
+                    <p class="text-sm text-red-700 mt-1">
+                        @if($errors->has('advertisement_required'))
+                            {{ $errors->first('advertisement_required') }}
+                        @else
+                            {{ session('error') }}
+                        @endif
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+    
     <form action="{{ route('admin.shift.end') }}" method="POST">
         @csrf
         
@@ -418,7 +473,8 @@
         </div>
 
         <button type="submit" 
-                class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded shadow font-semibold">
+                class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded shadow font-semibold {{ $userTodayAdvertisementCount === 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
+                {{ $userTodayAdvertisementCount === 0 ? 'disabled' : '' }}>
             <i class="bi bi-lock-fill"></i> Konfirmasi Tutup Shift
         </button>
         

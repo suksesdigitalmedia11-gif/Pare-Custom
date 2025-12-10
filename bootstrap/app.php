@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\KepalaToko;
 use App\Http\Middleware\CheckActiveShift;
+use App\Http\Middleware\CheckShiftBlocking;
 
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => Admin::class,
             'editor' => \App\Http\Middleware\Editor::class,
             'check.shift' => CheckActiveShift::class,
+            'check.shift.blocking' => CheckShiftBlocking::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

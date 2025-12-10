@@ -9,8 +9,11 @@ use App\Models\Income;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\AdvertisementPerformance;
+use App\Models\ShiftAutoClose;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -288,8 +291,9 @@ class FinanceController extends Controller
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
         
-        // Data untuk periode yang dipilih
+        // Data untuk periode yang dipilih (EXCLUDE record validasi kosong)
         $periodData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->select('type', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total_amount'))
             ->groupBy('type')
             ->get()
@@ -300,8 +304,9 @@ class FinanceController extends Controller
         $closingCount = $periodData['closing']->count ?? 0;
         $closingAmount = $periodData['closing']->total_amount ?? 0;
         
-        // Data untuk chart (per hari dalam range)
+        // Data untuk chart (per hari dalam range) - EXCLUDE record validasi kosong
         $chartData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->select('date', 'type', DB::raw('COUNT(*) as count'))
             ->groupBy('date', 'type')
             ->orderBy('date')
@@ -330,6 +335,11 @@ class FinanceController extends Controller
             }
         }
         
+        // Cek apakah ada data aktual (bukan hanya validasi kosong) untuk periode ini
+        $hasActualData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
+            ->exists();
+        
         return [
             'advertisementStartDate' => $startDate,
             'advertisementEndDate' => $endDate,
@@ -339,6 +349,40 @@ class FinanceController extends Controller
             'advertisementClosingAmount' => $closingAmount,
             'advertisementChartData' => $formattedChartData,
             'advertisementChartDates' => $dates,
+            'advertisementHasActualData' => $hasActualData,
         ];
+    }
+
+    /**
+     * Show list of auto-closed shifts that need approval
+     */
+    public function shiftAutoCloses(): View
+    {
+        $autoCloses = ShiftAutoClose::with(['shift.user', 'approver'])
+            ->orderBy('auto_closed_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+        
+        return view('finance.shift-auto-closes', compact('autoCloses'));
+    }
+
+    /**
+     * Approve auto-closed shift (unblock admin login)
+     */
+    public function approveShiftAutoClose($id): RedirectResponse
+    {
+        $autoClose = ShiftAutoClose::findOrFail($id);
+        
+        if (!$autoClose->is_blocked) {
+            return back()->with('error', 'Shift ini sudah di-approve sebelumnya.');
+        }
+        
+        $autoClose->update([
+            'is_blocked' => false,
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+        ]);
+        
+        return back()->with('success', 'Shift auto-close telah di-approve. Login admin telah diaktifkan kembali.');
     }
 }

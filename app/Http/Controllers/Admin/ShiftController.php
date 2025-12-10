@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\SalesOrder;
 use App\Models\Expense;
 use App\Models\Income;
+use App\Models\AdvertisementPerformance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,6 +91,17 @@ class ShiftController extends Controller
         $shift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
         if (!$shift) {
             return back()->withErrors(['error' => 'Anda tidak memiliki shift aktif. Mulai shift terlebih dahulu.']);
+        }
+    
+        // === VALIDASI: Cek apakah USER YANG LOGIN sudah input iklan hari ini ===
+        $userTodayAdvertisementCount = AdvertisementPerformance::where('date', today())
+            ->where('user_id', Auth::id())
+            ->count();
+        
+        if ($userTodayAdvertisementCount === 0) {
+            return back()->withErrors([
+                'advertisement_required' => 'Data iklan hari ini masih kosong. Harap input data iklan terlebih dahulu atau validasi bahwa hari ini memang tidak ada aktivitas iklan.'
+            ])->withInput();
         }
     
         // === HITUNG REAL-TIME DARI DATA ASLI (JANGAN PERCAYA cash_total) ===
@@ -600,6 +612,58 @@ public function cashTransfer(Request $request): RedirectResponse
 
         return back()->with('success', 'Setor/Tukar tunai berhasil dicatat.');
     });
+}
+
+    /**
+     * Auto-input iklan default 0 (untuk validasi hari kosong)
+     */
+    public function validateEmptyAdvertisement(): RedirectResponse
+    {
+        $shift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
+        
+        if (!$shift) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki shift aktif.']);
+        }
+        
+        // Cek apakah USER YANG LOGIN sudah input iklan hari ini
+        $userTodayAdvertisementCount = AdvertisementPerformance::where('date', today())
+            ->where('user_id', Auth::id())
+            ->count();
+        
+        if ($userTodayAdvertisementCount > 0) {
+            return back()->withErrors(['error' => 'Anda sudah menginput data iklan hari ini. Tidak perlu validasi kosong.']);
+        }
+        
+        // Buat 3 record dengan nilai 0
+        $today = today();
+        $userId = Auth::id();
+        $description = 'Tidak ada aktivitas hari ini';
+        
+        AdvertisementPerformance::create([
+            'date' => $today,
+            'user_id' => $userId,
+            'type' => 'chat',
+            'description' => $description,
+            'amount' => 0,
+        ]);
+        
+        AdvertisementPerformance::create([
+            'date' => $today,
+            'user_id' => $userId,
+            'type' => 'followup',
+            'description' => $description,
+            'amount' => 0,
+        ]);
+        
+        AdvertisementPerformance::create([
+            'date' => $today,
+            'user_id' => $userId,
+            'type' => 'closing',
+            'description' => $description,
+            'amount' => 0,
+        ]);
+        
+        return back()->with('success', 'Data iklan hari ini telah divalidasi sebagai kosong (0 untuk semua jenis).');
 }
 
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\KepalaToko;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdvertisementPerformance;
@@ -144,7 +144,7 @@ class AdvertisementPerformanceController extends Controller
             ->with('user')
             ->first();
     
-        return view('admin.advertisement.index', compact(
+        return view('kepala-toko.advertisement.index', compact(
             'todayData',
             'formattedChartData',
             'dates',
@@ -204,13 +204,13 @@ class AdvertisementPerformanceController extends Controller
             ->first();
         
         if (!$userActiveShift) {
-            return redirect()->route('admin.advertisement.index')
+            return redirect()->route('kepala-toko.advertisement.index')
                 ->withErrors([
                     'error' => 'Anda belum membuka shift hari ini. Buka shift terlebih dahulu sebelum input data iklan.'
                 ]);
         }
         
-        return view('admin.advertisement.create');
+        return view('kepala-toko.advertisement.create');
     }
 
     public function store(Request $request)
@@ -242,7 +242,7 @@ class AdvertisementPerformanceController extends Controller
             'amount' => $validated['amount'] ?? 0,
         ]);
     
-        return redirect()->route('admin.advertisement.index')
+        return redirect()->route('kepala-toko.advertisement.index')
             ->with('success', 'Data iklan berhasil disimpan!');
     }
 
@@ -254,3 +254,4 @@ class AdvertisementPerformanceController extends Controller
         return response()->json($descriptions);
     }
 }
+

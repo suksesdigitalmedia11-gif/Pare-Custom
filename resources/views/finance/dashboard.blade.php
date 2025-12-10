@@ -83,6 +83,18 @@
                     <p class="text-xs text-gray-500">Periode: {{ \Carbon\Carbon::parse($startDate)->format('d M Y') }} - {{ \Carbon\Carbon::parse($endDate)->format('d M Y') }}</p>
                 </div>
                 
+                <!-- PEMBERITAHUAN: Tidak ada data aktual -->
+                @if(isset($advertisementHasActualData) && !$advertisementHasActualData)
+                <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-gray-600"></i>
+                        <p class="text-sm text-gray-700">
+                            <strong>Tidak ada data iklan untuk periode ini.</strong> Admin telah memvalidasi bahwa tidak ada aktivitas iklan.
+                        </p>
+                    </div>
+                </div>
+                @endif
+                
                 <!-- 3 CARDS COMPACT -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                     <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">

@@ -374,8 +374,9 @@ class DashboardController extends Controller
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
         
-        // Data untuk periode yang dipilih
+        // Data untuk periode yang dipilih (EXCLUDE record validasi kosong)
         $periodData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->select('type', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total_amount'))
             ->groupBy('type')
             ->get()
@@ -386,8 +387,9 @@ class DashboardController extends Controller
         $closingCount = $periodData['closing']->count ?? 0;
         $closingAmount = $periodData['closing']->total_amount ?? 0;
         
-        // Data untuk chart (per hari dalam range)
+        // Data untuk chart (per hari dalam range) - EXCLUDE record validasi kosong
         $chartData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
             ->select('date', 'type', DB::raw('COUNT(*) as count'))
             ->groupBy('date', 'type')
             ->orderBy('date')
@@ -416,6 +418,11 @@ class DashboardController extends Controller
             }
         }
         
+        // Cek apakah ada data aktual (bukan hanya validasi kosong) untuk periode ini
+        $hasActualData = AdvertisementPerformance::whereBetween('date', [$start, $end])
+            ->where('description', '!=', 'Tidak ada aktivitas hari ini')
+            ->exists();
+        
         return [
             'advertisementStartDate' => $startDate,
             'advertisementEndDate' => $endDate,
@@ -425,6 +432,7 @@ class DashboardController extends Controller
             'advertisementClosingAmount' => $closingAmount,
             'advertisementChartData' => $formattedChartData,
             'advertisementChartDates' => $dates,
+            'advertisementHasActualData' => $hasActualData,
         ];
     }
 }

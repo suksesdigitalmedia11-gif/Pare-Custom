@@ -129,6 +129,59 @@
         </div>
       @endif
 
+      <!-- Alert: Shift Blocking -->
+      @php
+        try {
+            $hasBlockedShift = \App\Models\ShiftAutoClose::where('is_blocked', true)
+                ->whereDate('auto_closed_date', '>=', now()->subDays(7))
+                ->exists();
+            $blockedShift = null;
+            if ($hasBlockedShift) {
+                $blockedShift = \App\Models\ShiftAutoClose::where('is_blocked', true)
+                    ->whereDate('auto_closed_date', '>=', now()->subDays(7))
+                    ->with('shift.user')
+                    ->latest('auto_closed_date')
+                    ->first();
+            }
+        } catch (\Exception $e) {
+            $hasBlockedShift = false;
+            $blockedShift = null;
+        }
+      @endphp
+      
+      @if($hasBlockedShift && $blockedShift)
+        <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-lg">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="ml-3 flex-1">
+              <h3 class="text-sm font-semibold text-red-800 mb-2">
+                ⚠️ Login Diblokir: Shift Tidak Ditutup
+              </h3>
+              <div class="text-sm text-red-700 space-y-2">
+                <p>
+                  <strong>Shift tidak ditutup pada hari sebelumnya.</strong>
+                </p>
+                <p>
+                  Shift yang di-auto-close:
+                </p>
+                <ul class="list-disc list-inside ml-2 space-y-1">
+                  <li>User: <strong>{{ $blockedShift->shift->user->name ?? 'N/A' }}</strong></li>
+                  <li>Tanggal Auto-Close: <strong>{{ \Carbon\Carbon::parse($blockedShift->auto_closed_date)->format('d/m/Y') }}</strong></li>
+                  <li>Shift ID: <strong>#{{ $blockedShift->shift_id }}</strong></li>
+                </ul>
+                <p class="mt-3 font-semibold">
+                  🔒 Silakan minta approval ke akun <strong>Finance</strong> untuk mengaktifkan kembali akses login.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      @endif
+
       <!-- Form -->
       <form action="{{ route('login') }}" method="POST" class="space-y-4">
         @csrf

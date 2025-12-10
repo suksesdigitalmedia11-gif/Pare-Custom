@@ -200,6 +200,26 @@
                             >
                                 Shift
                             </a>
+                            <a 
+                                href="{{ route('finance.shift-auto-closes') }}" 
+                                class="block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-700 transition-colors relative"
+                            >
+                                <span class="flex items-center">
+                                    Shift Auto-Close
+                                    @php
+                                        try {
+                                            $blockedCount = \App\Models\ShiftAutoClose::where('is_blocked', true)
+                                                ->whereDate('auto_closed_date', '>=', now()->subDays(7))
+                                                ->count();
+                                        } catch (\Exception $e) {
+                                            $blockedCount = 0;
+                                        }
+                                    @endphp
+                                    @if($blockedCount > 0)
+                                        <span class="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $blockedCount }}</span>
+                                    @endif
+                                </span>
+                            </a>
                         </div>
                     </div>
                 </div>

@@ -204,6 +204,15 @@
                     </div>
                 </div>
 
+                     <!-- Iklan -->
+                <a 
+                    href="{{ route('kepala-toko.advertisement.index') }}" 
+                    class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-700 group transition-all"
+                >
+                    <i class="bi bi-bar-chart-line text-lg text-gray-400 group-hover:text-blue-600"></i>
+                    <span class="font-medium">Iklan</span>
+                </a>
+
                 <!-- Pembelian Dropdown -->
                 <div class="nav-item">
                     <button

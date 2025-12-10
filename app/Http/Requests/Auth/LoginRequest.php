@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\ShiftAutoClose;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +42,7 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        // Authenticate dulu tanpa cek blocking
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
@@ -48,8 +50,37 @@ class LoginRequest extends FormRequest
                 'email' => trans('auth.failed'),
             ]);
         }
+        
+        // Setelah authenticate berhasil, cek blocking HANYA untuk admin dan kepala_toko
+        $user = Auth::user();
+        if (in_array($user->usertype, ['admin', 'kepala_toko'])) {
+            $this->checkShiftBlocking();
+        }
 
         RateLimiter::clear($this->throttleKey());
+    }
+    
+    /**
+     * Check if admin/kepala_toko login is blocked due to auto-closed shift
+     * Hanya dipanggil setelah authenticate berhasil
+     */
+    private function checkShiftBlocking(): void
+    {
+        // Cek apakah ada shift yang di-auto-close dan masih blocked
+        $hasBlockedShift = ShiftAutoClose::where('is_blocked', true)
+            ->whereDate('auto_closed_date', '>=', now()->subDays(7)) // Cek 7 hari terakhir
+            ->exists();
+        
+        if ($hasBlockedShift) {
+            // Logout user yang baru login
+            Auth::logout();
+            $this->session()->invalidate();
+            $this->session()->regenerateToken();
+            
+            throw ValidationException::withMessages([
+                'email' => 'Login diblokir: Shift tidak ditutup pada hari sebelumnya. Silakan minta approval ke akun Finance untuk mengaktifkan kembali akses login.',
+            ]);
+        }
     }
 
     /**
