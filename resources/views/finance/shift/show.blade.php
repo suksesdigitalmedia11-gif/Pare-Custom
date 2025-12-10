@@ -288,6 +288,62 @@
                     @endif
                 </div>
 
+                <!-- Cash Transfer -->
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">💸 Setor/Tukar Tunai</h2>
+                    @php 
+                        $cashTransfers = $shift->cashTransfers ?? collect(); 
+                        $totalCashTransfer = $cashTransfers->sum('amount');
+                    @endphp
+                    @if($cashTransfers->isEmpty())
+                        <p class="text-gray-500 bg-gray-50 p-4 rounded-lg">Tidak ada setor/tukar tunai pada shift ini.</p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-auto border-collapse">
+                                <thead>
+                                    <tr class="bg-purple-100">
+                                        <th class="px-4 py-2 text-left">Keterangan</th>
+                                        <th class="px-4 py-2 text-left">Jenis</th>
+                                        <th class="px-4 py-2 text-right">Jumlah</th>
+                                        <th class="px-4 py-2 text-left">Waktu</th>
+                                        <th class="px-4 py-2 text-left">Catatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($cashTransfers as $transfer)
+                                        <tr class="border-b hover:bg-purple-50">
+                                            <td class="px-4 py-2">{{ $transfer->description }}</td>
+                                            <td class="px-4 py-2">
+                                                <span class="px-2 py-1 rounded text-xs 
+                                                    {{ $transfer->type == 'setor' ? 'bg-blue-100 text-blue-800' : 
+                                                       ($transfer->type == 'tukar' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800') }}">
+                                                    {{ ucfirst($transfer->type) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-purple-600 font-medium">
+                                                - Rp {{ number_format($transfer->amount, 0, ',', '.') }}
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-600">
+                                                {{ $transfer->created_at->format('d/m/Y H:i') }}
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-600">
+                                                {{ $transfer->notes ?? '-' }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                    <tr class="bg-purple-50 font-semibold">
+                                        <td colspan="2" class="px-4 py-2">Total Transfer Tunai</td>
+                                        <td class="px-4 py-2 text-right text-purple-600">
+                                            - Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
+                                        </td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
                 <!-- Summary Kas -->
                 <div class="bg-yellow-50 p-6 rounded-lg">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">🧮 Summary Kas</h2>
@@ -331,10 +387,14 @@
                                         <td class="px-4 py-2 font-medium">Pengeluaran</td>
                                         <td class="px-4 py-2 text-right text-red-600">- Rp {{ number_format($shift->expense_total, 0, ',', '.') }}</td>
                                     </tr>
+                                    <tr class="border-b">
+                                        <td class="px-4 py-2 font-medium">Setor/Tukar Tunai</td>
+                                        <td class="px-4 py-2 text-right text-purple-600">- Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}</td>
+                                    </tr>
                                     <tr class="bg-gray-100 font-semibold">
                                         <td class="px-4 py-2">Total Diharapkan (Tunai)</td>
                                         <td class="px-4 py-2 text-right">
-                                            Rp {{ number_format($shift->initial_cash + $cashLunas + $cashDp + $cashPelunasan + $shift->income_total - $shift->expense_total, 0, ',', '.') }}
+                                            Rp {{ number_format($shift->initial_cash + $cashLunas + $cashDp + $cashPelunasan + $shift->income_total - $shift->expense_total - $totalCashTransfer, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -356,7 +416,7 @@
                                     <tr class="bg-gray-100 font-semibold">
                                         <td class="px-4 py-2">Total Diharapkan</td>
                                         <td class="px-4 py-2 text-right">
-                                            Rp {{ number_format($shift->initial_cash + $totalPendapatan + $shift->income_total - $shift->expense_total, 0, ',', '.') }}
+                                            Rp {{ number_format($shift->initial_cash + $totalPendapatan + $shift->income_total - $shift->expense_total - $totalCashTransfer, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                     <tr class="border-b">
