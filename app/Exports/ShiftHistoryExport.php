@@ -22,7 +22,8 @@ class ShiftHistoryExport implements FromCollection, WithHeadings
 
     public function collection(): Collection
     {
-        $query = Shift::with('user');
+        // Eager load cashTransfers to include setor/tarik tunai in export
+        $query = Shift::with(['user', 'cashTransfers']);
 
         if ($this->startDate && $this->endDate) {
             $start = $this->startDate;
@@ -42,6 +43,7 @@ class ShiftHistoryExport implements FromCollection, WithHeadings
 
         return $query->orderBy('start_time', 'desc')->get()->map(function ($shift) {
             $kasPenjualan = $shift->cash_total - $shift->income_total;
+            $totalCashTransfer = $shift->cashTransfers->sum('amount');
 
             return [
                 'Kasir' => $shift->user->name,
@@ -53,7 +55,8 @@ class ShiftHistoryExport implements FromCollection, WithHeadings
                 'Pemasukan Manual' => $shift->income_total,
                 'Total Kas Masuk' => $shift->cash_total,
                 'Total Pengeluaran' => $shift->expense_total,
-                'Kas Diharapkan' => $shift->initial_cash + $shift->cash_total - $shift->expense_total,
+                'Setor/Tukar Tunai' => $totalCashTransfer,
+                'Kas Diharapkan' => $shift->initial_cash + $shift->cash_total - $shift->expense_total - $totalCashTransfer,
                 'Kas Aktual' => $shift->final_cash ?? 0,
                 'Selisih' => $shift->discrepancy ?? 0,
                 'Status' => ucfirst($shift->status),
@@ -74,6 +77,7 @@ class ShiftHistoryExport implements FromCollection, WithHeadings
             'Pemasukan Manual (Rp)',
             'Total Kas Masuk (Rp)',
             'Total Pengeluaran (Rp)',
+            'Setor/Tukar Tunai (Rp)',
             'Kas Diharapkan (Rp)',
             'Kas Aktual (Rp)',
             'Selisih (Rp)',

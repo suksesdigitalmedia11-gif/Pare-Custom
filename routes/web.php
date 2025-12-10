@@ -299,6 +299,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::get('/dashboard', [\App\Http\Controllers\Finance\ShiftController::class, 'dashboard'])->name('dashboard');
         Route::get('/history', [\App\Http\Controllers\Finance\ShiftController::class, 'history'])->name('history');
         Route::get('/export', [\App\Http\Controllers\Finance\ShiftController::class, 'export'])->name('export');
+        Route::get('/export-full', [\App\Http\Controllers\Finance\ShiftController::class, 'exportFull'])->name('export-full');
         Route::get('/{shift}/export-detail', [\App\Http\Controllers\Finance\ShiftController::class, 'exportDetail'])->name('export-detail');
         Route::get('/{shift}/export-detail-pdf', [App\Http\Controllers\Finance\ShiftController::class, 'exportDetailPdf'])->name('export-detail-pdf');
         Route::get('/{shift}', [\App\Http\Controllers\Finance\ShiftController::class, 'show'])->name('show');

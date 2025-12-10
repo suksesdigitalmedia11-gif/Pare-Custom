@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ShiftHistoryExport;
+use App\Exports\ShiftFullDetailExport;
 use App\Exports\ShiftDetailExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -212,7 +213,7 @@ public function dashboard(Request $request): View
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
-        $shifts = Shift::with('user')
+        $shifts = Shift::with(['user', 'cashTransfers'])
             ->where(function($query) use ($start, $end) {
                 $query->whereBetween('start_time', [$start, $end])
                       ->orWhere(function($q) use ($start, $end) {
@@ -300,6 +301,20 @@ public function dashboard(Request $request): View
         return Excel::download(
             new ShiftHistoryExport($startDate, $endDate),
             'shift_history_' . date('Ymd_His') . '.xlsx'
+        );
+    }
+
+    /**
+     * Export Excel detail lengkap untuk Finance (semua shift dalam rentang)
+     */
+    public function exportFull(Request $request)
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        return Excel::download(
+            new ShiftFullDetailExport($startDate, $endDate),
+            'shift_detail_full_' . date('Ymd_His') . '.xlsx'
         );
     }
 

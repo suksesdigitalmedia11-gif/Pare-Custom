@@ -27,6 +27,9 @@
                         <a href="{{ route('finance.shift.export', ['start_date' => $startDate, 'end_date' => $endDate]) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
                             <i class="bi bi-file-earmark-excel mr-2"></i> Export
                         </a>
+                        <a href="{{ route('finance.shift.export-full', ['start_date' => $startDate, 'end_date' => $endDate]) }}" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
+                            <i class="bi bi-clipboard2-data mr-2"></i> Export Detail Semua
+                        </a>
                     </div>
                 </div>
 
