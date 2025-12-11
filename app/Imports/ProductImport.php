@@ -3,83 +3,62 @@
 namespace App\Imports;
 
 use App\Models\Product;
-use App\Models\Category;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Validators\Failure;
 
-class ProductImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
+class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
 {
     use SkipsFailures;
 
     private $rowCount = 0;
+    private $processedRows = 0;
 
     public function model(array $row)
     {
-        // Handle kategori: Cari atau buat baru
-        $categoryId = null;
-        if (!empty($row['category_name'])) {
-            $category = Category::where('name', $row['category_name'])->first();
-            if (!$category) {
-                $slug = Category::generateUniqueSlug($row['category_name']);
-                $category = Category::create([
-                    'name' => $row['category_name'],
-                    'slug' => $slug,
-                    'description' => '',
-                    'is_active' => true,
-                ]);
-            }
-            $categoryId = $category->id;
+        $row = $this->normalizeRow($row);
+        $this->processedRows++;
+        $rowNumber = $this->processedRows + 1; // +1 karena heading
+
+        // Validasi minimal: name, cost_price, price harus ada
+        if (empty($row['name'])) {
+            $this->addFailure($rowNumber, 'name', ['Nama produk wajib diisi'], $row);
+            return null;
         }
 
-        // 🔧 FIX: Konversi format Indonesia ke format database
+        $product = $this->findProduct($row);
+        if (!$product) {
+            $this->addFailure($rowNumber, 'sku', ['Produk tidak ditemukan berdasarkan SKU atau nama'], $row);
+            return null;
+        }
+
         $costPrice = $this->convertToFloat($row['cost_price']);
         $price = $this->convertToFloat($row['price']);
 
-        // Validasi harga jual tidak boleh lebih kecil dari harga modal
-        if ($price < $costPrice) {
-            throw new \Exception("Harga jual tidak boleh lebih kecil dari harga modal. Baris: " . ($this->rowCount + 1));
+        if ($costPrice === false) {
+            $this->addFailure($rowNumber, 'cost_price', ['Harga modal tidak valid'], $row);
+            return null;
         }
 
-        // Tambah hitungan baris
+        if ($price === false) {
+            $this->addFailure($rowNumber, 'price', ['Harga jual tidak valid'], $row);
+            return null;
+        }
+
+        if ($price < $costPrice) {
+            $this->addFailure($rowNumber, 'price', ['Harga jual tidak boleh lebih kecil dari harga modal'], $row);
+            return null;
+        }
+
+        // Update hanya harga modal & harga jual
+        $product->cost_price = $costPrice;
+        $product->price = $price;
+        $product->save();
+
         $this->rowCount++;
-
-        return new Product([
-            'sku' => $row['sku'] ?? null,
-            'name' => $row['name'],
-            'category_id' => $categoryId,
-            'cost_price' => $costPrice,
-            'price' => $price,
-            'stock_qty' => $row['stock_qty'],
-            'is_active' => (bool) $row['is_active'],
-        ]);
-    }
-
-    public function rules(): array
-    {
-        return [
-            'sku' => ['nullable', 'string', 'max:100', Rule::unique('products', 'sku')],
-            'name' => ['required', 'string', 'max:255'],
-            'category_name' => ['nullable', 'string', 'max:255'],
-            // 🔧 FIX: Custom validation untuk format Indonesia
-            'cost_price' => ['required', function ($attribute, $value, $fail) {
-                $converted = $this->convertToFloat($value);
-                if ($converted === false || $converted < 0) {
-                    $fail('Harga modal harus berupa angka yang valid dan tidak negatif.');
-                }
-            }],
-            'price' => ['required', function ($attribute, $value, $fail) {
-                $converted = $this->convertToFloat($value);
-                if ($converted === false || $converted < 0) {
-                    $fail('Harga jual harus berupa angka yang valid dan tidak negatif.');
-                }
-            }],
-            'stock_qty' => ['required', 'integer'],
-            'is_active' => ['required', 'in:0,1'],
-        ];
+        return null; // Tidak membuat entitas baru
     }
 
     /**
@@ -92,83 +71,123 @@ class ProductImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnF
      */
     private function convertToFloat($value)
     {
-        // Jika sudah numeric, langsung return
         if (is_numeric($value)) {
             return (float) $value;
         }
 
-        // Jika string, bersihkan format Indonesia
         $value = trim(strval($value));
-        
-        // Jika kosong, return false
         if ($value === '') {
             return false;
         }
 
-        // Hapus karakter selain angka, koma, dan titik
-        $cleaned = preg_replace('/[^\d,.]/', '', $value);
-        
-        // Jika tidak ada digit, return false
+        // Hapus karakter non digit/koma/titik
+        $cleaned = preg_replace('/[^\d,\.]/', '', $value);
         if (!preg_match('/\d/', $cleaned)) {
             return false;
         }
 
-        // Handle berbagai format
-        if (strpos($cleaned, ',') !== false && strpos($cleaned, '.') !== false) {
-            // Format: 1.234,56 → hapus titik (thousand separator), ganti koma dengan titik (decimal separator)
+        $hasComma = strpos($cleaned, ',') !== false;
+        $hasDot = strpos($cleaned, '.') !== false;
+
+        // Deteksi pola ribuan-koma & desimal-titik: 30,000.00
+        if ($hasComma && $hasDot && preg_match('/^\d{1,3}(,\d{3})+(\.\d+)?$/', $cleaned)) {
+            $cleaned = str_replace(',', '', $cleaned); // buang separator ribuan
+            // titik sudah desimal
+        }
+        // Deteksi pola ribuan-titik & desimal-koma: 30.000,00
+        elseif ($hasComma && $hasDot && preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $cleaned)) {
             $cleaned = str_replace('.', '', $cleaned);
             $cleaned = str_replace(',', '.', $cleaned);
-        } elseif (strpos($cleaned, ',') !== false && strpos($cleaned, '.') === false) {
-            // Format: 1234,56 atau 61.998,77 → cek jika koma sebagai decimal separator
-            $parts = explode(',', $cleaned);
-            if (count($parts) === 2 && strlen($parts[1]) <= 2) {
-                // Format: 1234,56 → ganti koma dengan titik
-                $cleaned = str_replace(',', '.', $cleaned);
-            } else {
-                // Format: 61.998,77 → hapus titik, ganti koma dengan titik
-                $cleaned = str_replace('.', '', $cleaned);
-                $cleaned = str_replace(',', '.', $cleaned);
-            }
-        } elseif (strpos($cleaned, '.') !== false) {
-            // Format: 17000.00 (sudah format internasional) - biarkan
-            // Atau 17.000 (format Indonesia) - perlu dikonversi
+        }
+        // Hanya koma: asumsikan koma desimal (1234,56)
+        elseif ($hasComma && !$hasDot) {
+            $cleaned = str_replace(',', '.', $cleaned);
+        }
+        // Hanya titik: bisa ribuan atau desimal. Jika lebih dari 1 titik, buang semua (17.000)
+        elseif ($hasDot && !$hasComma) {
             $parts = explode('.', $cleaned);
             if (count($parts) > 2) {
-                // Format: 17.000 → hapus semua titik
                 $cleaned = str_replace('.', '', $cleaned);
             }
-            // Jika hanya 1 titik, biarkan sebagai decimal separator
+            // jika satu titik, biarkan
         }
 
-        // Konversi ke float
         $result = (float) $cleaned;
-        
-        // Validasi hasil konversi
-        if ($result < 0) {
-            return false;
-        }
-
-        return $result;
-    }
-
-    public function customValidationMessages()
-    {
-        return [
-            'sku.unique' => 'SKU sudah digunakan.',
-            'name.required' => 'Nama produk wajib diisi.',
-            'stock_qty.required' => 'Jumlah stok wajib diisi.',
-            'is_active.required' => 'Status aktif wajib diisi (0 atau 1).',
-            'is_active.in' => 'Status aktif harus 0 atau 1.',
-        ];
-    }
-
-    public function customValidationAttributes()
-    {
-        return ['category_name' => 'nama kategori'];
+        return $result < 0 ? false : $result;
     }
 
     public function getRowCount(): int
     {
         return $this->rowCount;
+    }
+
+    private function findProduct(array $row): ?Product
+    {
+        $sku = $row['sku'] ?? null;
+        $name = $row['name'] ?? null;
+
+        if ($sku) {
+            $product = Product::where('sku', $sku)->first();
+            if ($product) {
+                return $product;
+            }
+        }
+
+        if ($name) {
+            return Product::where('name', $name)->first();
+        }
+
+        return null;
+    }
+
+    private function addFailure(int $row, string $attribute, array $errors, array $values): void
+    {
+        $failure = new Failure($row, $attribute, $errors, $values);
+        $this->onFailure($failure);
+    }
+
+    private function normalizeRow(array $row): array
+    {
+        $normalized = [];
+        foreach ($row as $key => $value) {
+            $normalized[$this->normalizeKey($key)] = $value;
+        }
+        return $normalized;
+    }
+
+    private function normalizeKey(string $key): string
+    {
+        $k = strtolower($key);
+        $k = str_replace(['(', ')', '.', ','], ' ', $k);
+        $k = preg_replace('/\s+/', ' ', $k);
+        $k = trim($k);
+
+        $mapping = [
+            'id' => 'id',
+            'sku' => 'sku',
+            'barcode' => 'barcode',
+            'nama produk' => 'name',
+            'nama_produk' => 'name',
+            'nama' => 'name',
+            'kategori' => 'category_name',
+            'kategori produk' => 'category_name',
+            'kategori_produk' => 'category_name',
+            'category' => 'category_name',
+            'category name' => 'category_name',
+            'harga modal rp' => 'cost_price',
+            'harga_modal_rp' => 'cost_price',
+            'harga modal' => 'cost_price',
+            'cost price' => 'cost_price',
+            'harga jual rp' => 'price',
+            'harga_jual_rp' => 'price',
+            'harga jual' => 'price',
+            'price' => 'price',
+            'stok' => 'stock_qty',
+            'stock' => 'stock_qty',
+            'stock qty' => 'stock_qty',
+            'status' => 'is_active',
+        ];
+
+        return $mapping[$k] ?? $k;
     }
 }
