@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -591,8 +592,6 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
 
     private function generateSoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-        $seq = DB::table('sales_orders')->whereDate('created_at', Carbon::today())->count() + 1;
-        return 'SAL' . $date . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        return app(NumberGenerator::class)->generateSalesOrderNumber();
     }
 }

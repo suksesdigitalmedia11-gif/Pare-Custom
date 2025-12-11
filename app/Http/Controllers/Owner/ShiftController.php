@@ -343,7 +343,7 @@ public function printPreview($id)
 
     public function history()
     {
-        $shifts = Shift::with('user')->latest()->paginate(10);
+        $shifts = Shift::with(['user', 'cashTransfers'])->latest()->paginate(10);
         collect($shifts->items())->map(function ($shift) {
             $payments = Payment::where('created_by', $shift->user_id)
                 ->where('created_at', '>=', $shift->start_time)

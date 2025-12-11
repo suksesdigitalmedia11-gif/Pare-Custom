@@ -14,6 +14,7 @@ use Illuminate\View\View;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use App\Models\PurchaseOrderItem;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -546,25 +547,7 @@ if (!empty($allChanges)) {
     }
     public function generatePoNumber(): string
     {
-        return DB::transaction(function () {
-            $today = now()->format('ymd');
-    
-            // Ambil PO terakhir HARI INI dengan lock untuk mencegah bentrok
-            $lastPo = DB::table('purchase_orders')
-                ->whereDate('created_at', today())
-                ->lockForUpdate()
-                ->orderBy('po_number', 'desc')
-                ->first();
-    
-            if ($lastPo) {
-                $lastSeq = (int) substr($lastPo->po_number, -4);
-                $newSeq = $lastSeq + 1;
-            } else {
-                $newSeq = 1;
-            }
-    
-            return 'PO' . $today . str_pad($newSeq, 4, '0', STR_PAD_LEFT);
-        });
+        return app(NumberGenerator::class)->generatePurchaseOrderNumber();
     }
     
 }

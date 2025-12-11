@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Services\NumberGenerator;
 
 class SalesOrderService
 {
@@ -207,11 +208,9 @@ class SalesOrderService
     }
 
     // ✅ STANDARD SO NUMBER GENERATION
-    private function generateSoNumber()
+    private function generateSoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-        $seq = DB::table('sales_orders')->whereDate('created_at', today())->count() + 1;
-        return 'SAL' . $date . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        return app(NumberGenerator::class)->generateSalesOrderNumber();
     }
 
     private function getItemsForPurchase(SalesOrder $salesOrder)

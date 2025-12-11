@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use Illuminate\View\View;
 use Carbon\Carbon;
 
@@ -707,9 +708,7 @@ if (!empty($allChanges)) {
 
     private function generatePoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-        $seq = str_pad((string) (PurchaseOrder::whereDate('created_at', Carbon::today())->count() + 1), 4, '0', STR_PAD_LEFT);
-        return 'PO'.$date.$seq;
+        return app(NumberGenerator::class)->generatePurchaseOrderNumber();
     }
 
     private function generateStockInNumber(): string

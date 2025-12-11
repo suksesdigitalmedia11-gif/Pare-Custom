@@ -7,6 +7,7 @@ use App\Models\PurchaseOrderItem;
 use App\Models\Supplier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -121,8 +122,8 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     } elseif ($rawPoNumber !== '') {
                         $poNumber = strtoupper($rawPoNumber);
                     } else {
-                        // generate otomatis dengan helper dari controller admin
-                        $poNumber = app(\App\Http\Controllers\Admin\PurchaseOrderController::class)->generatePoNumber();
+                        // generate otomatis dari generator terpusat
+                        $poNumber = app(NumberGenerator::class)->generatePurchaseOrderNumber();
                     }
 
                     // Cek duplikasi PO_NUMBER

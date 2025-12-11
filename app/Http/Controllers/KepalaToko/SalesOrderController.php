@@ -16,6 +16,7 @@ use App\Models\Payment;
 use App\Models\Shift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -1205,22 +1206,7 @@ if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
 
     private function generateSoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-
-        // Cari nomor terakhir dengan prefix tanggal yang sama, supaya tidak bentrok jika ada SO dihapus
-        $lastSO = SalesOrder::where('so_number', 'like', 'SAL' . $date . '%')
-            ->orderBy('so_number', 'desc')
-            ->first();
-
-        if ($lastSO) {
-            // Ambil 4 digit terakhir dari nomor SO
-            $lastSeq = (int) substr($lastSO->so_number, -4);
-            $seq = $lastSeq + 1;
-        } else {
-            $seq = 1;
-        }
-
-        return 'SAL' . $date . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        return app(NumberGenerator::class)->generateSalesOrderNumber();
     }
 
     public function searchCustomers(Request $request)

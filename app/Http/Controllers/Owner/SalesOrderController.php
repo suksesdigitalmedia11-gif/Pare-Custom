@@ -16,6 +16,7 @@ use App\Models\Payment;
 use App\Models\Shift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NumberGenerator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -1035,9 +1036,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
     }
     private function generateSoNumber(): string
     {
-        $date = Carbon::now()->format('ymd');
-        $seq = DB::table('sales_orders')->whereDate('created_at', Carbon::today())->count() + 1;
-        return 'SAL' . $date . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        return app(NumberGenerator::class)->generateSalesOrderNumber();
     }
     public function destroy(SalesOrder $salesOrder): RedirectResponse
 {
