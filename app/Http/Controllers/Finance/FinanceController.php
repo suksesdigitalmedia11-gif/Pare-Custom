@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
 use App\Models\PurchaseOrder;
 use App\Models\Income;
 use App\Models\Expense;
@@ -43,10 +44,16 @@ class FinanceController extends Controller
         $manualIncome = Income::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         $omset = $totalSales + $manualIncome;
     
-        // 3. HITUNG HPP - Total Pembelian SELESAI
-        $hpp = PurchaseOrder::whereBetween('created_at', [$start, $end])
-            ->where('status', 'selesai')
-            ->sum('grand_total') ?? 0;
+        // 3. HITUNG HPP - Dari harga modal item penjualan (cost_price × qty)
+        // HPP = SUM(products.cost_price × sales_order_items.qty)
+        // untuk semua sales order yang status != 'draft' dalam periode
+        // Hanya hitung item yang punya product_id (product ada di database)
+        $hpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->whereNotNull('sales_order_items.product_id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->sum(DB::raw('products.cost_price * sales_order_items.qty')) ?? 0;
 
         // 3b. HPP TERKAIT PENJUALAN (untuk Gross Profit khusus)
         // Menghitung hanya purchase order yang terhubung ke sales (punya sales_order_id)
@@ -59,6 +66,11 @@ class FinanceController extends Controller
     
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+        
+        // 4b. RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
+        $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'amount', 'description', 'created_at']);
     
         // 5. HITUNG PROFIT
         $profit = $omset - $hpp - $operasional;
@@ -131,6 +143,7 @@ class FinanceController extends Controller
             'linkedHpp' => $linkedHpp,
             'grossProfitLinked' => $grossProfitLinked,
             'operasional' => $operasional,
+            'operasionalDetails' => $operasionalDetails,
             'profit' => $profit,
             'salesByPaymentMethod' => $salesByPaymentMethod,
             'recentSales' => $recentSales,

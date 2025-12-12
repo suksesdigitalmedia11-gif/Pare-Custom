@@ -317,6 +317,60 @@
     @endif
 </div>
 
+<!-- RINCIAN OPERASIONAL -->
+@if(isset($operasionalDetails) && $operasionalDetails->count() > 0)
+<div class="bg-white p-4 rounded-xl shadow mb-4">
+    <h2 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <i class="bi bi-list-ul text-orange-600"></i>
+        Rincian Operasional
+        <span class="text-xs font-normal text-gray-500">({{ $operasionalDetails->count() }} item)</span>
+    </h2>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-orange-50 border-b border-orange-200">
+                    <th class="text-left py-2 px-3 text-orange-700 font-semibold">Tanggal</th>
+                    <th class="text-left py-2 px-3 text-orange-700 font-semibold">Keterangan</th>
+                    <th class="text-right py-2 px-3 text-orange-700 font-semibold">Nominal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($operasionalDetails as $detail)
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-2 px-3 text-gray-600">
+                        {{ \Carbon\Carbon::parse($detail->created_at)->format('d/m/Y H:i') }}
+                    </td>
+                    <td class="py-2 px-3 text-gray-800">
+                        {{ $detail->description }}
+                    </td>
+                    <td class="py-2 px-3 text-right font-semibold text-orange-600">
+                        Rp {{ number_format($detail->amount, 0, ',', '.') }}
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="bg-orange-50 font-bold">
+                    <td colspan="2" class="py-2 px-3 text-orange-700">TOTAL OPERASIONAL</td>
+                    <td class="py-2 px-3 text-right text-orange-700">
+                        Rp {{ number_format($operasional, 0, ',', '.') }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+@else
+<div class="bg-white p-4 rounded-xl shadow mb-4">
+    <h2 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <i class="bi bi-list-ul text-orange-600"></i>
+        Rincian Operasional
+    </h2>
+    <p class="text-sm text-gray-500 text-center py-4">Tidak ada data operasional untuk periode ini.</p>
+</div>
+@endif
+
 <!-- THREE COLUMN LAYOUT COMPACT - SAMA TINGGI -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
     <!-- PAYMENT METHODS BREAKDOWN -->

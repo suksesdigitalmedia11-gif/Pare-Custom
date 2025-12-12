@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdvertisementPerformance;
 use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
 use App\Models\Payment;
 use App\Models\Income;
 use App\Models\Expense;
@@ -37,11 +38,24 @@ class DashboardController extends Controller
         $manualIncome = Income::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         $omset = $totalSales + $manualIncome;
     
-        $hpp = PurchaseOrder::whereBetween('created_at', [$start, $end])
-            ->where('status', 'selesai')
-            ->sum('grand_total') ?? 0;
+        // HITUNG HPP - Dari harga modal item penjualan (cost_price × qty)
+        // HPP = SUM(products.cost_price × sales_order_items.qty)
+        // untuk semua sales order yang status != 'draft' dalam periode
+        // Hanya hitung item yang punya product_id (product ada di database)
+        $hpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->whereNotNull('sales_order_items.product_id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->sum(DB::raw('products.cost_price * sales_order_items.qty')) ?? 0;
     
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+        
+        // RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
+        $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'amount', 'description', 'created_at']);
+        
         $profit = $omset - $hpp - $operasional;
         
         $totalCashTransfer = CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
@@ -142,6 +156,7 @@ class DashboardController extends Controller
             'manualIncome' => $manualIncome,
             'hpp' => $hpp,
             'operasional' => $operasional,
+            'operasionalDetails' => $operasionalDetails,
             'profit' => $profit,
             'totalCashTransfer' => $totalCashTransfer,
             // Payment Breakdown
