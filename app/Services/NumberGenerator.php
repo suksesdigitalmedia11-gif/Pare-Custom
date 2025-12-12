@@ -11,8 +11,16 @@ class NumberGenerator
 
     public function generateSalesOrderNumber(): string
     {
-        $seq = $this->next('so');
-        return 'SAL' . now()->format('ymd') . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        $today = now()->format('ymd');
+        $attempts = 0;
+        do {
+            $seq = $this->next('so');
+            $candidate = 'SAL' . $today . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+            $exists = \App\Models\SalesOrder::where('so_number', $candidate)->exists();
+            $attempts++;
+        } while ($exists && $attempts < 10);
+
+        return $candidate;
     }
 
     public function generatePurchaseOrderNumber(): string
