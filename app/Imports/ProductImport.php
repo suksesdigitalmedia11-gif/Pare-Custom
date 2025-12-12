@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Product;
+use App\Models\Category;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
@@ -28,14 +29,8 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             return null;
         }
 
-        $product = $this->findProduct($row);
-        if (!$product) {
-            $this->addFailure($rowNumber, 'sku', ['Produk tidak ditemukan berdasarkan SKU atau nama'], $row);
-            return null;
-        }
-
-        $costPrice = $this->convertToFloat($row['cost_price']);
-        $price = $this->convertToFloat($row['price']);
+        $costPrice = $this->convertToFloat($row['cost_price'] ?? null);
+        $price = $this->convertToFloat($row['price'] ?? null);
 
         if ($costPrice === false) {
             $this->addFailure($rowNumber, 'cost_price', ['Harga modal tidak valid'], $row);
@@ -52,13 +47,34 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             return null;
         }
 
-        // Update hanya harga modal & harga jual
-        $product->cost_price = $costPrice;
-        $product->price = $price;
-        $product->save();
+        $product = $this->findProduct($row);
+        
+        if ($product) {
+            // Update hanya harga modal & harga jual
+            $product->cost_price = $costPrice;
+            $product->price = $price;
+            $product->save();
+        } else {
+            // Insert produk baru
+            $categoryId = $this->getOrCreateCategory($row['category_name'] ?? null);
+            
+            $stockQty = $this->convertToInt($row['stock_qty'] ?? 0);
+            $isActive = $this->convertToBoolean($row['is_active'] ?? 'Aktif');
+            
+            $product = Product::create([
+                'sku' => $row['sku'] ?? null,
+                'barcode' => $row['barcode'] ?? null,
+                'name' => $row['name'],
+                'category_id' => $categoryId,
+                'cost_price' => $costPrice,
+                'price' => $price,
+                'stock_qty' => $stockQty,
+                'is_active' => $isActive,
+            ]);
+        }
 
         $this->rowCount++;
-        return null; // Tidak membuat entitas baru
+        return null; // Tidak membuat entitas baru via ToModel
     }
 
     /**
@@ -68,6 +84,8 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
      * - "17.000" → 17000.00
      * - "17.000,77" → 17000.77
      * - "1.234,56" → 1234.56
+     * - "30,000" → 30000 (koma sebagai thousand separator jika diikuti 3 digit)
+     * - "30,000.00" → 30000.00
      */
     private function convertToFloat($value)
     {
@@ -76,7 +94,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         }
 
         $value = trim(strval($value));
-        if ($value === '') {
+        if ($value === '' || $value === '-' || $value === null) {
             return false;
         }
 
@@ -99,9 +117,15 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             $cleaned = str_replace('.', '', $cleaned);
             $cleaned = str_replace(',', '.', $cleaned);
         }
-        // Hanya koma: asumsikan koma desimal (1234,56)
+        // Hanya koma: cek apakah thousand separator (diikuti 3 digit) atau decimal separator
         elseif ($hasComma && !$hasDot) {
-            $cleaned = str_replace(',', '.', $cleaned);
+            // Cek pola: koma diikuti tepat 3 digit = thousand separator (30,000)
+            if (preg_match('/^\d{1,3}(,\d{3})+$/', $cleaned)) {
+                $cleaned = str_replace(',', '', $cleaned); // thousand separator
+            } else {
+                // Koma sebagai decimal separator (1234,56)
+                $cleaned = str_replace(',', '.', $cleaned);
+            }
         }
         // Hanya titik: bisa ribuan atau desimal. Jika lebih dari 1 titik, buang semua (17.000)
         elseif ($hasDot && !$hasComma) {
@@ -109,11 +133,66 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             if (count($parts) > 2) {
                 $cleaned = str_replace('.', '', $cleaned);
             }
-            // jika satu titik, biarkan
+            // jika satu titik, biarkan sebagai decimal separator
         }
 
         $result = (float) $cleaned;
         return $result < 0 ? false : $result;
+    }
+
+    private function convertToInt($value): int
+    {
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        $value = trim(strval($value));
+        if ($value === '' || $value === '-' || $value === null) {
+            return 0;
+        }
+
+        // Hapus karakter non digit
+        $cleaned = preg_replace('/[^\d]/', '', $value);
+        return $cleaned === '' ? 0 : (int) $cleaned;
+    }
+
+    private function convertToBoolean($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $value = trim(strtolower(strval($value)));
+        
+        // Handle berbagai format: "aktif", "1", "true", "yes", "ya"
+        if (in_array($value, ['aktif', '1', 'true', 'yes', 'ya', 'y'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function getOrCreateCategory(?string $categoryName): ?int
+    {
+        if (empty($categoryName)) {
+            return null;
+        }
+
+        $category = Category::where('name', $categoryName)->first();
+        if ($category) {
+            return $category->id;
+        }
+
+        // Buat kategori baru
+        $slug = Category::generateUniqueSlug($categoryName);
+        $category = Category::create([
+            'name' => $categoryName,
+            'slug' => $slug,
+            'description' => '',
+            'is_active' => true,
+        ]);
+
+        return $category->id;
     }
 
     public function getRowCount(): int
