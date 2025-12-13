@@ -307,12 +307,23 @@ public function index(Request $request): View
     
                 foreach ($validated['items'] as $item) {
                     $lineTotal = (float)$item['sale_price'] * (int)$item['qty'];
+                    
+                    // ✅ Ambil cost_price dari product saat ini (snapshot - hidden dari admin)
+                    $costPrice = 0;
+                    if (!empty($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            $costPrice = $product->cost_price ?? 0;
+                        }
+                    }
+                    
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'sku' => $item['sku'] ?? null,
                         'sale_price' => $item['sale_price'],
+                        'cost_price' => $costPrice, // ✅ Snapshot harga modal (admin tidak lihat)
                         'qty' => $item['qty'],
                         'discount' => 0, // SET 0 karena diskon sekarang di level order
                         'line_total' => $lineTotal,
@@ -638,12 +649,23 @@ public function index(Request $request): View
                 $salesOrder->items()->delete();
                 foreach ($validated['items'] as $index => $item) {
                     $lineTotal = (float)$item['sale_price'] * (int)$item['qty'];
+                    
+                    // ✅ Ambil cost_price dari product saat ini (snapshot - hidden dari admin)
+                    $costPrice = 0;
+                    if (!empty($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            $costPrice = $product->cost_price ?? 0;
+                        }
+                    }
+                    
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'sku' => $item['sku'] ?? null,
                         'sale_price' => $item['sale_price'],
+                        'cost_price' => $costPrice, // ✅ Snapshot harga modal (admin tidak lihat)
                         'qty' => $item['qty'],
                         'discount' => 0,
                         'line_total' => $lineTotal,

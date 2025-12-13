@@ -317,6 +317,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
     Route::middleware(['auth', 'finance', 'check.shift'])->group(function () {
         Route::resource('sales', \App\Http\Controllers\Finance\SalesOrderController::class)
             ->parameters(['sales' => 'salesOrder']);
+        Route::post('/sales/items/{item}/update-cost-price', [\App\Http\Controllers\Finance\SalesOrderController::class, 'updateCostPrice'])->name('sales.items.update-cost-price');
         Route::post('/sales/{salesOrder}/approve', [\App\Http\Controllers\Finance\SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [\App\Http\Controllers\Finance\SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
         // ✅ WORKFLOW BARU - Route untuk transisi status (Finance) - yang perlu shift

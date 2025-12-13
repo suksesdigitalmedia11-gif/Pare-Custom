@@ -84,7 +84,7 @@
                             HPP (Pembelian)
                         </p>
                         <div class="text-2xl font-bold text-gray-900">Rp {{ number_format($monthlyHpp, 0, ',', '.') }}</div>
-                        <p class="text-xs text-gray-500 mt-2">Akumulasi seluruh pembelian/purchase (semua waktu).</p>
+                        <p class="text-xs text-gray-500 mt-2">HPP dari item yang dijual bulan ini (cost_price × qty).</p>
         </div>
                     <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
                         <p class="text-sm text-gray-500 mb-1 flex items-center gap-2">

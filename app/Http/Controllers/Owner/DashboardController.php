@@ -38,16 +38,15 @@ class DashboardController extends Controller
         $manualIncome = Income::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         $omset = $totalSales + $manualIncome;
     
-        // HITUNG HPP - Dari harga modal item penjualan (cost_price × qty)
-        // HPP = SUM(products.cost_price × sales_order_items.qty)
-        // untuk semua sales order yang status != 'draft' dalam periode
-        // Hanya hitung item yang punya product_id (product ada di database)
+        // HITUNG HPP - Dari harga modal item penjualan (cost_price × qty) - LOCKED/SNAPSHOT
+        // HPP = SUM(sales_order_items.cost_price × sales_order_items.qty)
+        // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
+        // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
         $hpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
-            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
             ->where('sales_orders.status', '!=', 'draft')
-            ->whereNotNull('sales_order_items.product_id')
             ->whereBetween('sales_orders.created_at', [$start, $end])
-            ->sum(DB::raw('products.cost_price * sales_order_items.qty')) ?? 0;
+            ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
     
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         
@@ -55,6 +54,9 @@ class DashboardController extends Controller
         $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
             ->orderBy('created_at', 'desc')
             ->get(['id', 'amount', 'description', 'created_at']);
+        
+        // ✅ GROSS PROFIT - Konsisten dengan HPP card
+        $grossProfit = $totalSales - $hpp;
         
         $profit = $omset - $hpp - $operasional;
         
@@ -146,6 +148,7 @@ class DashboardController extends Controller
         $advertisementPerformanceData = $this->getAdvertisementPerformanceData($startDate, $endDate);
         
         return view('owner.dashboard', array_merge($advertisementData, $advertisementPerformanceData, [
+            'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
             'selectedMonth' => $selectedMonth,
             'availableMonths' => $this->getAvailableMonths(),
             'startDate' => $startDate,
@@ -207,8 +210,16 @@ class DashboardController extends Controller
         $closingCount = $monthlyData['closing']->count ?? 0;
         $monthlyOmset = $monthlyData['closing']->total_amount ?? 0;
         $monthlySales = $monthlyOmset;
-        // HPP diambil dari SEMUA pembelian (tidak hanya bulan yang sama)
-        $monthlyHpp = PurchaseOrder::sum('grand_total');
+        
+        // HPP dihitung dari cost_price × qty dari sales order items bulan ini - LOCKED/SNAPSHOT
+        // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
+        // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
+        $monthlyHpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->where('sales_orders.created_at', 'like', "{$currentMonth}%")
+            ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
+        
         $grossProfit = $monthlySales - $monthlyHpp;
         $targetGrossProfit = 30000000;
         $grossProfitProgress = $targetGrossProfit > 0

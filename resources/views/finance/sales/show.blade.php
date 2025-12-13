@@ -563,6 +563,7 @@
                                 <th class="px-4 py-2 border">Produk</th>
                                 <th class="px-4 py-2 border">SKU</th>
                                 <th class="px-4 py-2 border text-right">Harga</th>
+                                <th class="px-4 py-2 border text-right">Harga Modal</th>
                                 <th class="px-4 py-2 border text-center">Qty</th>
                                 <th class="px-4 py-2 border text-right">Diskon</th>
                                 @php
@@ -590,6 +591,41 @@
                                     </td>
                                     <td class="px-4 py-2 border">{{ $item->sku ?? '-' }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->sale_price, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-2 border text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <span id="cost-price-display-{{ $item->id }}" class="font-medium">
+                                                Rp {{ number_format($item->cost_price ?? 0, 0, ',', '.') }}
+                                            </span>
+                                            <button 
+                                                onclick="editCostPrice({{ $item->id }}, {{ $item->cost_price ?? 0 }})"
+                                                class="text-blue-600 hover:text-blue-800 text-sm"
+                                                title="Edit Harga Modal">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        <div id="cost-price-edit-{{ $item->id }}" class="hidden mt-1">
+                                            <input 
+                                                type="number" 
+                                                id="cost-price-input-{{ $item->id }}"
+                                                value="{{ $item->cost_price ?? 0 }}"
+                                                step="0.01"
+                                                min="0"
+                                                class="border rounded px-2 py-1 text-sm w-24"
+                                            >
+                                            <div class="flex gap-1 mt-1">
+                                                <button 
+                                                    onclick="saveCostPrice({{ $item->id }})"
+                                                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
+                                                <button 
+                                                    onclick="cancelEditCostPrice({{ $item->id }}, {{ $item->cost_price ?? 0 }})"
+                                                    class="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                     <td class="px-4 py-2 border text-right">Rp {{ number_format($item->discount, 0, ',', '.') }}</td>
                                     @if($hasDesignItems)
@@ -624,7 +660,7 @@
                         </tbody>
                         <tfoot class="bg-gray-50">
     @php
-        $colspan = $hasDesignItems ? 7 : 6;
+        $colspan = $hasDesignItems ? 8 : 7; // ✅ Tambah 1 untuk kolom cost_price
     @endphp
     <tr>
         <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Subtotal:</td>
@@ -1485,6 +1521,68 @@ function loadRelatedPO() {
 document.addEventListener('DOMContentLoaded', function() {
     loadRelatedPO();
 });
+
+// ✅ FUNGSI EDIT COST PRICE (Finance Only)
+function editCostPrice(itemId, currentPrice) {
+    document.getElementById('cost-price-display-' + itemId).classList.add('hidden');
+    document.getElementById('cost-price-edit-' + itemId).classList.remove('hidden');
+    document.getElementById('cost-price-input-' + itemId).focus();
+    document.getElementById('cost-price-input-' + itemId).select();
+}
+
+function cancelEditCostPrice(itemId, originalPrice) {
+    document.getElementById('cost-price-display-' + itemId).classList.remove('hidden');
+    document.getElementById('cost-price-edit-' + itemId).classList.add('hidden');
+    document.getElementById('cost-price-input-' + itemId).value = originalPrice;
+}
+
+function saveCostPrice(itemId) {
+    const newPrice = parseFloat(document.getElementById('cost-price-input-' + itemId).value);
+    
+    if (isNaN(newPrice) || newPrice < 0) {
+        alert('Harga modal harus berupa angka positif!');
+        return;
+    }
+    
+    showLoading('Menyimpan harga modal...');
+    
+    fetch('{{ route("finance.sales.items.update-cost-price", ":itemId") }}'.replace(':itemId', itemId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            cost_price: newPrice
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            // Update display
+            document.getElementById('cost-price-display-' + itemId).textContent = 
+                'Rp ' + newPrice.toLocaleString('id-ID');
+            document.getElementById('cost-price-display-' + itemId).classList.remove('hidden');
+            document.getElementById('cost-price-edit-' + itemId).classList.add('hidden');
+            
+            showToast('Harga modal berhasil diperbarui!', 'success');
+            
+            // Reload page setelah 1 detik untuk update HPP
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            alert('Error: ' + (data.message || 'Gagal menyimpan harga modal'));
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan harga modal');
+    });
+}
 </script>
 </body>
 </html>

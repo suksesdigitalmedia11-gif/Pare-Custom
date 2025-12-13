@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
@@ -270,12 +271,23 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
 
                 foreach ($validated['items'] as $item) {
                     $lineTotal = ((float)$item['sale_price'] * (int)$item['qty']) - ((float)($item['discount'] ?? 0) * (int)$item['qty']);
+                    
+                    // ✅ Ambil cost_price dari product saat ini (snapshot)
+                    $costPrice = 0;
+                    if (!empty($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            $costPrice = $product->cost_price ?? 0;
+                        }
+                    }
+                    
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'sku' => $item['sku'] ?? null,
                         'sale_price' => $item['sale_price'],
+                        'cost_price' => $costPrice, // ✅ Snapshot harga modal
                         'qty' => $item['qty'],
                         'discount' => $item['discount'] ?? 0,
                         'line_total' => $lineTotal,
@@ -444,12 +456,23 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 $salesOrder->items()->delete();
                 foreach ($validated['items'] as $item) {
                     $lineTotal = ((float)$item['sale_price'] * (int)$item['qty']) - ((float)($item['discount'] ?? 0) * (int)$item['qty']);
+                    
+                    // ✅ Ambil cost_price dari product saat ini (snapshot)
+                    $costPrice = 0;
+                    if (!empty($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            $costPrice = $product->cost_price ?? 0;
+                        }
+                    }
+                    
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'sku' => $item['sku'] ?? null,
                         'sale_price' => $item['sale_price'],
+                        'cost_price' => $costPrice, // ✅ Snapshot harga modal
                         'qty' => $item['qty'],
                         'discount' => $item['discount'] ?? 0,
                         'line_total' => $lineTotal,
@@ -912,5 +935,53 @@ public function search(Request $request)
                 'error' => 'Error loading PO data: ' . $e->getMessage()
             ], 500);
         }
-}
+    }
+
+    /**
+     * ✅ Update cost_price untuk SalesOrderItem (Finance only)
+     * Finance bisa menyesuaikan harga modal jika ada kesalahan
+     */
+    public function updateCostPrice(Request $request, SalesOrderItem $item): JsonResponse
+    {
+        // Validasi hanya finance yang bisa
+        $user = Auth::user();
+        $userType = strtolower($user->usertype ?? $user->role ?? '');
+        if ($userType !== 'finance') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya Finance yang dapat mengubah harga modal.'
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'cost_price' => 'required|numeric|min:0',
+        ]);
+
+        try {
+            $oldCostPrice = $item->cost_price ?? 0;
+            $item->update([
+                'cost_price' => $validated['cost_price']
+            ]);
+
+            // Log perubahan
+            $this->logAction(
+                $item->salesOrder,
+                'cost_price_updated',
+                "Harga modal item '{$item->product_name}' diubah dari Rp " . number_format($oldCostPrice, 0, ',', '.') . " menjadi Rp " . number_format($validated['cost_price'], 0, ',', '.') . " oleh Finance"
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Harga modal berhasil diperbarui.',
+                'cost_price' => $item->cost_price,
+                'hpp_line' => $item->cost_price * $item->qty
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error updating cost_price: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

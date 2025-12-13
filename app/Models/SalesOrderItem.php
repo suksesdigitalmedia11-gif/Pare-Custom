@@ -18,6 +18,7 @@ protected $fillable = [
         'product_name',
         'sku',
         'sale_price',
+        'cost_price', // ✅ Harga modal (snapshot saat transaksi)
         'qty',
         'discount',
         'product_type',

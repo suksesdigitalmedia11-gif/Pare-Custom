@@ -44,25 +44,19 @@ class FinanceController extends Controller
         $manualIncome = Income::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         $omset = $totalSales + $manualIncome;
     
-        // 3. HITUNG HPP - Dari harga modal item penjualan (cost_price × qty)
-        // HPP = SUM(products.cost_price × sales_order_items.qty)
-        // untuk semua sales order yang status != 'draft' dalam periode
-        // Hanya hitung item yang punya product_id (product ada di database)
+        // 3. HITUNG HPP - Dari harga modal item penjualan (cost_price × qty) - LOCKED/SNAPSHOT
+        // HPP = SUM(sales_order_items.cost_price × sales_order_items.qty)
+        // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
+        // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
         $hpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
-            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
             ->where('sales_orders.status', '!=', 'draft')
-            ->whereNotNull('sales_order_items.product_id')
             ->whereBetween('sales_orders.created_at', [$start, $end])
-            ->sum(DB::raw('products.cost_price * sales_order_items.qty')) ?? 0;
+            ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
 
-        // 3b. HPP TERKAIT PENJUALAN (untuk Gross Profit khusus)
-        // Menghitung hanya purchase order yang terhubung ke sales (punya sales_order_id)
-        // dan status selesai, dengan patokan tanggal purchase order (order_date).
-        $linkedHpp = PurchaseOrder::whereNotNull('sales_order_id')
-            ->where('status', 'selesai')
-            ->whereBetween('order_date', [$startDate, $endDate])
-            ->sum('grand_total') ?? 0;
-        $grossProfitLinked = $totalSales - $linkedHpp;
+        // 3b. GROSS PROFIT - Konsisten dengan HPP card
+        // Gross Profit = Total Sales - HPP (menggunakan HPP yang sama dengan card)
+        $grossProfit = $totalSales - $hpp;
     
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
@@ -140,8 +134,7 @@ class FinanceController extends Controller
             'totalSales' => $totalSales,
             'manualIncome' => $manualIncome,
             'hpp' => $hpp,
-            'linkedHpp' => $linkedHpp,
-            'grossProfitLinked' => $grossProfitLinked,
+            'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
             'operasional' => $operasional,
             'operasionalDetails' => $operasionalDetails,
             'profit' => $profit,
@@ -195,8 +188,16 @@ class FinanceController extends Controller
         $closingCount = $monthlyData['closing']->count ?? 0;
         $monthlyOmset = $monthlyData['closing']->total_amount ?? 0;
         $monthlySales = $monthlyOmset;
-        // HPP diambil dari SEMUA pembelian (tidak hanya bulan yang sama)
-        $monthlyHpp = PurchaseOrder::sum('grand_total');
+        
+        // HPP dihitung dari cost_price × qty dari sales order items bulan ini - LOCKED/SNAPSHOT
+        // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
+        // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
+        $monthlyHpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->where('sales_orders.created_at', 'like', "{$currentMonth}%")
+            ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
+        
         $grossProfit = $monthlySales - $monthlyHpp;
         $targetGrossProfit = 30000000;
         $grossProfitProgress = $targetGrossProfit > 0

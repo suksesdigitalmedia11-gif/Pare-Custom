@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdvertisementPerformance;
 use App\Models\PurchaseOrder;
+use App\Models\SalesOrderItem;
 use App\Models\Shift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -70,8 +71,16 @@ class AdvertisementPerformanceController extends Controller
         $closingCount = $monthlyData['closing']->count ?? 0;
         $monthlyOmset = $monthlyData['closing']->total_amount ?? 0;
         $monthlySales = $monthlyOmset;
-        // HPP diambil dari SEMUA pembelian (tidak hanya bulan yang sama)
-        $monthlyHpp = PurchaseOrder::sum('grand_total');
+        
+        // HPP dihitung dari cost_price × qty dari sales order items bulan ini - LOCKED/SNAPSHOT
+        // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
+        // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
+        $monthlyHpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->where('sales_orders.created_at', 'like', "{$currentMonth}%")
+            ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
+        
         $grossProfit = $monthlySales - $monthlyHpp;
         $targetGrossProfit = 30000000;
         $grossProfitProgress = $targetGrossProfit > 0

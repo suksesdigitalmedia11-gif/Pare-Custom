@@ -162,6 +162,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                             'product_name' => $row['product_name'],
                             'sku' => $row['sku'] ?? null,
                             'sale_price' => (float) $row['sale_price'],
+                            'cost_price' => 0, // ✅ Import manual, cost_price = 0 (finance bisa edit nanti)
                             'qty' => (int) $row['qty'],
                             'discount' => (float) ($row['discount'] ?? 0),
                             'line_total' => ((float) $row['sale_price'] * (int) $row['qty']) - (float) ($row['discount'] ?? 0),
