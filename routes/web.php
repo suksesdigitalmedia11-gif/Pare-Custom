@@ -311,6 +311,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
         Route::post('/sales/{salesOrder}/move-to-payment', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToPayment'])->name('sales.move-to-payment');
         Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
+        Route::get('/sales/export', [\App\Http\Controllers\Finance\SalesOrderController::class, 'export'])->name('sales.export');
     });
 
     Route::middleware(['auth', 'finance', 'check.shift'])->group(function () {

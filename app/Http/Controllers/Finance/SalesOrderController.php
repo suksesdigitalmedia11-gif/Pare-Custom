@@ -23,6 +23,8 @@ use Illuminate\Http\RedirectResponse;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
+use App\Exports\SalesOrderExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SalesOrderController extends Controller
 {
@@ -111,6 +113,34 @@ class SalesOrderController extends Controller
             ->paginate(15);
 
         return view('finance.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date'));
+    }
+
+    /**
+     * Export sales orders to Excel
+     */
+    public function export(Request $request)
+    {
+        $q = $request->get('q');
+        $status = $request->get('status');
+        $payment_status = $request->get('payment_status');
+        $start_date = $request->get('start_date');
+        $end_date = $request->get('end_date');
+
+        $salesOrders = SalesOrder::with(['customer', 'items', 'creator'])
+            ->when($q, fn($query) =>
+                $query->where('so_number', 'like', "%$q%")
+                    ->orWhereHas('customer', fn($qq) => $qq->where('name', 'like', "%$q%"))
+            )
+            ->when($status, fn($query) => $query->where('status', $status))
+            ->when($payment_status && $payment_status !== 'all', fn($query) => $query->where('payment_status', $payment_status))
+            ->when($start_date, fn($query) => $query->whereDate('order_date', '>=', $start_date))
+            ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date))
+            ->orderByDesc('order_date')
+            ->get();
+
+        $filename = 'sales-orders-' . date('Y-m-d-H-i') . '.xlsx';
+
+        return Excel::download(new SalesOrderExport($salesOrders), $filename);
     }
 
     public function create(): View

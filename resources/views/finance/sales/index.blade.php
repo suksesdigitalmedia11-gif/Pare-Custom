@@ -233,6 +233,14 @@
                                     class="inline-flex items-center bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium smooth-transition">
                                     <i class="bi bi-arrow-clockwise mr-2"></i> Reset
                                 </a>
+
+                                <!-- Export Button -->
+                                <div class="flex gap-2 ml-auto">
+                                    <a href="{{ route('finance.sales.export', request()->query()) }}" 
+                                        class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                                        <i class="bi bi-download mr-2"></i> Export
+                                    </a>
+                                </div>
                             </div>
                         </form>
                     </div>
