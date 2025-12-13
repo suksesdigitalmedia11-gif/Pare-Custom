@@ -138,8 +138,8 @@
           </div>
           @endif
 
-          <!-- FINANCIAL OVERVIEW - 5 CARDS COMPACT -->
-          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <!-- FINANCIAL OVERVIEW - 6 CARDS COMPACT -->
+          <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
             <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
               <p class="text-xs text-gray-500 mb-1">OMSET</p>
               <p class="text-xl font-bold text-green-600">Rp {{ number_format($omset ?? 0, 0, ',', '.') }}</p>
@@ -149,6 +149,11 @@
               <p class="text-xs text-gray-500 mb-1">HPP</p>
               <p class="text-xl font-bold text-red-600">Rp {{ number_format($hpp ?? 0, 0, ',', '.') }}</p>
               <p class="text-xs text-gray-400 mt-1">Cost of Goods Sold</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 border-teal-500">
+              <p class="text-xs text-gray-500 mb-1">GROSS PROFIT</p>
+              <p class="text-xl font-bold text-teal-700">Rp {{ number_format($grossProfit ?? 0, 0, ',', '.') }}</p>
+              <p class="text-xs text-gray-400 mt-1">Pendapatan penjualan - HPP</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
               <p class="text-xs text-gray-500 mb-1">OPERASIONAL</p>

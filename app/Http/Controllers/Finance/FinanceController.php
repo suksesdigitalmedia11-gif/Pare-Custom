@@ -54,9 +54,18 @@ class FinanceController extends Controller
             ->whereBetween('sales_orders.created_at', [$start, $end])
             ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
 
+        // 3a. HITUNG TOTAL PENJUALAN DARI ITEM (untuk Gross Profit)
+        // Total Penjualan = SUM(sales_order_items.sale_price × sales_order_items.qty)
+        // Ini konsisten dengan HPP yang juga dari item
+        $totalSalesFromItems = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->sum(DB::raw('sales_order_items.sale_price * sales_order_items.qty')) ?? 0;
+
         // 3b. GROSS PROFIT - Konsisten dengan HPP card
-        // Gross Profit = Total Sales - HPP (menggunakan HPP yang sama dengan card)
-        $grossProfit = $totalSales - $hpp;
+        // Gross Profit = Total Penjualan (dari item) - HPP (dari item)
+        // Menggunakan totalSalesFromItems, bukan grand_total, agar konsisten dengan HPP
+        $grossProfit = $totalSalesFromItems - $hpp;
     
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
