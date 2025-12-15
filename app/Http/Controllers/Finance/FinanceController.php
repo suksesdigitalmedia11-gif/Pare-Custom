@@ -54,18 +54,10 @@ class FinanceController extends Controller
             ->whereBetween('sales_orders.created_at', [$start, $end])
             ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
 
-        // 3a. HITUNG TOTAL PENJUALAN DARI ITEM (untuk Gross Profit)
-        // Total Penjualan = SUM(sales_order_items.sale_price × sales_order_items.qty)
-        // Ini konsisten dengan HPP yang juga dari item
-        $totalSalesFromItems = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
-            ->where('sales_orders.status', '!=', 'draft')
-            ->whereBetween('sales_orders.created_at', [$start, $end])
-            ->sum(DB::raw('sales_order_items.sale_price * sales_order_items.qty')) ?? 0;
-
-        // 3b. GROSS PROFIT - Konsisten dengan HPP card
-        // Gross Profit = Total Penjualan (dari item) - HPP (dari item)
-        // Menggunakan totalSalesFromItems, bukan grand_total, agar konsisten dengan HPP
-        $grossProfit = $totalSalesFromItems - $hpp;
+        // 3b. GROSS PROFIT - Sesuai kartu Omset (Omset = totalSales + manualIncome)
+        // Gross Profit = Omset - HPP
+        // Gunakan $omset agar pemasukan manual ikut diperhitungkan
+        $grossProfit = $omset - $hpp;
     
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
@@ -138,29 +130,34 @@ class FinanceController extends Controller
         $advertisementPerformanceData = $this->getAdvertisementPerformanceData($startDate, $endDate);
     
         // 7. KIRIM SEMUA DATA KE VIEW
-        return view('finance.dashboard', array_merge([
-            'omset' => $omset,
-            'totalSales' => $totalSales,
-            'manualIncome' => $manualIncome,
-            'hpp' => $hpp,
-            'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
-            'operasional' => $operasional,
-            'operasionalDetails' => $operasionalDetails,
-            'profit' => $profit,
-            'salesByPaymentMethod' => $salesByPaymentMethod,
-            'recentSales' => $recentSales,
-            'omsetGrowth' => $omsetGrowth,
-            'startDate' => $startDate,
-            'bestSellingProducts' => $bestSellingProducts,
-            'endDate' => $endDate,
-            'start' => $start,
-            'end' => $end,
-            // ✅ NEW DATA:
-            'salesBreakdown' => $salesBreakdown,
-            'pelunasanData' => $pelunasanData,
-            'selectedMonth' => $selectedMonth,
-            'availableMonths' => $this->getAvailableMonths(),
-        ], $advertisementData, $advertisementPerformanceData));
+        // Pastikan data dasar (omset, hpp, grossProfit) tidak dioverride oleh advertisementData
+        return view('finance.dashboard', array_merge(
+            $advertisementData,
+            $advertisementPerformanceData,
+            [
+                'omset' => $omset,
+                'totalSales' => $totalSales,
+                'manualIncome' => $manualIncome,
+                'hpp' => $hpp,
+                'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
+                'operasional' => $operasional,
+                'operasionalDetails' => $operasionalDetails,
+                'profit' => $profit,
+                'salesByPaymentMethod' => $salesByPaymentMethod,
+                'recentSales' => $recentSales,
+                'omsetGrowth' => $omsetGrowth,
+                'startDate' => $startDate,
+                'bestSellingProducts' => $bestSellingProducts,
+                'endDate' => $endDate,
+                'start' => $start,
+                'end' => $end,
+                // ✅ NEW DATA:
+                'salesBreakdown' => $salesBreakdown,
+                'pelunasanData' => $pelunasanData,
+                'selectedMonth' => $selectedMonth,
+                'availableMonths' => $this->getAvailableMonths(),
+            ]
+        ));
     }
 
     /**

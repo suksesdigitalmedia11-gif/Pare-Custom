@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\SalesOrder;
 use App\Models\Expense;
 use App\Models\Income;
+use App\Models\CashTransfer;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -358,7 +359,7 @@ public function dashboard(Request $request): View
         }
 
         return DB::transaction(function () use ($shift, $expense) {
-            $expenseAmount = $expense->amount;
+            $expenseAmount = (float) $expense->amount;
             $expenseDescription = $expense->description;
 
             // Hapus expense
@@ -371,9 +372,15 @@ public function dashboard(Request $request): View
             // Karena expense dihapus (salah input), berarti uangnya tidak benar-benar keluar
             // Jadi final_cash harus disesuaikan menjadi lebih besar
             if ($shift->status === 'closed' && $shift->end_time) {
+                // Simpan final_cash lama untuk hitung selisih
+                $oldFinalCash = $shift->final_cash;
+                
                 // Recalculate final cash berdasarkan data real setelah hapus expense
                 // Formula: initial_cash + cash_masuk - expense_total (sudah dikurangi) - cash_transfer
                 $newFinalCash = $this->calculateRealFinalCash($shift);
+                
+                // Hitung selisih perubahan final_cash
+                $finalCashDifference = $newFinalCash - $oldFinalCash;
                 
                 // Update final_cash menjadi lebih besar (karena expense berkurang, kas akhir bertambah)
                 // Discrepancy di-set ke 0 karena final_cash sudah disesuaikan dengan perhitungan yang benar
@@ -381,6 +388,11 @@ public function dashboard(Request $request): View
                     'final_cash' => $newFinalCash,
                     'discrepancy' => 0, // Tidak ada selisih karena sudah disesuaikan
                 ]);
+                
+                // Cascade update: Update initial_cash shift berikutnya jika ada perubahan
+                if (abs($finalCashDifference) > 0.01) {
+                    $this->cascadeUpdateNextShift($shift, $finalCashDifference);
+                }
             }
 
             \Log::info('Finance menghapus pengeluaran: ' . $expenseDescription . ' - Rp ' . number_format($expenseAmount, 0, ',', '.') . ' dari shift #' . $shift->id . ' oleh ' . Auth::user()->name);
@@ -422,5 +434,159 @@ public function dashboard(Request $request): View
         $totalCashTransfers = \App\Models\CashTransfer::where('shift_id', $shift->id)->sum('amount');
         
         return $shift->initial_cash + $realCashTotal - $shift->expense_total - $totalCashTransfers;
+    }
+
+    /**
+     * Hapus pemasukan manual dari shift
+     */
+    public function deleteIncome(Shift $shift, Income $income): RedirectResponse
+    {
+        if ($income->shift_id !== $shift->id) {
+            return back()->withErrors(['error' => 'Pemasukan tidak ditemukan pada shift ini.']);
+        }
+
+        return DB::transaction(function () use ($shift, $income) {
+            $incomeAmount = (float) $income->amount;
+            $incomeDescription = $income->description;
+
+            // Hapus income
+            $income->delete();
+
+            // Update total di shift (decrement income_total dan cash_total)
+            $shift->decrement('income_total', $incomeAmount);
+            $shift->decrement('cash_total', $incomeAmount);
+
+            if ($shift->status === 'closed' && $shift->end_time) {
+                $oldFinalCash = $shift->final_cash;
+                $newFinalCash = $this->calculateRealFinalCash($shift); // income berkurang → final cash turun
+                $finalCashDifference = $newFinalCash - $oldFinalCash;
+
+                $shift->update([
+                    'final_cash' => $newFinalCash,
+                    'discrepancy' => 0,
+                ]);
+
+                if (abs($finalCashDifference) > 0.01) {
+                    $this->cascadeUpdateNextShift($shift, $finalCashDifference);
+                }
+            }
+
+            \Log::info('Finance menghapus pemasukan: ' . $incomeDescription . ' - Rp ' . number_format($incomeAmount, 0, ',', '.') . ' dari shift #' . $shift->id . ' oleh ' . Auth::user()->name);
+
+            return back()->with('success', 'Pemasukan manual berhasil dihapus. Perhitungan telah diperbarui.');
+        });
+    }
+
+    /**
+     * Hapus setor/tukar tunai
+     */
+    public function deleteCashTransfer(Shift $shift, CashTransfer $cashTransfer): RedirectResponse
+    {
+        if ($cashTransfer->shift_id !== $shift->id) {
+            return back()->withErrors(['error' => 'Setor/Tukar tunai tidak ditemukan pada shift ini.']);
+        }
+
+        return DB::transaction(function () use ($shift, $cashTransfer) {
+            $amount = (float) $cashTransfer->amount;
+            $description = $cashTransfer->description;
+
+            $cashTransfer->delete();
+
+            // Menghapus cash transfer artinya kas akhir bertambah (karena uang tidak keluar)
+            if ($shift->status === 'closed' && $shift->end_time) {
+                $oldFinalCash = $shift->final_cash;
+                $newFinalCash = $this->calculateRealFinalCash($shift); // cash transfer berkurang → final cash naik
+                $finalCashDifference = $newFinalCash - $oldFinalCash;
+
+                $shift->update([
+                    'final_cash' => $newFinalCash,
+                    'discrepancy' => 0,
+                ]);
+
+                if (abs($finalCashDifference) > 0.01) {
+                    $this->cascadeUpdateNextShift($shift, $finalCashDifference);
+                }
+            }
+
+            \Log::info('Finance menghapus cash transfer: ' . $description . ' - Rp ' . number_format($amount, 0, ',', '.') . ' dari shift #' . $shift->id . ' oleh ' . Auth::user()->name);
+
+            return back()->with('success', 'Setor/Tukar tunai berhasil dihapus. Perhitungan telah diperbarui.');
+        });
+    }
+
+    /**
+     * Cascade update initial_cash shift berikutnya ketika final_cash shift sebelumnya berubah
+     */
+    private function cascadeUpdateNextShift(Shift $updatedShift, float $finalCashDifference): void
+    {
+        // Cari shift berikutnya yang langsung setelah shift ini
+        // Shift berikutnya adalah shift yang start_time > end_time shift ini
+        $nextShift = Shift::where('start_time', '>', $updatedShift->end_time)
+            ->orderBy('start_time', 'asc')
+            ->first();
+
+        if (!$nextShift) {
+            \Log::info('Finance: No next shift found for cascade update', [
+                'updated_shift_id' => $updatedShift->id
+            ]);
+            return;
+        }
+
+        \Log::info('Finance: Cascading update to next shift', [
+            'updated_shift_id' => $updatedShift->id,
+            'next_shift_id' => $nextShift->id,
+            'final_cash_difference' => $finalCashDifference
+        ]);
+
+        // Update initial_cash shift berikutnya
+        $oldInitialCash = $nextShift->initial_cash;
+        $newInitialCash = $oldInitialCash + $finalCashDifference;
+        
+        $nextShift->update(['initial_cash' => $newInitialCash]);
+
+        \Log::info('Finance: Next shift initial_cash updated', [
+            'next_shift_id' => $nextShift->id,
+            'old_initial_cash' => $oldInitialCash,
+            'new_initial_cash' => $newInitialCash
+        ]);
+
+        // Jika shift berikutnya juga sudah ditutup, perlu recalculate final_cash-nya juga
+        // Karena initial_cash berubah, final_cash juga akan berubah
+        if ($nextShift->status === 'closed' && $nextShift->end_time) {
+            $this->recalculateAndUpdateClosedShift($nextShift);
+        }
+    }
+
+    /**
+     * Recalculate dan update shift yang sudah closed (untuk cascade update)
+     */
+    private function recalculateAndUpdateClosedShift(Shift $shift): void
+    {
+        // Simpan final_cash lama untuk hitung selisih
+        $oldFinalCash = $shift->final_cash;
+        
+        // Recalculate final_cash dari data real
+        $newFinalCash = $this->calculateRealFinalCash($shift);
+        
+        // Hitung selisih perubahan final_cash
+        $finalCashDifference = $newFinalCash - $oldFinalCash;
+
+        \Log::info('Finance: Recalculating closed shift final_cash', [
+            'shift_id' => $shift->id,
+            'old_final_cash' => $oldFinalCash,
+            'new_final_cash' => $newFinalCash,
+            'difference' => $finalCashDifference
+        ]);
+
+        // Update final_cash shift
+        $shift->update([
+            'final_cash' => $newFinalCash,
+            'discrepancy' => 0, // Reset discrepancy karena kita recalculate dari data real
+        ]);
+
+        // Cascade update: Update initial_cash shift berikutnya jika ada perubahan
+        if (abs($finalCashDifference) > 0.01) {
+            $this->cascadeUpdateNextShift($shift, $finalCashDifference);
+        }
     }
 }

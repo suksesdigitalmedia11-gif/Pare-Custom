@@ -103,6 +103,7 @@
                                         <th class="px-4 py-2 text-left">Keterangan</th>
                                         <th class="px-4 py-2 text-right">Jumlah</th>
                                         <th class="px-4 py-2 text-left">Waktu</th>
+                                        <th class="px-4 py-2 text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -115,6 +116,20 @@
                                             <td class="px-4 py-2 text-sm text-gray-600">
                                                 {{ $income->created_at->format('d/m/Y H:i') }}
                                             </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <form action="{{ route('finance.shift.income.delete', ['shift' => $shift->id, 'income' => $income->id]) }}"
+                                                      method="POST"
+                                                      onsubmit="return confirm('Apakah Anda yakin ingin menghapus pemasukan ini?\\n\\nKeterangan: {{ $income->description }}\\nJumlah: Rp {{ number_format($income->amount, 0, ',', '.') }}\\n\\nPerhitungan akan otomatis diperbarui setelah penghapusan.');"
+                                                      class="inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm inline-flex items-center"
+                                                            title="Hapus pemasukan">
+                                                        <i class="bi bi-trash mr-1"></i> Hapus
+                                                    </button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     @endforeach
                                     <tr class="bg-blue-50 font-semibold">
@@ -122,6 +137,7 @@
                                         <td class="px-4 py-2 text-right text-green-600">
                                             Rp {{ number_format($incomes->sum('amount'), 0, ',', '.') }}
                                         </td>
+                                        <td></td>
                                         <td></td>
                                     </tr>
                                 </tbody>
@@ -323,6 +339,7 @@
                                         <th class="px-4 py-2 text-right">Jumlah</th>
                                         <th class="px-4 py-2 text-left">Waktu</th>
                                         <th class="px-4 py-2 text-left">Catatan</th>
+                                        <th class="px-4 py-2 text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -345,6 +362,20 @@
                                             <td class="px-4 py-2 text-sm text-gray-600">
                                                 {{ $transfer->notes ?? '-' }}
                                             </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <form action="{{ route('finance.shift.cash-transfer.delete', ['shift' => $shift->id, 'cashTransfer' => $transfer->id]) }}"
+                                                      method="POST"
+                                                      onsubmit="return confirm('Apakah Anda yakin ingin menghapus setor/tukar tunai ini?\\n\\nKeterangan: {{ $transfer->description }}\\nJumlah: Rp {{ number_format($transfer->amount, 0, ',', '.') }}\\nJenis: {{ ucfirst($transfer->type) }}\\n\\nPerhitungan akan otomatis diperbarui setelah penghapusan.');"
+                                                      class="inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm inline-flex items-center"
+                                                            title="Hapus setor/tukar tunai">
+                                                        <i class="bi bi-trash mr-1"></i> Hapus
+                                                    </button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     @endforeach
                                     <tr class="bg-purple-50 font-semibold">
@@ -353,6 +384,7 @@
                                             - Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
                                         </td>
                                         <td colspan="2"></td>
+                                        <td></td>
                                     </tr>
                                 </tbody>
                             </table>
