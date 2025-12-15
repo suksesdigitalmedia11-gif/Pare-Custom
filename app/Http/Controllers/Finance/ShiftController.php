@@ -12,7 +12,9 @@ use App\Models\Income;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ShiftHistoryExport;
 use App\Exports\ShiftFullDetailExport;
@@ -343,5 +345,82 @@ public function dashboard(Request $request): View
 
         $pdf = Pdf::loadView('finance.shift.detail_pdf', compact('shift', 'salesOrders', 'expenses', 'incomes'));
         return $pdf->download('shift_detail_' . $shift->id . '_' . date('Ymd_His') . '.pdf');
+    }
+
+    /**
+     * Hapus pengeluaran dari shift (untuk koreksi jika admin salah input)
+     */
+    public function deleteExpense(Shift $shift, Expense $expense): RedirectResponse
+    {
+        // Validasi: expense harus milik shift tersebut
+        if ($expense->shift_id !== $shift->id) {
+            return back()->withErrors(['error' => 'Pengeluaran tidak ditemukan pada shift ini.']);
+        }
+
+        return DB::transaction(function () use ($shift, $expense) {
+            $expenseAmount = $expense->amount;
+            $expenseDescription = $expense->description;
+
+            // Hapus expense
+            $expense->delete();
+
+            // Update expense_total di shift (decrement)
+            $shift->decrement('expense_total', $expenseAmount);
+
+            // Jika shift sudah closed, recalculate final_cash dan discrepancy
+            // Karena expense dihapus (salah input), berarti uangnya tidak benar-benar keluar
+            // Jadi final_cash harus disesuaikan menjadi lebih besar
+            if ($shift->status === 'closed' && $shift->end_time) {
+                // Recalculate final cash berdasarkan data real setelah hapus expense
+                // Formula: initial_cash + cash_masuk - expense_total (sudah dikurangi) - cash_transfer
+                $newFinalCash = $this->calculateRealFinalCash($shift);
+                
+                // Update final_cash menjadi lebih besar (karena expense berkurang, kas akhir bertambah)
+                // Discrepancy di-set ke 0 karena final_cash sudah disesuaikan dengan perhitungan yang benar
+                $shift->update([
+                    'final_cash' => $newFinalCash,
+                    'discrepancy' => 0, // Tidak ada selisih karena sudah disesuaikan
+                ]);
+            }
+
+            \Log::info('Finance menghapus pengeluaran: ' . $expenseDescription . ' - Rp ' . number_format($expenseAmount, 0, ',', '.') . ' dari shift #' . $shift->id . ' oleh ' . Auth::user()->name);
+
+            return back()->with('success', 'Pengeluaran berhasil dihapus. Perhitungan telah diperbarui.');
+        });
+    }
+
+    /**
+     * Helper method untuk calculate real cash total (sama seperti di Admin controller)
+     */
+    private function calculateRealCashTotal(Shift $shift): float
+    {
+        $payments = Payment::where('created_by', $shift->user_id)
+            ->where('created_at', '>=', $shift->start_time)
+            ->where('created_at', '<=', $shift->end_time ?? now())
+            ->get();
+
+        $totalCashFromPayments = 0;
+        foreach ($payments as $payment) {
+            if ($payment->method === 'cash') {
+                $totalCashFromPayments += $payment->amount;
+            } elseif ($payment->method === 'split') {
+                $totalCashFromPayments += $payment->cash_amount;
+            }
+        }
+
+        $totalIncome = Income::where('shift_id', $shift->id)->sum('amount');
+        
+        return $totalCashFromPayments + $totalIncome;
+    }
+
+    /**
+     * Helper method untuk calculate real final cash (sama seperti di Admin controller)
+     */
+    private function calculateRealFinalCash(Shift $shift): float
+    {
+        $realCashTotal = $this->calculateRealCashTotal($shift);
+        $totalCashTransfers = \App\Models\CashTransfer::where('shift_id', $shift->id)->sum('amount');
+        
+        return $shift->initial_cash + $realCashTotal - $shift->expense_total - $totalCashTransfers;
     }
 }

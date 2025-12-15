@@ -302,6 +302,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::get('/export-full', [\App\Http\Controllers\Finance\ShiftController::class, 'exportFull'])->name('export-full');
         Route::get('/{shift}/export-detail', [\App\Http\Controllers\Finance\ShiftController::class, 'exportDetail'])->name('export-detail');
         Route::get('/{shift}/export-detail-pdf', [App\Http\Controllers\Finance\ShiftController::class, 'exportDetailPdf'])->name('export-detail-pdf');
+        Route::delete('/{shift}/expense/{expense}', [\App\Http\Controllers\Finance\ShiftController::class, 'deleteExpense'])->name('expense.delete');
         Route::get('/{shift}', [\App\Http\Controllers\Finance\ShiftController::class, 'show'])->name('show');
         // TIDAK ADA route post (start, end, expense) untuk finance
     });

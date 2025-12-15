@@ -261,6 +261,7 @@
                                         <th class="px-4 py-2 text-left">Keterangan</th>
                                         <th class="px-4 py-2 text-right">Jumlah</th>
                                         <th class="px-4 py-2 text-left">Waktu</th>
+                                        <th class="px-4 py-2 text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -273,6 +274,20 @@
                                             <td class="px-4 py-2 text-sm text-gray-600">
                                                 {{ $expense->created_at->format('d/m/Y H:i') }}
                                             </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <form action="{{ route('finance.shift.expense.delete', ['shift' => $shift->id, 'expense' => $expense->id]) }}" 
+                                                      method="POST" 
+                                                      onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengeluaran ini?\n\nKeterangan: {{ $expense->description }}\nJumlah: Rp {{ number_format($expense->amount, 0, ',', '.') }}\n\nPerhitungan akan otomatis diperbarui setelah penghapusan.');"
+                                                      class="inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" 
+                                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm inline-flex items-center"
+                                                            title="Hapus pengeluaran">
+                                                        <i class="bi bi-trash mr-1"></i> Hapus
+                                                    </button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     @endforeach
                                     <tr class="bg-red-50 font-semibold">
@@ -280,6 +295,7 @@
                                         <td class="px-4 py-2 text-right text-red-600">
                                             Rp {{ number_format($expenses->sum('amount'), 0, ',', '.') }}
                                         </td>
+                                        <td></td>
                                         <td></td>
                                     </tr>
                                 </tbody>
