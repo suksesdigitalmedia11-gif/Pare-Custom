@@ -38,8 +38,9 @@ public function dashboard(Request $request): View
     $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
     $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
     
-    $start = Carbon::parse($startDate);
-    $end = Carbon::parse($endDate);
+    // Samakan normalisasi dengan dashboard utama: mulai awal hari, sampai akhir hari
+    $start = Carbon::parse($startDate)->startOfDay();
+    $end = Carbon::parse($endDate)->endOfDay();
 
     // === GET ALL SHIFTS dalam periode ===
     $shifts = Shift::with('user')
@@ -62,12 +63,39 @@ public function dashboard(Request $request): View
     $activeShifts = $shifts->where('status', 'open')->count();
     $closedShifts = $shifts->where('status', 'closed')->count();
 
-    // Total dari semua shift
-    $totalInitialCash = $shifts->sum('initial_cash');
+    // Total dari semua shift (untuk statistik)
     $totalCashIncome = $shifts->sum('cash_total');
     $totalExpenses = $shifts->sum('expense_total');
-    $totalFinalCash = $shifts->sum('final_cash');
     $totalDiscrepancy = $shifts->sum('discrepancy');
+    $totalCashTransfer = CashTransfer::whereBetween('created_at', [$start, $end])->sum('amount');
+
+    // === TOTAL KAS AWAL: initial_cash dari shift pertama yang dimulai dalam periode ===
+    $firstShift = Shift::whereBetween('start_time', [$start, $end])
+        ->orderBy('start_time', 'asc')
+        ->first();
+    $totalInitialCash = $firstShift ? $firstShift->initial_cash : 0;
+
+    // === TOTAL KAS AKHIR: final_cash dari shift terakhir yang berakhir dalam periode ===
+    // Utamakan shift yang end_time dalam periode; jika tidak ada, ambil shift terakhir yang masih open di periode
+    $lastShift = Shift::whereBetween('end_time', [$start, $end])
+        ->orderBy('end_time', 'desc')
+        ->first();
+
+    if (!$lastShift) {
+        $lastShift = Shift::whereBetween('start_time', [$start, $end])
+            ->whereNull('end_time')
+            ->orderBy('start_time', 'desc')
+            ->first();
+    }
+
+    if ($lastShift && ($lastShift->status === 'open' || $lastShift->end_time === null)) {
+        // Shift masih open: hitung final_cash real-time
+        $realCashTotal = $this->calculateRealCashTotal($lastShift);
+        $totalCashTransfers = \App\Models\CashTransfer::where('shift_id', $lastShift->id)->sum('amount');
+        $totalFinalCash = $lastShift->initial_cash + $realCashTotal - $lastShift->expense_total - $totalCashTransfers;
+    } else {
+        $totalFinalCash = $lastShift ? ($lastShift->final_cash ?? 0) : 0;
+    }
 
     // === DETAILED PAYMENT BREAKDOWN dari semua shift ===
     $allPayments = Payment::whereBetween('paid_at', [$start, $end])->get();
@@ -115,6 +143,7 @@ public function dashboard(Request $request): View
         'totalExpenses',
         'totalFinalCash',
         'totalDiscrepancy',
+        'totalCashTransfer',
         'paymentBreakdown',
         'totalManualIncomes',
         'totalManualExpenses',

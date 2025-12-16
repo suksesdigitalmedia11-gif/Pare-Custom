@@ -166,6 +166,16 @@
                             </span>
                         </div>
 
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="bi bi-arrow-left-right text-purple-500 mr-3"></i>
+                                <span>Setor/Tukar Tunai</span>
+                            </div>
+                            <span class="font-semibold text-purple-600">
+                                Rp {{ number_format($totalCashTransfer, 0, ',', '.') }}
+                            </span>
+                        </div>
+
                         <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                             <div class="flex items-center">
                                 <i class="bi bi-wallet2 text-green-600 mr-3"></i>
