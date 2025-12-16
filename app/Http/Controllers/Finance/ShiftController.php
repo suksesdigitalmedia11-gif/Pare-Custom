@@ -126,7 +126,12 @@ public function dashboard(Request $request): View
                     $so = $payment->salesOrder;
                     return $so && $payment->category === 'pelunasan' && $so->payments->count() > 1;
                 })->sum('amount'),
-        ]
+        ],
+        'split' => [
+            'cash_part' => $allPayments->where('method', 'split')->sum('cash_amount'),
+            'transfer_part' => $allPayments->where('method', 'split')->sum('transfer_amount'),
+            'total' => $allPayments->where('method', 'split')->sum('amount'),
+        ],
     ];
 
     // Manual incomes & expenses dari semua shift

@@ -220,6 +220,29 @@
                             </div>
                         </div>
 
+                        <!-- SPLIT -->
+                        <div class="border rounded-lg p-4">
+                            <h3 class="font-semibold text-purple-600 mb-3 flex items-center">
+                                <i class="bi bi-arrow-left-right mr-2"></i> Split (Cash + Transfer)
+                            </h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span>Cash Part:</span>
+                                    <span class="font-medium">Rp {{ number_format($paymentBreakdown['split']['cash_part'], 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Transfer Part:</span>
+                                    <span class="font-medium">Rp {{ number_format($paymentBreakdown['split']['transfer_part'], 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex justify-between border-t pt-2 font-semibold">
+                                    <span>Total Split:</span>
+                                    <span class="text-purple-600">
+                                        Rp {{ number_format($paymentBreakdown['split']['total'], 0, ',', '.') }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- TRANSFER -->
                         <div class="border rounded-lg p-4">
                             <h3 class="font-semibold text-blue-600 mb-3 flex items-center">
@@ -244,6 +267,23 @@
                                         Rp {{ number_format($paymentBreakdown['transfer']['lunas'] + $paymentBreakdown['transfer']['dp'] + $paymentBreakdown['transfer']['pelunasan'], 0, ',', '.') }}
                                     </span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- TOTAL PEMBAYARAN (CHECK) -->
+                        @php
+                            $totalCash = $paymentBreakdown['cash']['lunas'] + $paymentBreakdown['cash']['dp'] + $paymentBreakdown['cash']['pelunasan'];
+                            $totalTransfer = $paymentBreakdown['transfer']['lunas'] + $paymentBreakdown['transfer']['dp'] + $paymentBreakdown['transfer']['pelunasan'];
+                            $totalSplit = $paymentBreakdown['split']['total'];
+                            $grandTotalPayments = $totalCash + $totalTransfer + $totalSplit;
+                        @endphp
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+                                <i class="bi bi-check2-circle mr-2"></i> Total Pembayaran (Cash + Transfer + Split)
+                            </h3>
+                            <div class="flex justify-between text-sm">
+                                <span>Total:</span>
+                                <span class="font-bold text-gray-800">Rp {{ number_format($grandTotalPayments, 0, ',', '.') }}</span>
                             </div>
                         </div>
                     </div>
