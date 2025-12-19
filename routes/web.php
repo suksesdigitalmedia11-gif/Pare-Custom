@@ -128,6 +128,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
             ->parameters(['sales' => 'salesOrder']);
         Route::post('/sales/{salesOrder}/approve', [SalesOrderController::class, 'approve'])->name('sales.approve');
         Route::post('/sales/{salesOrder}/addPayment', [SalesOrderController::class, 'addPayment'])->name('sales.addPayment');
+        Route::delete('/sales/{salesOrder}/payments/{payment}', [SalesOrderController::class, 'destroyPayment'])->name('sales.payments.destroy');
         // ✅ WORKFLOW BARU - Route untuk transisi status (Owner) - yang perlu shift
         Route::post('/sales/{salesOrder}/process-jahit', [SalesOrderController::class, 'processJahit'])->name('sales.process-jahit');
         Route::post('/sales/{salesOrder}/mark-as-jadi', [SalesOrderController::class, 'markAsJadi'])->name('sales.mark-as-jadi');
@@ -137,7 +138,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
         Route::get('/payments/{payment}/nota-direct', [SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         Route::put('/sales/{salesOrder}/payments/{payment}/update-method', [SalesOrderController::class, 'updatePaymentMethod'])
-    ->name('sales.payments.update-method');
+            ->name('sales.payments.update-method');
         // ✅ TAMBAH ROUTE RELATED PO UNTUK OWNER
         Route::get('/sales/{salesOrder}/related-po', [SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
         // Tambahkan ini di DALAM group owner (sekitar line yang ada route sales)
@@ -228,7 +229,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
 Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Finance\FinanceController::class, 'index'])->name('index');
     Route::get('dashboard', [\App\Http\Controllers\Finance\FinanceController::class, 'dashboard'])->name('dashboard');
-    
+
     // Shift Auto-Close Approval
     Route::get('shift-auto-closes', [\App\Http\Controllers\Finance\FinanceController::class, 'shiftAutoCloses'])->name('shift-auto-closes');
     Route::post('shift-auto-closes/{id}/approve', [\App\Http\Controllers\Finance\FinanceController::class, 'approveShiftAutoClose'])->name('shift-auto-closes.approve');
@@ -586,12 +587,12 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
     Route::get('/sales/download-template', [\App\Http\Controllers\Admin\SalesOrderController::class, 'downloadTemplate'])->name('sales.download-template');
 
     // Tambahkan dalam group Admin routes (setelah shift routes)
-Route::prefix('advertisement')->name('advertisement.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'index'])->name('index');
-    Route::get('/create', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'create'])->name('create');
-    Route::post('/', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'store'])->name('store');
-    Route::get('/descriptions', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'getDescriptions'])->name('descriptions');
-});
+    Route::prefix('advertisement')->name('advertisement.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'store'])->name('store');
+        Route::get('/descriptions', [\App\Http\Controllers\Admin\AdvertisementPerformanceController::class, 'getDescriptions'])->name('descriptions');
+    });
 
     // Admin routes - TAMBAHKAN INI SETELAH SHIFT ROUTES
     Route::middleware(['auth', 'admin', 'check.shift'])->group(function () {
