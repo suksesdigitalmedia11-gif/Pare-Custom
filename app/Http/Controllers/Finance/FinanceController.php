@@ -28,22 +28,22 @@ class FinanceController extends Controller
         // 1. TANGGAL - PASTIKAN SELALU ADA
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
-        
+
         // Ambil filter bulan untuk iklan (default: bulan ini)
         $selectedMonth = $request->get('advertisement_month', now()->format('Y-m'));
-        
+
         // Pastikan rentang mencakup seluruh hari (00:00 s.d. 23:59)
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
-    
+
         // 2. HITUNG OMSET - Total Penjualan + Pemasukan Manual (EXCLUDE DRAFT)
         $totalSales = SalesOrder::whereBetween('created_at', [$start, $end])
             ->where('status', '!=', 'draft') // ✅ EXCLUDE DRAFT
             ->sum('grand_total') ?? 0;
-            
+
         $manualIncome = Income::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         $omset = $totalSales + $manualIncome;
-    
+
         // 3. HITUNG HPP - Dari harga modal item penjualan (cost_price × qty) - LOCKED/SNAPSHOT
         // HPP = SUM(sales_order_items.cost_price × sales_order_items.qty)
         // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
@@ -58,24 +58,27 @@ class FinanceController extends Controller
         // Gross Profit = Omset - HPP
         // Gunakan $omset agar pemasukan manual ikut diperhitungkan
         $grossProfit = $omset - $hpp;
-    
+
+        // Hitung progress dan shortfall untuk Target Gross Profit (jika diperlukan)
+        // Tapi untuk Target Gross Profit di bagian iklan, tetap pakai yang dari getAdvertisementData
+
         // 4. HITUNG OPERASIONAL - Pengeluaran Manual
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
-        
+
         // 4b. RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
         $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
             ->orderBy('created_at', 'desc')
             ->get(['id', 'amount', 'description', 'created_at']);
-    
+
         // 5. HITUNG PROFIT
         $profit = $omset - $hpp - $operasional;
-    
+
         // 6. DATA TAMBAHAN 
         $salesByPaymentMethod = Payment::whereBetween('paid_at', [$start, $end])
             ->selectRaw('method, SUM(amount) as total_amount, COUNT(*) as transaction_count')
             ->groupBy('method')
             ->get();
-    
+
         // ✅ FIX: Recent Sales EXCLUDE DRAFT
         $recentSales = SalesOrder::with(['customer', 'payments'])
             ->whereBetween('created_at', [$start, $end])
@@ -83,7 +86,7 @@ class FinanceController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
-    
+
         // ✅ NEW: BREAKDOWN STATUS PEMBAYARAN
         $salesBreakdown = SalesOrder::whereBetween('created_at', [$start, $end])
             ->where('status', '!=', 'draft')
@@ -98,13 +101,13 @@ class FinanceController extends Controller
                 SUM(CASE WHEN payment_status IS NULL OR payment_status = "" THEN grand_total ELSE 0 END) as belum_bayar_amount
             ')
             ->first();
-    
+
         // ✅ NEW: PELUNASAN (Bayar Bertahap)
         $pelunasanData = Payment::whereBetween('paid_at', [$start, $end])
             ->where('category', 'pelunasan')
             ->selectRaw('COUNT(*) as count, SUM(amount) as amount')
             ->first();
-    
+
         // === PRODUK TERLARIS - SIMPLE VERSION ===
         $bestSellingProducts = \App\Models\SalesOrderItem::selectRaw('
                 product_id,
@@ -120,26 +123,47 @@ class FinanceController extends Controller
             ->orderBy('total_terjual', 'desc')
             ->limit(5)
             ->get();
-    
+
         $omsetGrowth = 0; // Sementara 0 dulu
-        
+
         // Ambil data iklan menggunakan method helper dengan filter bulan
         $advertisementData = $this->getAdvertisementData($selectedMonth);
-        
+
         // === ADVERTISEMENT PERFORMANCE DATA (pakai filter tanggal utama) ===
         $advertisementPerformanceData = $this->getAdvertisementPerformanceData($startDate, $endDate);
-    
+
+        // === DEADLINE ALERTS ===
+        $overdueOrders = SalesOrder::where('deadline', '<', now()->startOfDay())
+            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->with('customer')
+            ->orderBy('deadline', 'asc')
+            ->limit(5)
+            ->get();
+        $overdueCount = $overdueOrders->count();
+
+        $upcomingOrders = SalesOrder::where('deadline', '>=', now()->startOfDay())
+            ->where('deadline', '<=', now()->addDays(5)->endOfDay())
+            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->with('customer')
+            ->orderBy('deadline', 'asc')
+            ->limit(5)
+            ->get();
+        $upcomingCount = $upcomingOrders->count();
+
         // 7. KIRIM SEMUA DATA KE VIEW
         // Pastikan data dasar (omset, hpp, grossProfit) tidak dioverride oleh advertisementData
+        // Untuk kartu "GROSS PROFIT" (ringkasan keuangan), pakai $dashboardGrossProfit (dari filter tanggal)
+        // Untuk "Target Gross Profit", pakai $grossProfit dari advertisementData (dari closing amount bulan yang dipilih)
         return view('finance.dashboard', array_merge(
-            $advertisementData,
+            $advertisementData, // ✅ Ini berisi grossProfit, grossProfitProgress, grossProfitShortfall dari monthlySales - monthlyHpp
             $advertisementPerformanceData,
             [
                 'omset' => $omset,
                 'totalSales' => $totalSales,
                 'manualIncome' => $manualIncome,
                 'hpp' => $hpp,
-                'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
+                'dashboardGrossProfit' => $grossProfit, // ✅ Gross Profit untuk kartu ringkasan (dari filter tanggal)
+                // $grossProfit dari advertisementData tetap digunakan untuk Target Gross Profit
                 'operasional' => $operasional,
                 'operasionalDetails' => $operasionalDetails,
                 'profit' => $profit,
@@ -156,6 +180,11 @@ class FinanceController extends Controller
                 'pelunasanData' => $pelunasanData,
                 'selectedMonth' => $selectedMonth,
                 'availableMonths' => $this->getAvailableMonths(),
+                // Deadline Alerts
+                'overdueOrders' => $overdueOrders,
+                'overdueCount' => $overdueCount,
+                'upcomingOrders' => $upcomingOrders,
+                'upcomingCount' => $upcomingCount,
             ]
         ));
     }
@@ -176,25 +205,25 @@ class FinanceController extends Controller
         if (!$selectedMonth) {
             $selectedMonth = now()->format('Y-m');
         }
-        
+
         $currentMonth = $selectedMonth;
         $selectedDate = Carbon::createFromFormat('Y-m', $currentMonth);
         $daysInMonth = $selectedDate->daysInMonth;
         $currentDay = (now()->format('Y-m') === $currentMonth) ? now()->day : $daysInMonth;
         $previousMonth = $selectedDate->copy()->subMonth()->format('Y-m');
-        
+
         // Data bulan ini untuk iklan
         $monthlyData = AdvertisementPerformance::where('date', 'like', "{$currentMonth}%")
             ->select('type', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total_amount'))
             ->groupBy('type')
             ->get()
             ->keyBy('type');
-    
+
         $chatCount = $monthlyData['chat']->count ?? 0;
         $closingCount = $monthlyData['closing']->count ?? 0;
         $monthlyOmset = $monthlyData['closing']->total_amount ?? 0;
         $monthlySales = $monthlyOmset;
-        
+
         // HPP dihitung dari cost_price × qty dari sales order items bulan ini - LOCKED/SNAPSHOT
         // Menggunakan cost_price yang disimpan di item (snapshot saat transaksi)
         // Fallback ke products.cost_price jika cost_price NULL (untuk data lama)
@@ -203,61 +232,108 @@ class FinanceController extends Controller
             ->where('sales_orders.status', '!=', 'draft')
             ->where('sales_orders.created_at', 'like', "{$currentMonth}%")
             ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
-        
+
+        // REVISI: Hitung Monthly Sales dari Real Data (SalesOrder) agar Gross Profit akurat
+        // Sebelumnya mengambil dari advertisement closing yang mungkin tidak lengkap/input manual
+        $realSales = SalesOrder::where('status', '!=', 'draft')
+            ->where('created_at', 'like', "{$currentMonth}%")
+            ->sum('grand_total') ?? 0;
+
+        $realManualIncome = Income::where('created_at', 'like', "{$currentMonth}%")
+            ->sum('amount') ?? 0;
+
+        $monthlySales = $realSales + $realManualIncome;
+
+        // Gross Profit = Sales (dari Real Sales) - HPP
+        // Pastikan tipe data float untuk perhitungan yang akurat
+        $monthlySales = (float) ($monthlySales ?? 0);
+        $monthlyHpp = (float) ($monthlyHpp ?? 0);
         $grossProfit = $monthlySales - $monthlyHpp;
-        $targetGrossProfit = 30000000;
-        $grossProfitProgress = $targetGrossProfit > 0
-            ? max(0, min(100, ($grossProfit / $targetGrossProfit) * 100))
-            : 0;
-        $grossProfitShortfall = max(0, $targetGrossProfit - $grossProfit);
-    
+        $targetGrossProfit = 30000000.0;
+
+        // Progress: hitung persentase dari target (realisasi / target * 100)
+        // Progress dibatasi antara 0-100% untuk tampilan (tidak bisa negatif atau lebih dari 100%)
+        // Jika gross profit negatif, progress = 0% (karena tidak mungkin negatif)
+        // Jika gross profit positif, hitung persentase dari target
+        if ($targetGrossProfit > 0) {
+            $calculatedProgress = ($grossProfit / $targetGrossProfit) * 100.0;
+            // Batasi progress antara 0-100% untuk tampilan
+            $grossProfitProgress = max(0.0, min(100.0, $calculatedProgress));
+        } else {
+            $grossProfitProgress = 0.0;
+        }
+
+        // Shortfall: selisih antara target dengan realisasi
+        // Jika gross profit negatif, shortfall = target (karena sudah rugi, berarti shortfall penuh)
+        // Jika gross profit positif tapi belum mencapai target, shortfall = target - gross profit
+        if ($grossProfit < 0) {
+            // Jika rugi, shortfall = target penuh (karena kita sudah rugi, berarti shortfall = target)
+            $grossProfitShortfall = $targetGrossProfit;
+        } else {
+            // Jika untung tapi belum mencapai target
+            $grossProfitShortfall = max(0.0, $targetGrossProfit - $grossProfit);
+        }
+
+        // Debug log untuk troubleshooting
+        \Log::info('Target Gross Profit Calculation', [
+            'currentMonth' => $currentMonth,
+            'monthlySales' => $monthlySales,
+            'monthlyHpp' => $monthlyHpp,
+            'grossProfit' => $grossProfit,
+            'targetGrossProfit' => $targetGrossProfit,
+            'grossProfitProgress' => $grossProfitProgress,
+            'grossProfitShortfall' => $grossProfitShortfall,
+            'grossProfit_type' => gettype($grossProfit),
+            'grossProfit_is_positive' => $grossProfit > 0,
+        ]);
+
         $monthlyProfit = $grossProfit;
         $daysLeft = $daysInMonth - $currentDay;
-    
+
         // Conversion Rate
         $conversionRate = $chatCount > 0 ? ($closingCount / $chatCount) * 100 : 0;
-        
+
         // Target Settings untuk iklan
         $conversionTarget = 50; // 50%
         $omsetTarget = 30000000; // 30jt
         $profitTarget = $targetGrossProfit;
-        
+
         // Progress Calculation untuk iklan
         $conversionProgress = $conversionTarget > 0 ? min(100, ($conversionRate / $conversionTarget) * 100) : 0;
         $omsetProgress = $omsetTarget > 0 ? min(100, ($monthlyOmset / $omsetTarget) * 100) : 0;
         $profitProgress = $profitTarget > 0 ? min(100, ($monthlyProfit / $profitTarget) * 100) : 0;
-    
+
         // Monthly projection untuk omset
         $projectedOmset = $currentDay > 0 ? ($monthlyOmset / $currentDay) * $daysInMonth : 0;
         $projectedProfit = $projectedOmset;
         $isOnTrackOmset = $projectedOmset >= $omsetTarget;
         $isOnTrack = $isOnTrackOmset;
-    
+
         // === TARGET INVOICE (JUMLAH NOTA PEMBAYARAN) ===
         // Jumlah nota yang tercetak bulan sebelumnya dari bulan yang dipilih
         $previousMonthInvoiceCount = Payment::where('paid_at', 'like', "{$previousMonth}%")
             ->count();
-        
+
         // Target bulan yang dipilih = jumlah nota bulan sebelumnya + 100% (jadi 200% dari bulan sebelumnya)
         $invoiceTarget = $previousMonthInvoiceCount * 2.0; // 200% = 2.0
-        
+
         // Realisasi invoice bulan yang dipilih
         $currentMonthInvoiceCount = Payment::where('paid_at', 'like', "{$currentMonth}%")
             ->count();
-        
+
         // Progress calculation untuk invoice
         $invoiceProgress = $invoiceTarget > 0 ? min(100, ($currentMonthInvoiceCount / $invoiceTarget) * 100) : 0;
-        
+
         // Additional stats untuk invoice
         $remainingInvoiceTarget = max(0, $invoiceTarget - $currentMonthInvoiceCount);
         $remainingTarget = $remainingInvoiceTarget;
         $dailyInvoiceTargetNeeded = $daysLeft > 0 ? $remainingInvoiceTarget / $daysLeft : $remainingInvoiceTarget;
         $dailyTargetNeeded = $dailyInvoiceTargetNeeded;
-        
+
         // Untuk backward compatibility
         $previousMonthInvoices = $previousMonthInvoiceCount;
         $currentMonthPayments = $currentMonthInvoiceCount;
-        
+
         return [
             // Gross Profit Data
             'monthlySales' => $monthlySales,
@@ -269,7 +345,7 @@ class FinanceController extends Controller
             'currentDay' => $currentDay,
             'daysInMonth' => $daysInMonth,
             'daysLeft' => $daysLeft,
-            
+
             // Invoice Target Data
             'previousMonthInvoiceCount' => $previousMonthInvoiceCount,
             'invoiceTarget' => $invoiceTarget,
@@ -277,7 +353,7 @@ class FinanceController extends Controller
             'invoiceProgress' => $invoiceProgress,
             'remainingInvoiceTarget' => $remainingInvoiceTarget,
             'dailyInvoiceTargetNeeded' => $dailyInvoiceTargetNeeded,
-            
+
             // Additional data
             'chatCount' => $chatCount,
             'closingCount' => $closingCount,
@@ -300,7 +376,7 @@ class FinanceController extends Controller
         $months[] = now()->format('Y-m');
         // Bulan depan
         $months[] = now()->addMonth()->format('Y-m');
-        
+
         return $months;
     }
 
@@ -311,7 +387,7 @@ class FinanceController extends Controller
     {
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
-        
+
         // Data untuk periode yang dipilih (EXCLUDE record validasi kosong)
         $periodData = AdvertisementPerformance::whereBetween('date', [$start, $end])
             ->where('description', '!=', 'Tidak ada aktivitas hari ini')
@@ -319,12 +395,12 @@ class FinanceController extends Controller
             ->groupBy('type')
             ->get()
             ->keyBy('type');
-        
+
         $chatCount = $periodData['chat']->count ?? 0;
         $followupCount = $periodData['followup']->count ?? 0;
         $closingCount = $periodData['closing']->count ?? 0;
         $closingAmount = $periodData['closing']->total_amount ?? 0;
-        
+
         // Data untuk chart (per hari dalam range) - EXCLUDE record validasi kosong
         $chartData = AdvertisementPerformance::whereBetween('date', [$start, $end])
             ->where('description', '!=', 'Tidak ada aktivitas hari ini')
@@ -332,11 +408,11 @@ class FinanceController extends Controller
             ->groupBy('date', 'type')
             ->orderBy('date')
             ->get();
-        
+
         // Format chart data
         $formattedChartData = [];
         $dates = [];
-        
+
         $currentDate = $start->copy();
         while ($currentDate <= $end) {
             $dateStr = $currentDate->format('Y-m-d');
@@ -348,14 +424,14 @@ class FinanceController extends Controller
             ];
             $currentDate->addDay();
         }
-        
+
         foreach ($chartData as $data) {
             $dateStr = $data->date->format('Y-m-d');
             if (isset($formattedChartData[$dateStr])) {
                 $formattedChartData[$dateStr][$data->type] = $data->count;
             }
         }
-        
+
         // Flag data iklan
         $hasActualData = AdvertisementPerformance::whereBetween('date', [$start, $end])
             ->where('description', '!=', 'Tidak ada aktivitas hari ini')
@@ -364,7 +440,7 @@ class FinanceController extends Controller
             ->where('description', 'Tidak ada aktivitas hari ini')
             ->exists();
         $hasAnyData = AdvertisementPerformance::whereBetween('date', [$start, $end])->exists();
-        
+
         return [
             'advertisementStartDate' => $startDate,
             'advertisementEndDate' => $endDate,
@@ -389,7 +465,7 @@ class FinanceController extends Controller
             ->orderBy('auto_closed_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
-        
+
         return view('finance.shift-auto-closes', compact('autoCloses'));
     }
 
@@ -399,17 +475,17 @@ class FinanceController extends Controller
     public function approveShiftAutoClose($id): RedirectResponse
     {
         $autoClose = ShiftAutoClose::findOrFail($id);
-        
+
         if (!$autoClose->is_blocked) {
             return back()->with('error', 'Shift ini sudah di-approve sebelumnya.');
         }
-        
+
         $autoClose->update([
             'is_blocked' => false,
             'approved_by' => Auth::id(),
             'approved_at' => now(),
         ]);
-        
+
         return back()->with('success', 'Shift auto-close telah di-approve. Login admin telah diaktifkan kembali.');
     }
 }

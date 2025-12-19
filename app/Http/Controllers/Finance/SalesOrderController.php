@@ -935,7 +935,7 @@ public function search(Request $request)
                 'error' => 'Error loading PO data: ' . $e->getMessage()
             ], 500);
         }
-    }
+}
 
     /**
      * ✅ Update cost_price untuk SalesOrderItem (Finance only)

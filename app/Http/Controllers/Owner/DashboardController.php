@@ -222,12 +222,42 @@ class DashboardController extends Controller
             ->where('sales_orders.created_at', 'like', "{$currentMonth}%")
             ->sum(DB::raw('COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty')) ?? 0;
         
+        // REVISI: Hitung Monthly Sales dari Real Data (SalesOrder) agar Gross Profit akurat
+        // Sebelumnya mengambil dari advertisement closing yang mungkin tidak lengkap/input manual
+        $realSales = SalesOrder::where('status', '!=', 'draft')
+            ->where('created_at', 'like', "{$currentMonth}%")
+            ->sum('grand_total') ?? 0;
+            
+        $realManualIncome = Income::where('created_at', 'like', "{$currentMonth}%")
+            ->sum('amount') ?? 0;
+            
+        $monthlySales = $realSales + $realManualIncome;
+
         $grossProfit = $monthlySales - $monthlyHpp;
-        $targetGrossProfit = 30000000;
-        $grossProfitProgress = $targetGrossProfit > 0
-            ? max(0, min(100, ($grossProfit / $targetGrossProfit) * 100))
-            : 0;
-        $grossProfitShortfall = max(0, $targetGrossProfit - $grossProfit);
+        $targetGrossProfit = 30000000.0;
+        
+        // Progress: hitung persentase dari target (realisasi / target * 100)
+        // Progress dibatasi antara 0-100% untuk tampilan (tidak bisa negatif atau lebih dari 100%)
+        // Jika gross profit negatif, progress = 0% (karena tidak mungkin negatif)
+        // Jika gross profit positif, hitung persentase dari target
+        if ($targetGrossProfit > 0) {
+            $calculatedProgress = ($grossProfit / $targetGrossProfit) * 100.0;
+            // Batasi progress antara 0-100% untuk tampilan
+            $grossProfitProgress = max(0.0, min(100.0, $calculatedProgress));
+        } else {
+            $grossProfitProgress = 0.0;
+        }
+        
+        // Shortfall: selisih antara target dengan realisasi
+        // Jika gross profit negatif, shortfall = target (karena sudah rugi, berarti shortfall penuh)
+        // Jika gross profit positif tapi belum mencapai target, shortfall = target - gross profit
+        if ($grossProfit < 0) {
+            // Jika rugi, shortfall = target penuh (karena kita sudah rugi, berarti shortfall = target)
+            $grossProfitShortfall = $targetGrossProfit;
+        } else {
+            // Jika untung tapi belum mencapai target
+            $grossProfitShortfall = max(0.0, $targetGrossProfit - $grossProfit);
+        }
     
         $monthlyProfit = $grossProfit;
         $daysLeft = $daysInMonth - $currentDay;
