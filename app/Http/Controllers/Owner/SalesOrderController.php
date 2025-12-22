@@ -48,7 +48,7 @@ class SalesOrderController extends Controller
         $userType = strtolower($user->usertype ?? $user->role ?? '');
 
         return match ($action) {
-            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance']),
+            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin']),
             'request_kain_to_payment' => $userType === 'finance',
             'payment_to_proses_jahit' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
             'proses_jahit_to_printing' => in_array($userType, ['admin', 'finance', 'kepala_toko']),

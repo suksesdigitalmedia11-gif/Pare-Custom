@@ -123,7 +123,7 @@
                             @php
                                 $userType = strtolower(Auth::user()->usertype ?? Auth::user()->role ?? '');
                                 $hasPO = $salesOrder->hasRelatedPO();
-                                $canPendingToRequestKain = in_array($userType, ['owner', 'kepala_toko', 'finance']);
+                                $canPendingToRequestKain = in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin']);
                                 $canRequestKainToPayment = $userType === 'finance';
                                 $canPaymentToProsesJahit = in_array($userType, ['admin', 'finance', 'kepala_toko']);
                                 $canProsesJahitToPrinting = in_array($userType, ['admin', 'finance', 'kepala_toko']);
@@ -132,20 +132,51 @@
 
                                 // Validasi pembayaran untuk pending → request_kain
                                 $paymentValid = true;
-                                if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
-                                    $invalidPayments = $salesOrder->payments()
-                                        ->whereNull('proof_path')
-                                        ->where(function ($q) {
-                                            $q->whereNull('reference_number')
-                                                ->orWhere('reference_number', '')
-                                                ->orWhere('reference_number', ' ')
-                                                ->orWhere('reference_number', 'null')
-                                                ->orWhere('reference_number', 'NULL');
-                                        })
-                                        ->count();
-                                    $paymentValid = $invalidPayments == 0;
-                                }
+                                $invalidPayments = $salesOrder->payments()
+                                    ->whereIn('method', ['transfer', 'split'])
+                                    ->whereNull('proof_path')
+                                    ->where(function ($q) {
+                                        $q->whereNull('reference_number')
+                                            ->orWhere('reference_number', '')
+                                            ->orWhere('reference_number', ' ')
+                                            ->orWhere('reference_number', 'null')
+                                            ->orWhere('reference_number', 'NULL');
+                                    })
+                                    ->count();
+                                $paymentValid = $invalidPayments == 0;
                             @endphp
+
+                            <!-- ✅ INFORMASI JIKA TOMBOL TIDAK MUNCUL -->
+                            @if($salesOrder->status === 'pending' && $salesOrder->approved_by !== null)
+                                {{-- 1. Cek Payment Valid --}}
+                                @if(in_array($salesOrder->payment_method, ['transfer', 'split']) && !$paymentValid)
+                                    <div
+                                        class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4 flex items-start gap-3">
+                                        <i class="bi bi-exclamation-triangle-fill text-yellow-600 mt-1"></i>
+                                        <div>
+                                            <h4 class="font-bold">Bukti Pembayaran Belum Lengkap</h4>
+                                            <p class="text-sm">Anda memilih pembayaran Transfer/Split, namun belum ada bukti
+                                                transfer atau nomor referensi yang valid pada riwayat pembayaran. Harap lengkapi
+                                                salah satu (Upload Bukti atau Isi No Referensi) agar tombol proses muncul.</p>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- 2. Cek PO Existence untuk Jahit Sendiri --}}
+                                @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO)
+                                    <div
+                                        class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 flex items-start gap-3">
+                                        <i class="bi bi-file-earmark-x-fill text-red-600 mt-1"></i>
+                                        <div>
+                                            <h4 class="font-bold">Purchase Order (PO) Tidak Ditemukan</h4>
+                                            <p class="text-sm">Order ini bertipe 'Jahit Sendiri' namun tidak memiliki PO Kain
+                                                terkait. Tombol proses produksi tidak akan muncul. Anda hanya dapat
+                                                menyelesaikan order ini secara langsung jika pembayaran lunas (Workflow Tanpa
+                                                PO).</p>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
 
                             <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
 
@@ -493,119 +524,119 @@
                                     $cumulativePayment = 0;
                                 @endphp
                                 @forelse($salesOrder->payments as $payment)
-                                                        @php
-                                                            $cumulativePayment += $payment->amount;
-                                                        @endphp
-                                                        <tr
-                                                            class="border-b hover:bg-gray-50 {{ $loop->first ? 'border-l-4 border-l-green-500 bg-green-50' : '' }}">
-                                                            <td class="px-4 py-2 border">
-                                                                {{ \Carbon\Carbon::parse($payment->paid_at)->format('d/m/Y H:i') }}
-                                                                @if($loop->first)
-                                                                    <span
-                                                                        class="ml-2 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Terbaru</span>
-                                                                @endif
-                                                            </td>
-                                                            <td class="px-4 py-2 border">
-                                                                @if($payment->method === 'cash')
-                                                                    <span class="inline-flex items-center"><i
-                                                                            class="bi bi-cash mr-1 text-green-600"></i> Cash</span>
-                                                                @elseif($payment->method === 'transfer')
-                                                                    <span class="inline-flex items-center"><i
-                                                                            class="bi bi-bank mr-1 text-blue-600"></i> Transfer</span>
-                                                                @else
-                                                                    <span class="inline-flex items-center"><i
-                                                                            class="bi bi-cash-stack mr-1 text-purple-600"></i> Split</span>
-                                                                    <br>
-                                                                    <small class="text-gray-500">
-                                                                        (Cash: Rp {{ number_format($payment->cash_amount, 0, ',', '.') }},
-                                                                        Transfer: Rp {{ number_format($payment->transfer_amount, 0, ',', '.') }})
-                                                                    </small>
-                                                                @endif
-                                                            </td>
-                                                            <td class="px-4 py-2 border text-right font-medium text-green-600">
-                                                                Rp {{ number_format($payment->amount, 0, ',', '.') }}
-                                                                <br>
-                                                                <small class="text-gray-500 text-xs">
-                                                                    Total: Rp {{ number_format($cumulativePayment, 0, ',', '.') }}
-                                                                </small>
-                                                                <br>
-                                                                <span class="px-2 py-0.5 rounded-full text-xs font-medium 
-                                    @if($payment->category === 'pelunasan') bg-green-100 text-green-700 
-                                    @else bg-yellow-100 text-yellow-700 @endif">
-                                                                    {{ ucfirst($payment->category) }}
-                                                                </span>
-                                                            </td>
-                                                            <td class="px-4 py-2 border">
-                                                                {{ $payment->creator->name ?? 'System' }}
-                                                                <br>
-                                                                <small class="text-gray-500 text-xs">#{{ $payment->created_by }}</small>
-                                                            </td>
-                                                            <td class="px-4 py-2 border">
-                                                                @if($payment->reference_number)
-                                                                    No Ref: {{ $payment->reference_number }}<br>
-                                                                @endif
-                                                                @if($payment->note)
-                                                                    <small class="text-gray-600">{{ $payment->note }}</small><br>
-                                                                @endif
-                                                                <!-- Tampilkan Link Bukti jika sudah upload -->
-                                                                @if($payment->proof_path)
-                                                                    <a href="{{ route('owner.sales.payment-proof', $payment) }}" target="_blank"
-                                                                        class="text-blue-500 text-xs hover:underline inline-flex items-center">
-                                                                        <i class="bi bi-file-earmark-image mr-1"></i> Lihat Bukti
-                                                                    </a>
-                                                                @elseif(in_array($payment->method, ['transfer', 'split']))
-                                                                    {{-- Form Upload Bukti jika belum ada bukti --}}
-                                                                    <!-- PERBAIKAN: TETAP tampilkan form upload, meskipun reference_number sudah ada -->
-                                                                    <form
-                                                                        action="{{ route('owner.sales.uploadProof', ['salesOrder' => $salesOrder, 'payment' => $payment]) }}"
-                                                                        method="POST" enctype="multipart/form-data" class="upload-proof-form mt-2">
-                                                                        @csrf
-                                                                        <input type="file" name="proof_path" accept=".jpg,.jpeg,.png,.pdf"
-                                                                            class="border rounded px-2 py-1 text-xs w-full" required>
-                                                                        <button type="submit"
-                                                                            class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs mt-1 w-full">
-                                                                            <i class="bi bi-upload"></i> Upload Bukti
-                                                                        </button>
-                                                                        @error('proof_path')
-                                                                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                                                        @enderror
-                                                                    </form>
-                                                                @endif
-                                                            </td>
-                                                            <td class="px-4 py-2 border text-center">
-                                                                <div class="flex justify-center gap-2">
-                                                                    <button onclick="showPrintOptions({{ $payment->id }})"
-                                                                        class="text-green-600 hover:text-green-800" title="Cetak Nota">
-                                                                        <i class="bi bi-printer"></i>
-                                                                    </button>
-                                                                    <a href="{{ route('owner.sales.printNota', $payment) }}"
-                                                                        class="text-blue-600 hover:text-blue-800" title="Download PDF">
-                                                                        <i class="bi bi-download"></i>
-                                                                    </a>
-                                                                    <!-- TAMBAH TOMBOL INI -->
-                                                                    <button
-                                                                        onclick="openEditPaymentMethodModal({{ $payment->id }}, '{{ $payment->method }}', {{ $payment->cash_amount }}, {{ $payment->transfer_amount }}, '{{ $payment->reference_number }}')"
-                                                                        class="text-yellow-600 hover:text-yellow-800" title="Ubah Metode">
-                                                                        <i class="bi bi-pencil"></i>
-                                                                    </button>
-                                                                    {{-- TOMBOL HAPUS (HARD DELETE) --}}
-                                                                    @if(Auth::user()->role === 'owner' || Auth::user()->usertype === 'owner')
-                                                                        <form
-                                                                            action="{{ route('owner.sales.payments.destroy', ['salesOrder' => $salesOrder->id, 'payment' => $payment->id]) }}"
-                                                                            method="POST"
-                                                                            onsubmit="return confirm('Apakah Anda yakin ingin menghapus pembayaran ini?\n\nPERINGATAN: Data pembayaran akan dihapus secara PERMANEN beserta bukti transfernya.\nSemua relasi data akan ikut terhapus clean.\n\nLanjutkan?');"
-                                                                            class="inline-block">
-                                                                            @csrf
-                                                                            @method('DELETE')
-                                                                            <button type="submit" class="text-red-600 hover:text-red-800"
-                                                                                title="Hapus Permanen">
-                                                                                <i class="bi bi-trash"></i>
-                                                                            </button>
-                                                                        </form>
-                                                                    @endif
-                                                                </div>
-                                                            </td>
-                                                        </tr>
+                                    @php
+                                        $cumulativePayment += $payment->amount;
+                                    @endphp
+                                    <tr
+                                        class="border-b hover:bg-gray-50 {{ $loop->first ? 'border-l-4 border-l-green-500 bg-green-50' : '' }}">
+                                        <td class="px-4 py-2 border">
+                                            {{ \Carbon\Carbon::parse($payment->paid_at)->format('d/m/Y H:i') }}
+                                            @if($loop->first)
+                                                <span
+                                                    class="ml-2 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Terbaru</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2 border">
+                                            @if($payment->method === 'cash')
+                                                <span class="inline-flex items-center"><i
+                                                        class="bi bi-cash mr-1 text-green-600"></i> Cash</span>
+                                            @elseif($payment->method === 'transfer')
+                                                <span class="inline-flex items-center"><i
+                                                        class="bi bi-bank mr-1 text-blue-600"></i> Transfer</span>
+                                            @else
+                                                <span class="inline-flex items-center"><i
+                                                        class="bi bi-cash-stack mr-1 text-purple-600"></i> Split</span>
+                                                <br>
+                                                <small class="text-gray-500">
+                                                    (Cash: Rp {{ number_format($payment->cash_amount, 0, ',', '.') }},
+                                                    Transfer: Rp {{ number_format($payment->transfer_amount, 0, ',', '.') }})
+                                                </small>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2 border text-right font-medium text-green-600">
+                                            Rp {{ number_format($payment->amount, 0, ',', '.') }}
+                                            <br>
+                                            <small class="text-gray-500 text-xs">
+                                                Total: Rp {{ number_format($cumulativePayment, 0, ',', '.') }}
+                                            </small>
+                                            <br>
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-medium 
+                                        @if($payment->category === 'pelunasan') bg-green-100 text-green-700 
+                                        @else bg-yellow-100 text-yellow-700 @endif">
+                                                {{ ucfirst($payment->category) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2 border">
+                                            {{ $payment->creator->name ?? 'System' }}
+                                            <br>
+                                            <small class="text-gray-500 text-xs">#{{ $payment->created_by }}</small>
+                                        </td>
+                                        <td class="px-4 py-2 border">
+                                            @if($payment->reference_number)
+                                                No Ref: {{ $payment->reference_number }}<br>
+                                            @endif
+                                            @if($payment->note)
+                                                <small class="text-gray-600">{{ $payment->note }}</small><br>
+                                            @endif
+                                            <!-- Tampilkan Link Bukti jika sudah upload -->
+                                            @if($payment->proof_path)
+                                                <a href="{{ route('owner.sales.payment-proof', $payment) }}" target="_blank"
+                                                    class="text-blue-500 text-xs hover:underline inline-flex items-center">
+                                                    <i class="bi bi-file-earmark-image mr-1"></i> Lihat Bukti
+                                                </a>
+                                            @elseif(in_array($payment->method, ['transfer', 'split']))
+                                                {{-- Form Upload Bukti jika belum ada bukti --}}
+                                                <!-- PERBAIKAN: TETAP tampilkan form upload, meskipun reference_number sudah ada -->
+                                                <form
+                                                    action="{{ route('owner.sales.uploadProof', ['salesOrder' => $salesOrder, 'payment' => $payment]) }}"
+                                                    method="POST" enctype="multipart/form-data" class="upload-proof-form mt-2">
+                                                    @csrf
+                                                    <input type="file" name="proof_path" accept=".jpg,.jpeg,.png,.pdf"
+                                                        class="border rounded px-2 py-1 text-xs w-full" required>
+                                                    <button type="submit"
+                                                        class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs mt-1 w-full">
+                                                        <i class="bi bi-upload"></i> Upload Bukti
+                                                    </button>
+                                                    @error('proof_path')
+                                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                                    @enderror
+                                                </form>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2 border text-center">
+                                            <div class="flex justify-center gap-2">
+                                                <button onclick="showPrintOptions({{ $payment->id }})"
+                                                    class="text-green-600 hover:text-green-800" title="Cetak Nota">
+                                                    <i class="bi bi-printer"></i>
+                                                </button>
+                                                <a href="{{ route('owner.sales.printNota', $payment) }}"
+                                                    class="text-blue-600 hover:text-blue-800" title="Download PDF">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <!-- TAMBAH TOMBOL INI -->
+                                                <button
+                                                    onclick="openEditPaymentMethodModal({{ $payment->id }}, '{{ $payment->method }}', {{ $payment->cash_amount }}, {{ $payment->transfer_amount }}, '{{ $payment->reference_number }}')"
+                                                    class="text-yellow-600 hover:text-yellow-800" title="Ubah Metode">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                {{-- TOMBOL HAPUS (HARD DELETE) --}}
+                                                @if(Auth::user()->role === 'owner' || Auth::user()->usertype === 'owner')
+                                                    <form
+                                                        action="{{ route('owner.sales.payments.destroy', ['salesOrder' => $salesOrder->id, 'payment' => $payment->id]) }}"
+                                                        method="POST"
+                                                        onsubmit="return confirm('Apakah Anda yakin ingin menghapus pembayaran ini?\n\nPERINGATAN: Data pembayaran akan dihapus secara PERMANEN beserta bukti transfernya.\nSemua relasi data akan ikut terhapus clean.\n\nLanjutkan?');"
+                                                        class="inline-block">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="text-red-600 hover:text-red-800"
+                                                            title="Hapus Permanen">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
                                 @empty
                                     <tr>
                                         <td colspan="6" class="text-center text-gray-500 px-4 py-4">Belum ada pembayaran
@@ -623,7 +654,8 @@
                                 <div class="text-right">Rp {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</div>
                                 <div class="font-semibold">Total sudah dibayar:</div>
                                 <div class="text-right text-green-600 font-medium">Rp
-                                    {{ number_format($salesOrder->paid_total, 0, ',', '.') }}</div>
+                                    {{ number_format($salesOrder->paid_total, 0, ',', '.') }}
+                                </div>
                                 <div class="font-semibold">Sisa pembayaran:</div>
                                 <div
                                     class="text-right @if($salesOrder->remaining_amount > 0) text-red-600 @else text-green-600 @endif font-medium">
@@ -679,10 +711,12 @@
                                         </td>
                                         <td class="px-4 py-2 border">{{ $item->sku ?? '-' }}</td>
                                         <td class="px-4 py-2 border text-right">Rp
-                                            {{ number_format($item->sale_price, 0, ',', '.') }}</td>
+                                            {{ number_format($item->sale_price, 0, ',', '.') }}
+                                        </td>
                                         <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                         <td class="px-4 py-2 border text-right">Rp
-                                            {{ number_format($item->discount, 0, ',', '.') }}</td>
+                                            {{ number_format($item->discount, 0, ',', '.') }}
+                                        </td>
                                         @if($hasDesignItems)
                                             <td class="px-4 py-2 border text-center">
                                                 @if($item->requires_design || in_array($item->product_type, ['dtf', 'jersey']))
@@ -712,7 +746,8 @@
                                             </td>
                                         @endif
                                         <td class="px-4 py-2 border text-right font-semibold">Rp
-                                            {{ number_format($item->line_total, 0, ',', '.') }}</td>
+                                            {{ number_format($item->line_total, 0, ',', '.') }}
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -724,26 +759,30 @@
                                     <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">
                                         Subtotal:</td>
                                     <td class="px-4 py-2 border text-right font-semibold">Rp
-                                        {{ number_format($salesOrder->subtotal, 0, ',', '.') }}</td>
+                                        {{ number_format($salesOrder->subtotal, 0, ',', '.') }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Total
                                         Diskon:</td>
                                     <td class="px-4 py-2 border text-right font-semibold text-red-600">- Rp
-                                        {{ number_format($salesOrder->discount_total, 0, ',', '.') }}</td>
+                                        {{ number_format($salesOrder->discount_total, 0, ',', '.') }}
+                                    </td>
                                 </tr>
                                 <!-- ✅ TAMBAH ROW ONGKIR DI SINI -->
                                 <tr>
                                     <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">
                                         Ongkir:</td>
                                     <td class="px-4 py-2 border text-right font-semibold text-green-600">+ Rp
-                                        {{ number_format($salesOrder->shipping_cost, 0, ',', '.') }}</td>
+                                        {{ number_format($salesOrder->shipping_cost, 0, ',', '.') }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Grand
                                         Total:</td>
                                     <td class="px-4 py-2 border text-right font-semibold text-blue-600">Rp
-                                        {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</td>
+                                        {{ number_format($salesOrder->grand_total, 0, ',', '.') }}
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -781,7 +820,8 @@
                                         <div class="flex-1">
                                             <h3 class="font-semibold text-gray-800">{{ $item->product_name }}</h3>
                                             <p class="text-sm text-gray-500 mt-1">Qty: {{ $item->qty }} • SKU:
-                                                {{ $item->sku ?? '-' }}</p>
+                                                {{ $item->sku ?? '-' }}
+                                            </p>
                                             @if($item->design_brief)
                                                 <p class="text-sm text-gray-600 mt-2">
                                                     <strong>Brief:</strong> {{ Str::limit($item->design_brief, 100) }}
@@ -901,7 +941,8 @@
                                     @forelse($salesOrder->logs as $log)
                                         <tr class="border-b hover:bg-gray-50">
                                             <td class="px-4 py-2 border">
-                                                {{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
+                                                {{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}
+                                            </td>
                                             <td class="px-4 py-2 border">{{ ucfirst(str_replace('_', ' ', $log->action)) }}
                                             </td>
                                             <td class="px-4 py-2 border">{{ $log->description }}</td>

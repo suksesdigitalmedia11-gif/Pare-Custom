@@ -386,6 +386,7 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
             Route::get('{id}', [\App\Http\Controllers\Owner\StockOpnameController::class, 'show'])->name('show');
             Route::get('template', [\App\Http\Controllers\Owner\StockOpnameController::class, 'downloadTemplate'])->name('template');
             Route::get('create', [\App\Http\Controllers\Owner\StockOpnameController::class, 'create'])->name('create');
+            Route::get('search-products', [\App\Http\Controllers\Owner\StockOpnameController::class, 'searchProducts'])->name('search-products');
             Route::post('import', [\App\Http\Controllers\Owner\StockOpnameController::class, 'import'])->name('import');
             Route::get('{stockOpname}/edit', [\App\Http\Controllers\Owner\StockOpnameController::class, 'edit'])->name('edit');
             Route::put('{stockOpname}', [\App\Http\Controllers\Owner\StockOpnameController::class, 'update'])->name('update');
@@ -675,6 +676,7 @@ Route::middleware(['auth', 'editor'])->prefix('editor')->name('editor.')->group(
         Route::prefix('stock-opnames')->name('stock-opnames.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Owner\StockOpnameController::class, 'index'])->name('index');
             Route::get('create', [\App\Http\Controllers\Owner\StockOpnameController::class, 'create'])->name('create');
+            Route::get('search-products', [\App\Http\Controllers\Owner\StockOpnameController::class, 'searchProducts'])->name('search-products');
             Route::post('/', [\App\Http\Controllers\Owner\StockOpnameController::class, 'store'])->name('store');
             Route::get('{id}', [\App\Http\Controllers\Owner\StockOpnameController::class, 'show'])->name('show');
             // No approve/delete

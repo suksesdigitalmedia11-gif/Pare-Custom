@@ -5,6 +5,9 @@ namespace App\Imports;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\Supplier;
+use App\Models\Product; // ✅ Tambah ini
+use App\Models\StockMovement; // ✅ Tambah ini
+use App\Models\PurchaseOrderLog; // ✅ Tambah ini
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use App\Services\NumberGenerator;
@@ -21,6 +24,14 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
     /** @var int */
     public $successCount = 0;
 
+    /** @var string */
+    public $mode; // 'migration' or 'full'
+
+    public function __construct(string $mode = 'migration')
+    {
+        $this->mode = $mode;
+    }
+
     public function collection(Collection $rows)
     {
         if ($rows->isEmpty()) {
@@ -30,7 +41,7 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
 
         // Kelompokkan berdasarkan PO_NUMBER (boleh kosong, nanti akan digenerate)
         $grouped = $rows->groupBy(function ($row, $index) {
-            $poNumber = trim((string)($row['po_number'] ?? ''));
+            $poNumber = trim((string) ($row['po_number'] ?? ''));
             if ($poNumber === '') {
                 // Gunakan key unik sementara berdasarkan index
                 return 'AUTO_' . ($index + 1);
@@ -109,14 +120,14 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
             try {
                 DB::transaction(function () use ($group, $firstRow, $key, $rowIndex, $orderDateRaw, $deadlineRaw, $statusRaw) {
                     // Supplier
-                    $supplierName = trim((string)($firstRow['supplier_name'] ?? ''));
+                    $supplierName = trim((string) ($firstRow['supplier_name'] ?? ''));
                     $supplier = Supplier::firstOrCreate(
                         ['name' => $supplierName],
                         ['is_active' => true]
                     );
 
                     // Tentukan / generate PO number
-                    $rawPoNumber = trim((string)($firstRow['po_number'] ?? ''));
+                    $rawPoNumber = trim((string) ($firstRow['po_number'] ?? ''));
                     if ($rawPoNumber !== '' && !str_starts_with(strtoupper($rawPoNumber), 'PO')) {
                         $poNumber = 'PO' . strtoupper($rawPoNumber);
                     } elseif ($rawPoNumber !== '') {
@@ -136,8 +147,8 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     $subtotal = 0;
                     $discountTotal = 0;
                     foreach ($group as $row) {
-                        $line = (float)($row['cost_price']) * (int)($row['qty']);
-                        $disc = (float)($row['discount'] ?? 0);
+                        $line = (float) ($row['cost_price']) * (int) ($row['qty']);
+                        $disc = (float) ($row['discount'] ?? 0);
                         $subtotal += $line;
                         $discountTotal += $disc;
                     }
@@ -196,13 +207,49 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     ]);
 
                     foreach ($group as $row) {
-                        $lineTotal = ((float)$row['cost_price'] * (int)$row['qty']) - (float)($row['discount'] ?? 0);
+                        $lineTotal = ((float) $row['cost_price'] * (int) $row['qty']) - (float) ($row['discount'] ?? 0);
+
+                        // 1. Cari Produk (untuk link ID & Update Stok)
+                        $product = null;
+
+                        // Prioritas 1: SKU
+                        if (!empty($row['sku'])) {
+                            $product = Product::where('sku', trim($row['sku']))->first();
+                        }
+
+                        // Prioritas 2: Nama Produk (Exact Match)
+                        if (!$product) {
+                            $product = Product::where('name', trim($row['product_name']))->first();
+                        }
+
+                        // 2. Logika Update Stok (Hanya Mode FULL)
+                        if ($this->mode === 'full' && $product) {
+                            $oldQty = $product->stock_qty;
+                            $qtyIn = (int) $row['qty'];
+
+                            // Update Stok Master
+                            $product->increment('stock_qty', $qtyIn);
+
+                            // Catat Pergerakan Stok
+                            StockMovement::create([
+                                'product_id' => $product->id,
+                                'type' => 'IN_PURCHASE', // Type Purchase / Masuk
+                                'ref_code' => $poNumber,
+                                'initial_qty' => $oldQty,
+                                'qty_in' => $qtyIn,
+                                'qty_out' => 0,
+                                'final_qty' => $oldQty + $qtyIn,
+                                'user_id' => Auth::id(),
+                                'notes' => "Import Pembelian ({$poNumber})",
+                                'moved_at' => now(),
+                            ]);
+                        }
 
                         PurchaseOrderItem::create([
                             'purchase_order_id' => $purchase->id,
-                            'product_id' => null,
+                            'product_id' => $product ? $product->id : null,
                             'product_name' => $row['product_name'],
-                            'sku' => $row['sku'] ?? null,
+                            'sku' => $row['sku'] ?? ($product ? $product->sku : null),
                             'cost_price' => $row['cost_price'],
                             'qty' => $row['qty'],
                             'discount' => $row['discount'] ?? 0,

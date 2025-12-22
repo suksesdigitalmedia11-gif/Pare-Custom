@@ -35,39 +35,42 @@ class StockOpnameController extends Controller
             return redirect()->route($this->getRoutePrefix() . '.inventory.stock-opnames.index')
                 ->with('error', 'Akses ditolak. Anda tidak memiliki izin untuk membuat Stock Opname.');
         }
-        // Tidak perlu load semua produk lagi, akan diambil via search
-        $autoNumber = $this->generateDocumentNumber();
+
+        // Kita tidak mengirim $products karena akan menggunakan AJAX Search agar ringan
+        // Kita juga tidak generate nomor di sini untuk mencegah duplikasi (Race Condition)
 
         $prefix = $this->getViewPrefix();
         $view = "{$prefix}.inventory.stock-opnames.create";
         return view($view, [
-            'autoNumber' => $autoNumber
+            'routePrefix' => $this->getRoutePrefix()
         ]);
     }
 
     public function searchProducts(Request $request)
     {
         $query = $request->get('q', '');
-        
+
+        // Return kosong jika query terlalu pendek untuk optimasi
         if (strlen($query) < 2) {
             return response()->json([]);
         }
 
         $products = Product::select('id', 'name', 'sku', 'stock_qty')
-            ->where(function($q) use ($query) {
+            ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('sku', 'like', "%{$query}%")
-                  ->orWhere('barcode', 'like', "%{$query}%");
+                    ->orWhere('sku', 'like', "%{$query}%")
+                    ->orWhere('barcode', 'like', "%{$query}%");
             })
-            ->limit(20)
+            ->limit(20) // Batasi hasil pencarian
             ->get()
-            ->map(function($product) {
+            ->map(function ($product) {
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
-                    'sku' => $product->sku ?? '-',
+                    'sku' => $product->sku ?? '',
                     'stock_qty' => $product->stock_qty,
-                    'display' => $product->name . ' (SKU: ' . ($product->sku ?? '-') . ', Stok: ' . $product->stock_qty . ')'
+                    'formatted_stock' => number_format($product->stock_qty, 0, ',', '.'),
+                    'display_name' => "{$product->name} (Stok: {$product->stock_qty})"
                 ];
             });
 
@@ -76,56 +79,73 @@ class StockOpnameController extends Controller
 
     public function store(Request $request)
     {
-
         if (request()->is('finance/*')) {
             return redirect()->route($this->getRoutePrefix() . '.inventory.stock-opnames.index')
                 ->with('error', 'Akses ditolak. Anda tidak memiliki izin untuk membuat Stock Opname.');
         }
+
         $validated = $request->validate([
-            'document_number' => 'required|unique:stock_opnames',
-            'date' => [
-                'required',
-                'date',
-                function ($attribute, $value, $fail) {
-                    if ($value !== date('Y-m-d')) {
-                        $fail('Tanggal harus hari ini.');
-                    }
-                }
-            ],
+            'date' => ['required', 'date'], // Hapus validasi 'today' agar fleksibel input data susulan
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
+            'items.*.product_name' => 'required|string', // Validasi nama agar data old() tidak rusak
             'items.*.system_qty' => 'required|numeric',
             'items.*.actual_qty' => 'required|numeric|min:0',
+        ], [
+            'items.required' => 'Harap tambahkan minimal satu produk.',
+            'items.*.actual_qty.required' => 'Qty aktual wajib diisi.',
+            'items.*.product_id.required' => 'Produk tidak valid.',
         ]);
 
-        DB::transaction(function () use ($validated) {
-            $stockOpname = StockOpname::create([
-                'document_number' => $validated['document_number'],
-                'date' => $validated['date'],
-                'notes' => $validated['notes'],
-                'status' => 'draft',
-                'user_id' => auth()->id()
-            ]);
+        try {
+            DB::transaction(function () use ($validated) {
+                // Generate Document Number saat Save (Atomic/Critical Section)
+                // Ini mencegah nomor ganda jika 2 admin input bersamaan
+                $documentNumber = $this->generateDocumentNumber();
 
-            foreach ($validated['items'] as $item) {
-                $product = Product::find($item['product_id']);
-                $systemQty = $product->stock_qty;
-
-                $stockOpname->items()->create([
-                    'product_id' => $item['product_id'],
-                    'product_name' => $product->name,
-                    'sku' => $product->sku ?? null,
-                    'system_qty' => $systemQty,
-                    'actual_qty' => $item['actual_qty'],
-                    'difference' => $item['actual_qty'] - $systemQty
+                $stockOpname = StockOpname::create([
+                    'document_number' => $documentNumber,
+                    'date' => $validated['date'],
+                    'notes' => $validated['notes'] ?? null,
+                    'status' => 'draft',
+                    'user_id' => auth()->id()
                 ]);
-            }
-        });
 
-        $route = $this->getRoutePrefix() . '.inventory.stock-opnames.index';
-        return redirect()->route($route)
-            ->with('success', 'Stock opname berhasil dibuat');
+                foreach ($validated['items'] as $item) {
+                    // Ambil stok sistem TERBARU saat simpan agar akurat
+                    // Meskipun di UI ditampilkan stok saat load, di database kita snapshot yg real-time
+                    $product = Product::lockForUpdate()->find($item['product_id']);
+
+                    if (!$product)
+                        continue;
+
+                    $systemQty = $product->stock_qty;
+
+                    $stockOpname->items()->create([
+                        'product_id' => $item['product_id'],
+                        'product_name' => $product->name,
+                        'sku' => $product->sku ?? null,
+                        'system_qty' => $systemQty,
+                        'actual_qty' => $item['actual_qty'],
+                        'difference' => $item['actual_qty'] - $systemQty
+                    ]);
+                }
+            });
+
+            $route = $this->getRoutePrefix() . '.inventory.stock-opnames.index';
+            return redirect()->route($route)
+                ->with('success', 'Stock opname berhasil dibuat.');
+
+        } catch (\Exception $e) {
+            // Log error untuk developer
+            \Log::error('Stock Opname Error: ' . $e->getMessage());
+
+            // Redirect back dengan input lama & pesan error
+            return back()
+                ->withInput()
+                ->with('error', 'Terjadi kesalahan saat menyimpan: ' . $e->getMessage());
+        }
     }
 
     public function edit($id)
@@ -212,7 +232,7 @@ class StockOpnameController extends Controller
 
     public function approve($id)
     {
-        if (! in_array(auth()->user()->usertype, ['finance', 'kepala_toko', 'owner'])) {
+        if (!in_array(auth()->user()->usertype, ['finance', 'kepala_toko', 'owner'])) {
             return back()->with('error', 'Akses ditolak.');
         }
         $stockOpname = StockOpname::with('items.product')->findOrFail($id);
@@ -285,9 +305,9 @@ class StockOpnameController extends Controller
             'approver:id,name,email',
             'items.product:id,name'
         ])->findOrFail($id);
-        
+
         $products = Product::select('id', 'name', 'stock_qty')->get();
-    
+
         $prefix = $this->getViewPrefix();
         $view = "{$prefix}.inventory.stock-opnames.show";
         return view($view, compact('stockOpname', 'products'));
@@ -342,19 +362,19 @@ class StockOpnameController extends Controller
         // Cek permission berdasarkan route current
         $allowedRoles = ['owner', 'admin', 'finance', 'kepala_toko', 'editor'];
         $currentRole = null;
-        
+
         foreach ($allowedRoles as $role) {
             if (request()->is($role . '/*')) {
                 $currentRole = $role;
                 break;
             }
         }
-        
+
         // Jika tidak ada role yang cocok, redirect ke dashboard
         if (!$currentRole) {
             return redirect()->route('dashboard')->with('error', 'Akses tidak diizinkan');
         }
-        
+
         try {
             return Excel::download(new StockOpnameTemplateExport, 'stock_opname_template.xlsx');
         } catch (\Exception $e) {
@@ -383,19 +403,27 @@ class StockOpnameController extends Controller
     }
     protected function getViewPrefix()
     {
-        if (request()->is('admin/*')) return 'admin';
-        if (request()->is('finance/*')) return 'finance';
-        if (request()->is('kepala-toko/*')) return 'kepala-toko';
-        if (request()->is('editor/*')) return 'editor';
+        if (request()->is('admin/*'))
+            return 'admin';
+        if (request()->is('finance/*'))
+            return 'finance';
+        if (request()->is('kepala-toko/*'))
+            return 'kepala-toko';
+        if (request()->is('editor/*'))
+            return 'editor';
         return 'owner';
     }
 
     protected function getRoutePrefix()
     {
-        if (request()->is('admin/*')) return 'admin';
-        if (request()->is('finance/*')) return 'finance';
-        if (request()->is('kepala-toko/*')) return 'kepala-toko';
-        if (request()->is('editor/*')) return 'editor';
+        if (request()->is('admin/*'))
+            return 'admin';
+        if (request()->is('finance/*'))
+            return 'finance';
+        if (request()->is('kepala-toko/*'))
+            return 'kepala-toko';
+        if (request()->is('editor/*'))
+            return 'editor';
         return 'owner';
     }
 }

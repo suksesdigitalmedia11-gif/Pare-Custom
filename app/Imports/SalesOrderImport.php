@@ -31,7 +31,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
         // ✅ UNTUK DATA HISTORICAL, SKIP SHIFT CHECK
         if ($this->importType === 'current') {
             $activeShift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
-            
+
             if (!$activeShift) {
                 $this->errors[] = 'Tidak ada shift aktif. Silakan mulai shift terlebih dahulu.';
                 return;
@@ -63,7 +63,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                     'index' => $index + 2
                 ];
             }
-            
+
             // ✅ PILAH ROW: ITEM atau PAYMENT
             if (!empty($row['product_name'])) {
                 // Ini adalah item row
@@ -103,13 +103,13 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
             try {
                 DB::transaction(function () use ($soGroup) {
                     $soNumber = $soGroup['so_number'];
-                    
+
                     // ✅ VALIDASI: HARUS ADA MINIMAL 1 ITEM ROW
                     if (empty($soGroup['item_rows'])) {
                         $this->errors[] = "SO Number {$soNumber} (Baris {$soGroup['index']}): Harus ada minimal 1 item (PRODUCT_NAME)";
                         return;
                     }
-                    
+
                     $firstRow = $soGroup['item_rows'][0]['data'];
 
                     // ✅ CHECK IF SO ALREADY EXISTS
@@ -155,14 +155,51 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                     // ✅ CREATE SALES ORDER ITEMS (HANYA DARI ITEM ROWS)
                     foreach ($soGroup['item_rows'] as $itemData) {
                         $row = $itemData['data'];
-                        
+
+                        // 1. Cari Produk (Link ID & Logic Stock)
+                        $product = null;
+                        if (!empty($row['sku'])) {
+                            $product = \App\Models\Product::where('sku', trim($row['sku']))->first();
+                        }
+                        if (!$product) {
+                            $product = \App\Models\Product::where('name', trim($row['product_name']))->first();
+                        }
+
+                        $costPrice = 0;
+                        if ($product) {
+                            $costPrice = $product->cost_price;
+
+                            // 2. Logika Kurangi Stok (Hanya Mode Current / Baru)
+                            // Mode Historical diasumsikan stok sudah rapih / sudah lewat
+                            if ($this->importType === 'current') {
+                                $qtyOut = (int) $row['qty'];
+                                $oldQty = $product->stock_qty;
+
+                                $product->decrement('stock_qty', $qtyOut);
+
+                                // Catat Stock Movement
+                                \App\Models\StockMovement::create([
+                                    'product_id' => $product->id,
+                                    'type' => 'OUT', // Penjualan
+                                    'ref_code' => $soNumber,
+                                    'initial_qty' => $oldQty,
+                                    'qty_in' => 0,
+                                    'qty_out' => $qtyOut,
+                                    'final_qty' => $oldQty - $qtyOut,
+                                    'user_id' => Auth::id(),
+                                    'notes' => "Import Penjualan ({$soNumber})",
+                                    'moved_at' => now(),
+                                ]);
+                            }
+                        }
+
                         SalesOrderItem::create([
                             'sales_order_id' => $salesOrder->id,
-                            'product_id' => null, // Manual product untuk import
+                            'product_id' => $product ? $product->id : null,
                             'product_name' => $row['product_name'],
-                            'sku' => $row['sku'] ?? null,
+                            'sku' => $row['sku'] ?? ($product ? $product->sku : null),
                             'sale_price' => (float) $row['sale_price'],
-                            'cost_price' => 0, // ✅ Import manual, cost_price = 0 (finance bisa edit nanti)
+                            'cost_price' => $costPrice, // Simpan cost price saat transaksi
                             'qty' => (int) $row['qty'],
                             'discount' => (float) ($row['discount'] ?? 0),
                             'line_total' => ((float) $row['sale_price'] * (int) $row['qty']) - (float) ($row['discount'] ?? 0),
@@ -172,7 +209,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                     // ✅ CREATE PAYMENT(S) - BISA MULTIPLE PAYMENTS!
                     $allPaymentRows = [];
                     $seenPaymentKeys = [];
-                    
+
                     // 1. Payment dari item rows (jika ada payment info di row item)
                     // Hanya ambil dari row pertama yang ada payment info untuk menghindari duplikasi
                     $firstPaymentFromItems = null;
@@ -181,7 +218,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                         $cashAmount = (float) ($row['cash_amount_total'] ?? 0);
                         $transferAmount = (float) ($row['transfer_amount_total'] ?? 0);
                         $paymentAmount = $cashAmount + $transferAmount;
-                        
+
                         if ($paymentAmount > 0) {
                             if ($firstPaymentFromItems === null) {
                                 // Ambil payment info dari row pertama yang ada
@@ -194,14 +231,14 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                             }
                         }
                     }
-                    
+
                     // 2. Payment dari payment rows (baris khusus payment tambahan)
                     foreach ($soGroup['payment_rows'] as $paymentData) {
                         $row = $paymentData['data'];
                         $cashAmount = (float) ($row['cash_amount_total'] ?? 0);
                         $transferAmount = (float) ($row['transfer_amount_total'] ?? 0);
                         $paymentAmount = $cashAmount + $transferAmount;
-                        
+
                         if ($paymentAmount > 0) {
                             // Buat key unik untuk payment
                             $paymentKey = ($row['paid_at'] ?? $row['order_date'] ?? now()->format('Y-m-d H:i:s')) . '_' . $paymentAmount . '_' . ($row['payment_method'] ?? 'cash');
@@ -211,17 +248,17 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                             }
                         }
                     }
-                    
+
                     // ✅ CREATE SEMUA PAYMENT RECORDS (SUPPORT MULTIPLE PAYMENTS)
                     $totalPaidAmount = 0;
-                    
+
                     // Sort payment rows by paid_at untuk memastikan urutan kronologis
-                    usort($allPaymentRows, function($a, $b) {
+                    usort($allPaymentRows, function ($a, $b) {
                         $dateA = $this->parseDate($a['paid_at'] ?? $a['order_date'] ?? now(), true)->timestamp;
                         $dateB = $this->parseDate($b['paid_at'] ?? $b['order_date'] ?? now(), true)->timestamp;
                         return $dateA <=> $dateB;
                     });
-                    
+
                     foreach ($allPaymentRows as $paymentRow) {
                         try {
                             $this->createPayment($salesOrder, $paymentRow, $totalPaidAmount);
@@ -230,7 +267,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                             $this->errors[] = "SO {$soNumber}: Error membuat payment - " . $e->getMessage();
                         }
                     }
-                    
+
                     // ✅ UPDATE PAYMENT STATUS BERDASARKAN TOTAL YANG SUDAH DIBAYAR
                     if ($totalPaidAmount > 0) {
                         $finalPaymentStatus = ($totalPaidAmount >= $salesOrder->grand_total) ? 'lunas' : 'dp';
@@ -238,7 +275,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                     }
 
                     $this->successCount++;
-                    
+
                     // ✅ CREATE LOG
                     \App\Models\SalesOrderLog::create([
                         'sales_order_id' => $salesOrder->id,
@@ -261,21 +298,21 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
         if (empty($soNumber)) {
             return $this->generateSoNumber();
         }
-        
+
         $soNumber = strtoupper(trim($soNumber));
-        
+
         // Jika SO number tidak ada prefix, tambahkan
         if (!preg_match('/^[A-Za-z]/', $soNumber)) {
             $soNumber = 'SAL' . $soNumber;
         }
-        
+
         return $soNumber;
     }
 
     private function validateSoData($row, $rowIndex)
     {
         $requiredFields = ['order_date', 'customer_name', 'product_name', 'sale_price', 'qty'];
-        
+
         foreach ($requiredFields as $field) {
             if (empty($row[$field])) {
                 return [
@@ -311,21 +348,21 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
             $cashAmount = (float) ($row['cash_amount_total'] ?? 0);
             $transferAmount = (float) ($row['transfer_amount_total'] ?? 0);
             $paymentAmount = $cashAmount + $transferAmount;
-            
+
             if ($row['payment_method'] === 'split' && $paymentAmount <= 0) {
                 return [
                     'valid' => false,
                     'error' => "Baris {$rowIndex}: Split payment harus ada cash_amount_total atau transfer_amount_total"
                 ];
             }
-            
+
             if ($row['payment_method'] === 'cash' && $cashAmount <= 0) {
                 return [
-                    'valid' => false, 
+                    'valid' => false,
                     'error' => "Baris {$rowIndex}: Cash payment harus ada cash_amount_total"
                 ];
             }
-            
+
             if ($row['payment_method'] === 'transfer' && $transferAmount <= 0) {
                 return [
                     'valid' => false,
@@ -333,7 +370,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
                 ];
             }
         }
-        
+
         return ['valid' => true];
     }
     private function getOrCreateCustomer($row)
@@ -342,7 +379,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
         $customerPhone = $row['customer_phone'] ?? null;
 
         $customer = Customer::where('name', $customerName)->first();
-        
+
         if (!$customer) {
             $customer = Customer::create([
                 'name' => $customerName,
@@ -368,7 +405,7 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
             $salePrice = (float) ($row['sale_price'] ?? 0);
             $qty = (int) ($row['qty'] ?? 0);
             $discount = (float) ($row['discount'] ?? 0);
-            
+
             $subtotal += ($salePrice * $qty);
             $discount_total += $discount;
         }
@@ -389,64 +426,64 @@ class SalesOrderImport implements ToCollection, WithHeadingRow
         ];
     }
 
-// app/Imports/SalesOrderImport.php - ENHANCED! SUPPORT MULTIPLE PAYMENTS
-private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
-{
-    $paymentMethod = $row['payment_method'] ?? 'cash';
-    
-    // ✅ SMART PAYMENT PARSING
-    $cashAmount = (float) ($row['cash_amount_total'] ?? 0);
-    $transferAmount = (float) ($row['transfer_amount_total'] ?? 0);
-    
-    // Auto-calculate total amount
-    $paymentAmount = $cashAmount + $transferAmount;
-    
-    // ✅ VALIDASI: PAYMENT HARUS LEBIH DARI 0
-    if ($paymentAmount <= 0) {
-        return; // Skip jika tidak ada payment
-    }
-    
-    // ✅ VALIDATE PAYMENT TOTAL (TIDAK STRICT UNTUK MULTIPLE PAYMENTS)
-    // Untuk multiple payments, tidak perlu strict bahwa satu payment harus = grand_total
-    $totalPaidAfter = $totalPaidBefore + $paymentAmount;
-    
-    // Tentukan category payment
-    $paymentCategory = 'dp';
-    if ($totalPaidBefore == 0 && $paymentAmount >= $salesOrder->grand_total) {
-        // Payment pertama dan sudah lunas sekaligus
-        $paymentCategory = 'pelunasan';
-    } elseif ($totalPaidBefore > 0 && $totalPaidAfter >= $salesOrder->grand_total) {
-        // Payment tambahan yang membuat lunas (pelunasan akhir)
-        $paymentCategory = 'pelunasan';
-    } elseif ($totalPaidBefore == 0 && $paymentAmount < $salesOrder->grand_total) {
-        // Payment pertama tapi belum lunas (DP)
+    // app/Imports/SalesOrderImport.php - ENHANCED! SUPPORT MULTIPLE PAYMENTS
+    private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
+    {
+        $paymentMethod = $row['payment_method'] ?? 'cash';
+
+        // ✅ SMART PAYMENT PARSING
+        $cashAmount = (float) ($row['cash_amount_total'] ?? 0);
+        $transferAmount = (float) ($row['transfer_amount_total'] ?? 0);
+
+        // Auto-calculate total amount
+        $paymentAmount = $cashAmount + $transferAmount;
+
+        // ✅ VALIDASI: PAYMENT HARUS LEBIH DARI 0
+        if ($paymentAmount <= 0) {
+            return; // Skip jika tidak ada payment
+        }
+
+        // ✅ VALIDATE PAYMENT TOTAL (TIDAK STRICT UNTUK MULTIPLE PAYMENTS)
+        // Untuk multiple payments, tidak perlu strict bahwa satu payment harus = grand_total
+        $totalPaidAfter = $totalPaidBefore + $paymentAmount;
+
+        // Tentukan category payment
         $paymentCategory = 'dp';
-    } elseif ($totalPaidBefore > 0 && $totalPaidAfter < $salesOrder->grand_total) {
-        // Payment tambahan tapi belum lunas (pelunasan sebagian)
-        $paymentCategory = 'pelunasan';
+        if ($totalPaidBefore == 0 && $paymentAmount >= $salesOrder->grand_total) {
+            // Payment pertama dan sudah lunas sekaligus
+            $paymentCategory = 'pelunasan';
+        } elseif ($totalPaidBefore > 0 && $totalPaidAfter >= $salesOrder->grand_total) {
+            // Payment tambahan yang membuat lunas (pelunasan akhir)
+            $paymentCategory = 'pelunasan';
+        } elseif ($totalPaidBefore == 0 && $paymentAmount < $salesOrder->grand_total) {
+            // Payment pertama tapi belum lunas (DP)
+            $paymentCategory = 'dp';
+        } elseif ($totalPaidBefore > 0 && $totalPaidAfter < $salesOrder->grand_total) {
+            // Payment tambahan tapi belum lunas (pelunasan sebagian)
+            $paymentCategory = 'pelunasan';
+        }
+
+        // Tentukan status payment
+        $paymentStatus = ($totalPaidAfter >= $salesOrder->grand_total) ? 'lunas' : 'dp';
+
+        // ✅ CREATE PAYMENT RECORD
+        Payment::create([
+            'sales_order_id' => $salesOrder->id,
+            'method' => $paymentMethod,
+            'status' => $paymentStatus,
+            'category' => $paymentCategory,
+            'amount' => $paymentAmount,
+            'cash_amount' => $cashAmount,
+            'transfer_amount' => $transferAmount,
+            'paid_at' => $this->parseDate($row['paid_at'] ?? $row['order_date'] ?? now(), true), // ✅ INCLUDE TIME untuk paid_at
+            'reference_number' => $row['reference_number'] ?? null,
+            'note' => $row['note'] ?? null,
+            'created_by' => Auth::id(),
+        ]);
+
+        // Update total paid before untuk payment berikutnya
+        $totalPaidBefore += $paymentAmount;
     }
-    
-    // Tentukan status payment
-    $paymentStatus = ($totalPaidAfter >= $salesOrder->grand_total) ? 'lunas' : 'dp';
-    
-    // ✅ CREATE PAYMENT RECORD
-    Payment::create([
-        'sales_order_id' => $salesOrder->id,
-        'method' => $paymentMethod,
-        'status' => $paymentStatus,
-        'category' => $paymentCategory,
-        'amount' => $paymentAmount,
-        'cash_amount' => $cashAmount,
-        'transfer_amount' => $transferAmount,
-        'paid_at' => $this->parseDate($row['paid_at'] ?? $row['order_date'] ?? now(), true), // ✅ INCLUDE TIME untuk paid_at
-        'reference_number' => $row['reference_number'] ?? null,
-        'note' => $row['note'] ?? null,
-        'created_by' => Auth::id(),
-    ]);
-    
-    // Update total paid before untuk payment berikutnya
-    $totalPaidBefore += $paymentAmount;
-}
 
     /**
      * Parse tanggal/datetime dari berbagai format Excel
@@ -464,7 +501,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
             // Excel menyimpan tanggal sebagai number: 1 = 1900-01-01
             if (is_numeric($dateValue)) {
                 $excelDate = (float) $dateValue;
-                
+
                 // Excel serial date dimulai dari 1900-01-01 (hari ke-1)
                 // Tapi Excel salah menghitung tahun 1900 sebagai tahun kabisat
                 // Jadi perlu adjust: subtract 2 hari untuk tanggal > 28 Feb 1900
@@ -473,15 +510,15 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                 } elseif ($excelDate >= 1) {
                     $excelDate = $excelDate - 1;
                 }
-                
+
                 // Excel epoch: 1899-12-30 (base date untuk Excel)
                 $excelEpoch = Carbon::create(1899, 12, 30, 0, 0, 0);
-                
+
                 // Convert Excel serial date ke Carbon
-                $parsedDate = $excelEpoch->copy()->addDays((int)$excelDate);
-                
+                $parsedDate = $excelEpoch->copy()->addDays((int) $excelDate);
+
                 // Jika ada decimal (waktu), tambahkan waktu
-                $decimalPart = $excelDate - (int)$excelDate;
+                $decimalPart = $excelDate - (int) $excelDate;
                 if ($decimalPart > 0 && $includeTime) {
                     $totalSeconds = round($decimalPart * 86400); // 86400 detik dalam sehari
                     $hours = floor($totalSeconds / 3600);
@@ -489,13 +526,13 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                     $seconds = $totalSeconds % 60;
                     $parsedDate->setTime($hours, $minutes, $seconds);
                 }
-                
+
                 return $parsedDate;
             }
 
             // ✅ HANDLE STRING DATE - Normalisasi dulu
             $dateString = trim((string) $dateValue);
-            
+
             // Jika hanya angka (termasuk decimal), coba parse sebagai Excel serial date
             if (preg_match('/^\d+(\.\d+)?$/', $dateString)) {
                 $excelDate = (float) $dateString;
@@ -505,9 +542,9 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                     $excelDate = $excelDate - 1;
                 }
                 $excelEpoch = Carbon::create(1899, 12, 30, 0, 0, 0);
-                $parsedDate = $excelEpoch->copy()->addDays((int)$excelDate);
-                
-                $decimalPart = $excelDate - (int)$excelDate;
+                $parsedDate = $excelEpoch->copy()->addDays((int) $excelDate);
+
+                $decimalPart = $excelDate - (int) $excelDate;
                 if ($decimalPart > 0 && $includeTime) {
                     $totalSeconds = round($decimalPart * 86400);
                     $hours = floor($totalSeconds / 3600);
@@ -515,7 +552,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                     $seconds = $totalSeconds % 60;
                     $parsedDate->setTime($hours, $minutes, $seconds);
                 }
-                
+
                 return $parsedDate;
             }
 
@@ -528,7 +565,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                 $hour = isset($matches[5]) && $includeTime ? (int) $matches[5] : 0;
                 $minute = isset($matches[6]) && $includeTime ? (int) $matches[6] : 0;
                 $second = isset($matches[8]) && $includeTime ? (int) $matches[8] : 0;
-                
+
                 // Validasi: jika day > 31 atau month > 12, mungkin format salah
                 if ($day > 31 || $month > 12) {
                     // Mungkin format US (mm/dd/yyyy), coba swap
@@ -537,7 +574,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                         // Jika tidak valid, akan throw error dan coba format lain
                     }
                 }
-                
+
                 return Carbon::create($year, $month, $day, $hour, $minute, $second);
             }
 
@@ -550,7 +587,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                 $hour = isset($matches[5]) && $includeTime ? (int) $matches[5] : 0;
                 $minute = isset($matches[6]) && $includeTime ? (int) $matches[6] : 0;
                 $second = isset($matches[8]) && $includeTime ? (int) $matches[8] : 0;
-                
+
                 return Carbon::create($year, $month, $day, $hour, $minute, $second);
             }
 
@@ -560,7 +597,7 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                 $first = (int) $matches[1];
                 $second = (int) $matches[2];
                 $third = (int) $matches[3];
-                
+
                 // Jika bagian pertama > 12 tapi bagian kedua <= 12, kemungkinan format US
                 if ($first > 12 && $second <= 12 && $third >= 1900) {
                     $month = $second;
@@ -569,21 +606,21 @@ private function createPayment($salesOrder, $row, &$totalPaidBefore = 0)
                     $hour = isset($matches[5]) && $includeTime ? (int) $matches[5] : 0;
                     $minute = isset($matches[6]) && $includeTime ? (int) $matches[6] : 0;
                     $second = isset($matches[8]) && $includeTime ? (int) $matches[8] : 0;
-                    
+
                     return Carbon::create($year, $month, $day, $hour, $minute, $second);
                 }
             }
 
             // ✅ COBA PARSE DENGAN CARBON (untuk format standar lainnya)
             $parsed = Carbon::parse($dateString);
-            
+
             // Jika tidak perlu waktu, set ke 00:00:00
             if (!$includeTime) {
                 $parsed->setTime(0, 0, 0);
             }
-            
+
             return $parsed;
-            
+
         } catch (\Exception $e) {
             // Jika semua gagal, log error dan return now
             \Log::warning('Error parsing date: ' . $dateValue . ' - ' . $e->getMessage());
