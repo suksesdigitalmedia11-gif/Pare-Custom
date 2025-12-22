@@ -181,6 +181,14 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
 
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');
         Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+
+        // Stock Adjustments (NEW)
+        Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('create', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'store'])->name('store');
+            Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
+        });
     });
 
     // Shift routes
@@ -280,6 +288,11 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
         Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        // Stock Adjustments (Read Only for Finance)
+        Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
+        });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
         Route::get('/', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'index'])->name('index');
@@ -397,6 +410,13 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
         Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        // Stock Adjustments (NEW)
+        Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('create', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'store'])->name('store');
+            Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
+        });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
         Route::get('/', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'index'])->name('index');
@@ -545,6 +565,14 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');
         Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+
+        // Stock Adjustments (NEW)
+        Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('create', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'store'])->name('store');
+            Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
+        });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'index'])->name('index');
@@ -683,6 +711,14 @@ Route::middleware(['auth', 'editor'])->prefix('editor')->name('editor.')->group(
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
         Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+
+        // Stock Adjustments (NEW - Editor Access)
+        Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('create', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'store'])->name('store');
+            Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
+        });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
         Route::get('/', [App\Http\Controllers\Editor\PurchaseOrderController::class, 'index'])->name('index');
