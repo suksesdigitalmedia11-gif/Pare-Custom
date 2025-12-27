@@ -291,6 +291,8 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         // Stock Adjustments (Read Only for Finance)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
+            Route::get('create', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'store'])->name('store');
             Route::get('{id}', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'show'])->name('show');
         });
     });

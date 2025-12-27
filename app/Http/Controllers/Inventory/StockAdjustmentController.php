@@ -39,9 +39,7 @@ class StockAdjustmentController extends Controller
 
     public function create()
     {
-        if (request()->is('finance/*')) {
-            abort(403, 'Finance hanya boleh melihat laporan.');
-        }
+
 
         $prefix = $this->getViewPrefix();
         return view("{$prefix}.inventory.stock-adjustments.create");
@@ -49,8 +47,7 @@ class StockAdjustmentController extends Controller
 
     public function store(Request $request)
     {
-        if (request()->is('finance/*'))
-            abort(403);
+
 
         $validated = $request->validate([
             'date' => 'required|date',

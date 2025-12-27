@@ -29,6 +29,13 @@
                             <h1 class="text-2xl font-bold text-gray-900">Penyesuaian Stok</h1>
                             <p class="text-sm text-gray-500 mt-1">Riwayat penyesuaian stok manual (Masuk & Keluar)</p>
                         </div>
+                        <div>
+                            <a href="{{ route('finance.inventory.stock-adjustments.create') }}"
+                                class="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 font-medium">
+                                <i class="bi bi-plus-lg"></i>
+                                Buat Penyesuaian
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Table -->
