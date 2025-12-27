@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pergerakan Stok - Inventory - Custom Pare</title>
+  <title>Pergerakan Stok - Owner - Custom Pare</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet">
@@ -16,217 +16,146 @@
 </head>
 <body class="bg-gray-100">
   <div class="flex">
-
     <x-navbar-owner></x-navbar-owner>
-
     <div class="flex-1 lg:w-5/6">
       <x-navbar-top-owner></x-navbar-top-owner>
-
       <div class="p-4 lg:p-8">
         <div class="bg-white p-6 rounded-xl shadow-lg">
-          {{-- Tabs (sama seperti Overview) --}}
-          <div class="flex border-b mb-4">
+          {{-- Tabs --}}
+          <div class="flex border-b mb-4 overflow-x-auto">
             <a href="{{ route('owner.inventory.index') }}" 
-               class="px-4 py-2 font-semibold {{ request()->routeIs('owner.inventory.index') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">
-              Overview
-            </a>
+               class="px-4 py-2 font-semibold whitespace-nowrap {{ request()->routeIs('owner.inventory.index') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">Overview</a>
             <a href="{{ route('owner.inventory.stock-ins.index') }}" 
-               class="px-4 py-2 font-semibold {{ request()->routeIs('owner.inventory.stock-ins.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">
-              Stok Masuk
-            </a>
+               class="px-4 py-2 font-semibold whitespace-nowrap {{ request()->routeIs('owner.inventory.stock-ins.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">Stok Masuk</a>
             <a href="{{ route('owner.inventory.stock-opnames.index') }}" 
-               class="px-4 py-2 font-semibold {{ request()->routeIs('owner.inventory.stock-opnames.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">
-              Stock Opname
-            </a>
+               class="px-4 py-2 font-semibold whitespace-nowrap {{ request()->routeIs('owner.inventory.stock-opnames.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">Stock Opname</a>
             <a href="{{ route('owner.inventory.stock-movements.index') }}" 
-               class="px-4 py-2 font-semibold {{ request()->routeIs('owner.inventory.stock-movements.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">
-              Pergerakan Stok
-            </a>
+               class="px-4 py-2 font-semibold whitespace-nowrap {{ request()->routeIs('owner.inventory.stock-movements.*') ? 'border-b-2 border-[#005281] text-[#005281]' : 'text-gray-500 hover:text-[#005281] hover:border-b-2 hover:border-gray-300' }}">Pergerakan Stok</a>
           </div>
 
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold">Stock Movements</h3>
-            <form method="GET" class="flex space-x-2">
-              <input type="date" name="from" value="{{ $from ?? '' }}" class="border rounded px-2 py-1 flex-1">
-              <input type="date" name="to" value="{{ $to ?? '' }}" class="border rounded px-2 py-1 flex-1">
-              <button type="submit" class="bg-[#005281] text-white px-4 py-1 rounded hover:bg-[#00446a]">
-                <i class="bi bi-funnel"></i> Filter
-              </button>
-              <a href="{{ route('owner.inventory.stock-movements.index') }}" 
-                 class="bg-gray-300 text-gray-700 px-4 py-1 rounded hover:bg-gray-400 flex items-center">
-                <i class="bi bi-arrow-clockwise"></i> Reset
-              </a>
-            </form>
+          {{-- Header & Filters --}}
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+              <div>
+                  <h3 class="text-xl font-bold text-gray-800">Riwayat Pergerakan Stok</h3>
+                  <p class="text-sm text-gray-500">Mencatat setiap pergerakan stok secara kronologis.</p>
+              </div>
           </div>
 
-          @if(session('success'))
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-              {{ session('success') }}
-            </div>
-          @endif
+          {{-- Filter Form --}}
+          <form method="GET" class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  {{-- Search --}}
+                  <div class="md:col-span-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Cari Barang / Referensi</label>
+                      <div class="relative">
+                          <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                          <input type="text" name="search" value="{{ $search ?? '' }}" 
+                              class="w-full pl-10 pr-4 py-2 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" 
+                              placeholder="Nama Produk, SKU, No. Ref...">
+                      </div>
+                  </div>
+                  {{-- Date From --}}
+                  <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Dari Tanggal</label>
+                      <input type="date" name="from" value="{{ $from ?? date('Y-m-d') }}" 
+                          class="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                  {{-- Date To --}}
+                  <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Sampai Tanggal</label>
+                      <div class="flex gap-2">
+                          <input type="date" name="to" value="{{ $to ?? date('Y-m-d') }}" 
+                              class="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" title="Terapkan Filter">
+                              <i class="bi bi-funnel-fill"></i>
+                          </button>
+                          <a href="{{ route('owner.inventory.stock-movements.index') }}" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition-colors" title="Reset">
+                              <i class="bi bi-arrow-clockwise"></i>
+                          </a>
+                      </div>
+                  </div>
+              </div>
+          </form>
 
-          <div class="overflow-x-auto">
-            <table class="min-w-full border rounded-lg text-sm">
-              <thead class="bg-gray-100">
-                <tr>
-                  <th class="px-4 py-2">Tanggal</th>
-                  <th class="px-4 py-2">Produk</th>
-                  <th class="px-4 py-2">Stok Awal</th>
-                  <th class="px-4 py-2 text-green-600">Masuk</th>
-                  <th class="px-4 py-2 text-red-600">Keluar</th>
-                  <th class="px-4 py-2">Stok Akhir</th>
-                  <th class="px-4 py-2">Transaksi</th>
-                  <th class="px-4 py-2">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                @forelse($stockMovements as $move)
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-2">{{ \Carbon\Carbon::parse($move->movement_date)->format('d M Y') }}</td>
-                  <td class="px-4 py-2">{{ $move->product->name ?? '-' }}</td>
-                  <td class="px-4 py-2">{{ $move->initial_qty ?? 0 }}</td>
-                  <td class="px-4 py-2 text-green-600 font-semibold">+{{ $move->total_in ?? 0 }}</td>
-                  <td class="px-4 py-2 text-red-600 font-semibold">-{{ $move->total_out ?? 0 }}</td>
-                  <td class="px-4 py-2 font-semibold">{{ $move->final_qty ?? 0 }}</td>
-                  <td class="px-4 py-2 text-center">{{ $move->transaction_count ?? 0 }}</td>
-                  <td class="px-4 py-2">
-                    <button onclick="showMovementDetails('{{ $move->product_id }}', '{{ $move->movement_date }}')"
-                            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
-                      <i class="bi bi-eye"></i> Detail
-                    </button>
-                  </td>
-                </tr>
-                @empty
-                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Tidak ada data pergerakan stok.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
+          {{-- Main Table --}}
+          <div class="overflow-x-auto rounded-lg border border-gray-100">
+              <table class="min-w-full text-sm text-left">
+                  <thead class="bg-gray-100 text-gray-600 font-semibold uppercase tracking-wider">
+                      <tr>
+                          <th class="px-4 py-3">Waktu</th>
+                          <th class="px-4 py-3">Produk</th>
+                          <th class="px-4 py-3">Tipe & Referensi</th>
+                          <th class="px-4 py-3 text-center">Stok Awal</th>
+                          <th class="px-4 py-3 text-center">Masuk</th>
+                          <th class="px-4 py-3 text-center">Keluar</th>
+                          <th class="px-4 py-3 text-center">Stok Akhir</th>
+                          <th class="px-4 py-3">User & Ket</th>
+                      </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                  @forelse($stockMovements as $move)
+                      <tr class="hover:bg-blue-50/50 transition-colors group">
+                          <td class="px-4 py-3 whitespace-nowrap text-gray-500">
+                              <div class="font-medium text-gray-900">{{ $move->moved_at->format('d M Y') }}</div>
+                              <div class="text-xs">{{ $move->moved_at->format('H:i') }}</div>
+                          </td>
+                          <td class="px-4 py-3">
+                              <div class="font-bold text-gray-800">{{ $move->product->name ?? 'Produk Dihapus' }}</div>
+                              <div class="text-xs font-mono text-gray-500 group-hover:text-blue-600 transition-colors">{{ $move->product->sku ?? '-' }}</div>
+                          </td>
+                          <td class="px-4 py-3">
+                              @php
+                                  $badgeColor = match($move->type) {
+                                      'INCOMING' => 'bg-green-100 text-green-700',
+                                      'POS_SALE' => 'bg-blue-50 text-blue-700',
+                                      'OPNAME' => 'bg-purple-100 text-purple-700',
+                                      'POS_CANCEL', 'SALE_RETURN' => 'bg-yellow-100 text-yellow-700',
+                                      'PURCHASE_RETURN' => 'bg-orange-100 text-orange-700',
+                                      'adjustment' => 'bg-gray-100 text-gray-800',
+                                      default => 'bg-gray-100 text-gray-600'
+                                  };
+                              @endphp
+                              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ $badgeColor }}">{{ str_replace('_', ' ', $move->type) }}</span>
+                              @if($move->ref_code)
+                                  <div class="text-xs mt-1 font-mono text-gray-500 select-all">{{ $move->ref_code }}</div>
+                              @endif
+                          </td>
+                          <td class="px-4 py-3 text-center text-gray-400">{{ $move->initial_qty }}</td>
+                          <td class="px-4 py-3 text-center">
+                              @if($move->qty_in > 0)
+                                  <span class="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">+{{ $move->qty_in }}</span>
+                              @else <span class="text-gray-300">-</span> @endif
+                          </td>
+                          <td class="px-4 py-3 text-center">
+                              @if($move->qty_out > 0)
+                                  <span class="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">-{{ $move->qty_out }}</span>
+                              @else <span class="text-gray-300">-</span> @endif
+                          </td>
+                          <td class="px-4 py-3 text-center font-bold text-gray-800 bg-gray-50/50 rounded">{{ $move->final_qty }}</td>
+                          <td class="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
+                              <div class="font-medium text-gray-700">{{ $move->user->name ?? 'System' }}</div>
+                              @if($move->notes) <div class="italic truncate" title="{{ $move->notes }}">{{ $move->notes }}</div> @endif
+                          </td>
+                      </tr>
+                  @empty
+                      <tr>
+                          <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                              <div class="flex flex-col items-center justify-center">
+                                  <i class="bi bi-search text-3xl mb-2 text-gray-300"></i>
+                                  <p>Tidak ada riwayat mutasi yang cocok dengan filter.</p>
+                              </div>
+                          </td>
+                      </tr>
+                  @endforelse
+                  </tbody>
+              </table>
           </div>
-
-          <div class="mt-4">
-            {{ $stockMovements->appends(request()->query())->links() }}
+          <div class="mt-6">
+              {{ $stockMovements->appends(request()->query())->links() }}
           </div>
         </div>
       </div>
     </div>
   </div>
-
-  <div id="movementModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
-      <div class="mt-3">
-        <div class="flex justify-between items-center pb-3 border-b">
-          <h3 class="text-xl font-semibold" id="modalTitle">Detail Pergerakan Stok</h3>
-          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-        
-        <div class="mt-4">
-          <div id="modalContent" class="max-h-96 overflow-y-auto">
-            <!-- Content will be loaded via AJAX -->
-          </div>
-        </div>
-        
-        <div class="mt-4 flex justify-end">
-          <button onclick="closeModal()" 
-                  class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-            Tutup
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    function toggleSidebar(){
-      const el = document.getElementById('sidebar');
-      if(!el) return; el.classList.toggle('-translate-x-full');
-    }
-    function toggleDropdown(btn){
-      const menu = btn.nextElementSibling;
-      if(!menu) return;
-      if(menu.style.maxHeight && menu.style.maxHeight !== '0px'){
-        menu.style.maxHeight = '0px';
-        btn.querySelector('i.bi-chevron-down')?.classList.remove('rotate-180');
-      } else {
-        menu.style.maxHeight = menu.scrollHeight + 'px';
-        btn.querySelector('i.bi-chevron-down')?.classList.add('rotate-180');
-      }
-    }
-    function showMovementDetails(productId, date) {
-        document.getElementById('modalContent').innerHTML = '<div class="text-center py-8">Loading...</div>';
-        document.getElementById('movementModal').classList.remove('hidden');
-        fetch(`/owner/inventory/stock-movements/${productId}/${date}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.json();
-            })
-            .then(data => {
-                let html = `
-                    <h4 class="font-semibold mb-4">${data.product} - ${new Date(data.date).toLocaleDateString('id-ID')}</h4>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-2 text-left">Waktu</th>
-                                    <th class="px-4 py-2 text-left">Tipe</th>
-                                    <th class="px-4 py-2 text-left">Ref</th>
-                                    <th class="px-4 py-2 text-left">Awal</th>
-                                    <th class="px-4 py-2 text-left">Masuk</th>
-                                    <th class="px-4 py-2 text-left">Keluar</th>
-                                    <th class="px-4 py-2 text-left">Akhir</th>
-                                    <th class="px-4 py-2 text-left">User</th>
-                                    <th class="px-4 py-2 text-left">Catatan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-                data.movements.forEach(movement => {
-                    let typeBadge = movement.type === 'INCOMING' ? 'bg-green-100 text-green-800' :
-                                  movement.type === 'POS_SALE' ? 'bg-red-100 text-red-800' :
-                                  movement.type === 'POS_CANCEL' ? 'bg-yellow-100 text-yellow-800' :
-                                  movement.type === 'SALE_RETURN' ? 'bg-blue-100 text-blue-800' :
-                                  movement.type === 'OPNAME' ? 'bg-purple-100 text-purple-800' :
-                                  movement.type === 'PURCHASE_RETURN' ? 'bg-orange-100 text-orange-800' :
-                                  'bg-gray-100 text-gray-800';
-                    html += `
-                        <tr class="border-b">
-                            <td class="px-4 py-2">${new Date(movement.moved_at).toLocaleTimeString('id-ID')}</td>
-                            <td class="px-4 py-2"><span class="px-2 py-1 rounded text-xs ${typeBadge}">${movement.type}</span></td>
-                            <td class="px-4 py-2">${movement.ref_code || '-'}</td>
-                            <td class="px-4 py-2">${movement.initial_qty}</td>
-                            <td class="px-4 py-2 text-green-600">${movement.qty_in > 0 ? '+' + movement.qty_in : '-'}</td>
-                            <td class="px-4 py-2 text-red-600">${movement.qty_out > 0 ? '-' + movement.qty_out : '-'}</td>
-                            <td class="px-4 py-2 font-semibold">${movement.final_qty}</td>
-                            <td class="px-4 py-2">${movement.user?.username || '-'}</td>
-                            <td class="px-4 py-2">${movement.notes || '-'}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table></div>`;
-                document.getElementById('modalContent').innerHTML = html;
-                document.getElementById('modalTitle').textContent = `Detail Pergerakan: ${data.product}`;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('modalContent').innerHTML = '<div class="text-center py-8 text-red-600">Error loading data</div>';
-            });
-    }
-    function closeModal() {
-        document.getElementById('movementModal').classList.add('hidden');
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('movementModal').addEventListener('click', function(e) {
-            if (e.target.id === 'movementModal') closeModal();
-        });
-        const today = new Date().toISOString().split('T')[0];
-        const fromInput = document.querySelector('input[name="from"]');
-        const toInput = document.querySelector('input[name="to"]');
-        if (fromInput && !fromInput.value) fromInput.value = today;
-        if (toInput && !toInput.value) toInput.value = today;
-    });
-  </script>
 </body>
 </html>
