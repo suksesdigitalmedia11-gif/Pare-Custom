@@ -85,6 +85,10 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     // User management
     Route::resource('user', UserOwnerController::class);
 
+    // Purchase Order Rollback (Owner Only)
+    Route::post('purchases/{purchase}/rollback', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'rollbackCompletion'])
+        ->name('purchases.rollback');
+
     // Purchase Returns
     Route::prefix('purchase-returns')->name('purchase-returns.')->group(function () {
         Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
@@ -308,6 +312,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::post('{purchase}/payment', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'payment'])->name('payment');
         Route::post('{purchase}/upload-proof', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'uploadProof'])->name('upload-proof');
         Route::post('{purchase}/update-status', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
+        Route::post('{purchase}/rollback-status', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'rollbackStatus'])->name('rollback-status');
         Route::patch('{purchase}/cancel', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'cancel'])->name('cancel');
     });
     // Shift Routes - Hanya lihat dan export

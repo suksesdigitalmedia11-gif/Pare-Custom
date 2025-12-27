@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,8 +9,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" />
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet" />
     <style>
-        body { font-family: 'Raleway', sans-serif; }
-        .nav-text { position: relative; display: inline-block; }
+        body {
+            font-family: 'Raleway', sans-serif;
+        }
+
+        .nav-text {
+            position: relative;
+            display: inline-block;
+        }
+
         .nav-text::after {
             content: '';
             position: absolute;
@@ -20,8 +28,15 @@
             background-color: #e17f12;
             transition: width 0.2s ease-in-out;
         }
-        .hover-link:hover .nav-text::after { width: 100%; }
-        .timeline-item { position: relative; }
+
+        .hover-link:hover .nav-text::after {
+            width: 100%;
+        }
+
+        .timeline-item {
+            position: relative;
+        }
+
         .timeline-item:before {
             content: '';
             position: absolute;
@@ -31,7 +46,11 @@
             width: 2px;
             background: #e5e7eb;
         }
-        .timeline-item:last-child:before { display: none; }
+
+        .timeline-item:last-child:before {
+            display: none;
+        }
+
         .timeline-dot {
             position: absolute;
             left: 11px;
@@ -40,11 +59,21 @@
             height: 10px;
             border-radius: 50%;
         }
-        .timeline-dot.completed { background: #10b981; }
-        .timeline-dot.current { background: #3b82f6; }
-        .timeline-dot.pending { background: #d1d5db; }
+
+        .timeline-dot.completed {
+            background: #10b981;
+        }
+
+        .timeline-dot.current {
+            background: #3b82f6;
+        }
+
+        .timeline-dot.pending {
+            background: #d1d5db;
+        }
     </style>
 </head>
+
 <body class="bg-gray-100">
     <div class="flex">
 
@@ -59,11 +88,13 @@
                         <h2 class="text-xl font-semibold text-gray-700">Detail Pembelian</h2>
                         <div class="flex gap-2">
                             @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && !in_array($purchase->status, ['selesai', 'cancelled']))
-                            <a href="{{ route('finance.purchases.edit', $purchase) }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                                <i class="bi bi-pencil mr-2"></i>Edit
-                            </a>
+                                <a href="{{ route('finance.purchases.edit', $purchase) }}"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                    <i class="bi bi-pencil mr-2"></i>Edit
+                                </a>
                             @endif
-                            <a href="{{ route('finance.purchases.index') }}" class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">Kembali</a>
+                            <a href="{{ route('finance.purchases.index') }}"
+                                class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">Kembali</a>
                         </div>
                     </div>
                 </div>
@@ -98,7 +129,8 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <div class="text-sm text-gray-500">Tipe Pembelian</div>
-                                    <span class="px-2 py-1 rounded text-sm {{ $purchase->purchase_type === 'kain' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
+                                    <span
+                                        class="px-2 py-1 rounded text-sm {{ $purchase->purchase_type === 'kain' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
                                         {{ $purchase->getTypeLabel() }}
                                     </span>
                                 </div>
@@ -107,10 +139,10 @@
                                     <div>{{ \Carbon\Carbon::parse($purchase->order_date)->format('d M Y') }}</div>
                                 </div>
                                 @if($purchase->deadline)
-                                <div>
-                                    <div class="text-sm text-gray-500">Deadline</div>
-                                    <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
-                                </div>
+                                    <div>
+                                        <div class="text-sm text-gray-500">Deadline</div>
+                                        <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
+                                    </div>
                                 @endif
                                 <div>
                                     <div class="text-sm text-gray-500">Supplier</div>
@@ -120,23 +152,25 @@
                                     <div class="text-sm text-gray-500">Dibuat Oleh</div>
                                     <div>{{ $purchase->creator->name ?? 'System' }}</div>
                                 </div>
-                                
+
                                 <!-- 🔧 FIX: Tampilkan informasi customer jika dari sales -->
                                 @if($purchase->is_from_sales)
-                                <div class="md:col-span-2 border-t pt-4 mt-4">
-                                    <div class="text-sm text-gray-500 mb-2">Informasi Customer</div>
-                                    <div class="bg-blue-50 p-3 rounded-lg">
-                                        <div class="flex items-center space-x-2">
-                                            <i class="bi bi-person text-blue-600"></i>
-                                            <div>
-                                                <div class="font-medium text-blue-800">{{ $purchase->customer_name }}</div>
-                                                @if($purchase->salesOrder && $purchase->salesOrder->so_number)
-                                                <div class="text-sm text-blue-600">Dari Sales Order: {{ $purchase->salesOrder->so_number }}</div>
-                                                @endif
+                                    <div class="md:col-span-2 border-t pt-4 mt-4">
+                                        <div class="text-sm text-gray-500 mb-2">Informasi Customer</div>
+                                        <div class="bg-blue-50 p-3 rounded-lg">
+                                            <div class="flex items-center space-x-2">
+                                                <i class="bi bi-person text-blue-600"></i>
+                                                <div>
+                                                    <div class="font-medium text-blue-800">{{ $purchase->customer_name }}
+                                                    </div>
+                                                    @if($purchase->salesOrder && $purchase->salesOrder->so_number)
+                                                        <div class="text-sm text-blue-600">Dari Sales Order:
+                                                            {{ $purchase->salesOrder->so_number }}</div>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 @endif
                             </div>
 
@@ -145,15 +179,18 @@
                                 <div class="grid grid-cols-3 gap-4 text-center">
                                     <div>
                                         <div class="text-sm text-gray-500">Subtotal</div>
-                                        <div class="font-semibold">Rp {{ number_format($purchase->subtotal,0,',','.') }}</div>
+                                        <div class="font-semibold">Rp {{ number_format($purchase->subtotal, 0, ',', '.') }}
+                                        </div>
                                     </div>
                                     <div>
                                         <div class="text-sm text-gray-500">Diskon</div>
-                                        <div class="font-semibold text-red-600">Rp {{ number_format($purchase->discount_total,0,',','.') }}</div>
+                                        <div class="font-semibold text-red-600">Rp
+                                            {{ number_format($purchase->discount_total, 0, ',', '.') }}</div>
                                     </div>
                                     <div>
                                         <div class="text-sm text-gray-500">Grand Total</div>
-                                        <div class="font-bold text-green-600 text-lg">Rp {{ number_format($purchase->grand_total,0,',','.') }}</div>
+                                        <div class="font-bold text-green-600 text-lg">Rp
+                                            {{ number_format($purchase->grand_total, 0, ',', '.') }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -166,24 +203,39 @@
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produk</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diskon</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Produk</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                SKU</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Harga</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Qty</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Diskon</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Total</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         @foreach($purchase->items as $item)
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-6 py-4 whitespace-nowrap">{{ $item->product_name }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap">{{ $item->sku ?? '-' }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap">Rp {{ number_format($item->cost_price,0,',','.') }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap">{{ $item->qty }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap">Rp {{ number_format($item->discount,0,',','.') }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap font-semibold">Rp {{ number_format($item->line_total,0,',','.') }}</td>
-                                        </tr>
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-6 py-4 whitespace-nowrap">{{ $item->product_name }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap">{{ $item->sku ?? '-' }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap">Rp
+                                                    {{ number_format($item->cost_price, 0, ',', '.') }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap">{{ $item->qty }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap">Rp
+                                                    {{ number_format($item->discount, 0, ',', '.') }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap font-semibold">Rp
+                                                    {{ number_format($item->line_total, 0, ',', '.') }}</td>
+                                            </tr>
                                         @endforeach
                                     </tbody>
                                 </table>
@@ -206,16 +258,19 @@
                                     <tbody>
                                         @forelse($purchase->logs as $log)
                                             <tr class="border-b hover:bg-gray-50">
-                                                <td class="px-4 py-2 border">{{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
                                                 <td class="px-4 py-2 border">
-                                                    <span class="capitalize">{{ str_replace('_', ' ', $log->action) }}</span>
+                                                    {{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
+                                                <td class="px-4 py-2 border">
+                                                    <span
+                                                        class="capitalize">{{ str_replace('_', ' ', $log->action) }}</span>
                                                 </td>
                                                 <td class="px-4 py-2 border">{{ $log->description }}</td>
                                                 <td class="px-4 py-2 border">{{ $log->user->name ?? 'System' }}</td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="text-center text-gray-500 px-4 py-4">Belum ada log aktivitas</td>
+                                                <td colspan="4" class="text-center text-gray-500 px-4 py-4">Belum ada log
+                                                    aktivitas</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -225,83 +280,97 @@
 
                         <!-- Document Files & Upload Section -->
                         @if($purchase->status !== 'draft')
-                        <div class="bg-white p-6 rounded-xl shadow-lg">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Dokumen & Bukti Pembayaran</h3>
-                            
-                            <!-- Upload Section (jika belum ada atau ingin update) -->
-                            @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']))
-                            <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <h4 class="font-medium text-yellow-800 mb-3">Upload/Update Dokumen</h4>
-                                <form action="{{ route('finance.purchases.upload-proof', $purchase->id) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
-                                    @csrf
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
-                                        <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                                        @if($purchase->invoice_file)
-                                        <p class="text-xs text-green-600 mt-1">File saat ini: <a href="{{ asset('storage/' . $purchase->invoice_file) }}" target="_blank" class="underline">Lihat</a></p>
-                                        @else
-                                        <p class="text-xs text-gray-500 mt-1">Belum ada file</p>
-                                        @endif
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
-                                        <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                                        @if($purchase->payment_proof_file)
-                                        <p class="text-xs text-green-600 mt-1">File saat ini: <a href="{{ asset('storage/' . $purchase->payment_proof_file) }}" target="_blank" class="underline">Lihat</a></p>
-                                        @else
-                                        <p class="text-xs text-yellow-600 mt-1">Belum ada file - silakan upload bukti pembayaran</p>
-                                        @endif
-                                    </div>
-                                    <div class="flex justify-end">
-                                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                                            <i class="bi bi-upload mr-2"></i>Upload File
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                            @endif
+                            <div class="bg-white p-6 rounded-xl shadow-lg">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Dokumen & Bukti Pembayaran</h3>
 
-                            <!-- Display Existing Files -->
-                            @if($purchase->invoice_file || $purchase->payment_proof_file)
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                @if($purchase->invoice_file)
-                                <div class="border rounded-lg p-4">
-                                    <div class="flex items-center space-x-2">
-                                        <i class="bi bi-file-earmark-pdf text-red-500 text-xl"></i>
-                                        <div>
-                                            <div class="font-medium">Faktur</div>
-                                            <a href="{{ asset('storage/' . $purchase->invoice_file) }}" target="_blank" class="text-blue-600 underline hover:text-blue-800 text-sm">
-                                                Lihat File
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                @endif
-
-                                @if($purchase->payment_proof_file)
-                                <div class="border rounded-lg p-4">
-                                    <div class="flex items-center space-x-2">
-                                        <i class="bi bi-file-earmark-image text-green-500 text-xl"></i>
-                                        <div>
-                                            <div class="font-medium">Bukti Pembayaran</div>
-                                            <a href="{{ asset('storage/' . $purchase->payment_proof_file) }}" target="_blank" class="text-blue-600 underline hover:text-blue-800 text-sm">
-                                                Lihat File
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                @endif
-                            </div>
-                            @else
-                            <div class="text-center py-8 text-gray-500">
-                                <i class="bi bi-file-earmark-text text-4xl mb-2"></i>
-                                <p>Belum ada dokumen yang diunggah</p>
+                                <!-- Upload Section (jika belum ada atau ingin update) -->
                                 @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']))
-                                <p class="text-sm mt-2">Gunakan form di atas untuk mengunggah dokumen</p>
+                                    <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <h4 class="font-medium text-yellow-800 mb-3">Upload/Update Dokumen</h4>
+                                        <form action="{{ route('finance.purchases.upload-proof', $purchase->id) }}"
+                                            method="POST" enctype="multipart/form-data" class="space-y-3">
+                                            @csrf
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur
+                                                    (PDF/JPG/PNG) - Opsional</label>
+                                                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png"
+                                                    class="w-full border rounded p-2 text-gray-900" />
+                                                @if($purchase->invoice_file)
+                                                    <p class="text-xs text-green-600 mt-1">File saat ini: <a
+                                                            href="{{ asset('storage/' . $purchase->invoice_file) }}" target="_blank"
+                                                            class="underline">Lihat</a></p>
+                                                @else
+                                                    <p class="text-xs text-gray-500 mt-1">Belum ada file</p>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti
+                                                    Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                                                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png"
+                                                    class="w-full border rounded p-2 text-gray-900" />
+                                                @if($purchase->payment_proof_file)
+                                                    <p class="text-xs text-green-600 mt-1">File saat ini: <a
+                                                            href="{{ asset('storage/' . $purchase->payment_proof_file) }}"
+                                                            target="_blank" class="underline">Lihat</a></p>
+                                                @else
+                                                    <p class="text-xs text-yellow-600 mt-1">Belum ada file - silakan upload bukti
+                                                        pembayaran</p>
+                                                @endif
+                                            </div>
+                                            <div class="flex justify-end">
+                                                <button type="submit"
+                                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                                    <i class="bi bi-upload mr-2"></i>Upload File
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                @endif
+
+                                <!-- Display Existing Files -->
+                                @if($purchase->invoice_file || $purchase->payment_proof_file)
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        @if($purchase->invoice_file)
+                                            <div class="border rounded-lg p-4">
+                                                <div class="flex items-center space-x-2">
+                                                    <i class="bi bi-file-earmark-pdf text-red-500 text-xl"></i>
+                                                    <div>
+                                                        <div class="font-medium">Faktur</div>
+                                                        <a href="{{ asset('storage/' . $purchase->invoice_file) }}" target="_blank"
+                                                            class="text-blue-600 underline hover:text-blue-800 text-sm">
+                                                            Lihat File
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        @if($purchase->payment_proof_file)
+                                            <div class="border rounded-lg p-4">
+                                                <div class="flex items-center space-x-2">
+                                                    <i class="bi bi-file-earmark-image text-green-500 text-xl"></i>
+                                                    <div>
+                                                        <div class="font-medium">Bukti Pembayaran</div>
+                                                        <a href="{{ asset('storage/' . $purchase->payment_proof_file) }}"
+                                                            target="_blank"
+                                                            class="text-blue-600 underline hover:text-blue-800 text-sm">
+                                                            Lihat File
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="text-center py-8 text-gray-500">
+                                        <i class="bi bi-file-earmark-text text-4xl mb-2"></i>
+                                        <p>Belum ada dokumen yang diunggah</p>
+                                        @if(in_array(auth()->user()->usertype, ['finance', 'owner']) && in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']))
+                                            <p class="text-sm mt-2">Gunakan form di atas untuk mengunggah dokumen</p>
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
-                            @endif
-                        </div>
                         @endif
                     </div>
 
@@ -312,7 +381,7 @@
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">
                                 Timeline {{ $purchase->purchase_type === 'kain' ? 'Kain' : 'Produk Jadi' }}
                             </h3>
-                            
+
                             <div class="space-y-6">
                                 @if($purchase->purchase_type === 'kain')
                                     <!-- Timeline untuk Kain -->
@@ -348,21 +417,25 @@
                                         $isCurrent = $purchase->status === $stepStatus;
                                         $isCompleted = array_search($purchase->status, array_column($kainSteps, 'status')) > $index;
                                     @endphp
-                                    
+
                                     <div class="timeline-item relative pl-10">
-                                        <div class="timeline-dot {{ $isCompleted ? 'completed' : ($isCurrent ? 'current' : 'pending') }}"></div>
+                                        <div
+                                            class="timeline-dot {{ $isCompleted ? 'completed' : ($isCurrent ? 'current' : 'pending') }}">
+                                        </div>
                                         <div class="pb-4">
                                             <div class="flex items-center justify-between mb-1">
-                                                <div class="font-medium {{ $isCurrent ? 'text-blue-600' : ($isCompleted ? 'text-green-600' : 'text-gray-400') }}">
+                                                <div
+                                                    class="font-medium {{ $isCurrent ? 'text-blue-600' : ($isCompleted ? 'text-green-600' : 'text-gray-400') }}">
                                                     {{ $step['label'] }}
                                                 </div>
                                                 @if($isCurrent)
-                                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Current</span>
+                                                    <span
+                                                        class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Current</span>
                                                 @elseif($isCompleted)
                                                     <i class="bi bi-check-circle text-green-500"></i>
                                                 @endif
                                             </div>
-                                            
+
                                             @if($step['relation'] && $purchase->{$step['relation']} && ($isCompleted || $isCurrent))
                                                 <div class="text-sm text-gray-600">
                                                     <div class="flex items-center space-x-1">
@@ -386,103 +459,178 @@
                         <!-- Actions Card -->
                         <div class="bg-white p-6 rounded-xl shadow-lg">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Aksi</h3>
-                            
+
                             <div class="space-y-3">
-    <!-- Approve: Finance/Owner -->
-    @if($purchase->status === 'pending' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-        <form method="POST" action="{{ route('finance.purchases.approve', $purchase) }}">
-            @csrf
-            <button class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
-                <i class="bi bi-check-circle mr-2"></i>Approve
-            </button>
-        </form>
-    @endif
+                                <!-- Approve: Finance/Owner -->
+                                @if($purchase->status === 'pending' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <form method="POST" action="{{ route('finance.purchases.approve', $purchase) }}">
+                                        @csrf
+                                        <button
+                                            class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                                            <i class="bi bi-check-circle mr-2"></i>Approve
+                                        </button>
+                                    </form>
+                                @endif
 
-    <!-- Payment: Finance/Owner -->
-    @if($purchase->status === 'request_kain' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-        <button onclick="openModal('payment-modal')" class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
-            <i class="bi bi-cash mr-2"></i>Payment
-        </button>
-    @endif
+                                <!-- Payment: Finance/Owner -->
+                                @if($purchase->status === 'request_kain' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <button onclick="openModal('payment-modal')"
+                                        class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                                        <i class="bi bi-cash mr-2"></i>Payment
+                                    </button>
+                                @endif
 
-    <!-- Lanjut ke Proses Jahit (Kain) / Printing (Produk Jadi): Finance/Owner -->
-    @if($purchase->status === 'payment' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-        <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
-            @csrf
-            @if($purchase->purchase_type === 'kain')
-                <input type="hidden" name="new_status" value="proses_jahit">
-                <button class="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
-                    <i class="bi bi-scissors mr-2"></i>Lanjut Proses Jahit
-                </button>
-            @else
-                <input type="hidden" name="new_status" value="printing">
-                <button class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
-                    <i class="bi bi-printer mr-2"></i>Lanjut Printing/Produksi
-                </button>
-            @endif
-        </form>
-    @endif
+                                <!-- Lanjut ke Proses Jahit (Kain) / Printing (Produk Jadi): Finance/Owner -->
+                                @if($purchase->status === 'payment' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
+                                        @csrf
+                                        @if($purchase->purchase_type === 'kain')
+                                            <input type="hidden" name="new_status" value="proses_jahit">
+                                            <button
+                                                class="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
+                                                <i class="bi bi-scissors mr-2"></i>Lanjut Proses Jahit
+                                            </button>
+                                        @else
+                                            <input type="hidden" name="new_status" value="printing">
+                                            <button
+                                                class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                                                <i class="bi bi-printer mr-2"></i>Lanjut Printing/Produksi
+                                            </button>
+                                        @endif
+                                    </form>
+                                @endif
 
-    <!-- Lanjut ke Printing (Dari Jahit): Finance/Owner -->
-    @if($purchase->status === 'proses_jahit' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-        <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
-            @csrf
-            <input type="hidden" name="new_status" value="printing">
-            <button class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
-                <i class="bi bi-printer mr-2"></i>Lanjut Printing
-            </button>
-        </form>
-    @endif
+                                <!-- Lanjut ke Printing (Dari Jahit): Finance/Owner -->
+                                @if($purchase->status === 'proses_jahit' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
+                                        @csrf
+                                        <input type="hidden" name="new_status" value="printing">
+                                        <button
+                                            class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                                            <i class="bi bi-printer mr-2"></i>Lanjut Printing
+                                        </button>
+                                    </form>
+                                @endif
 
-    <!-- Selesai: Finance/Owner -->
-    @if($purchase->status === 'printing' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-        <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
-            @csrf
-            <input type="hidden" name="new_status" value="selesai">
-            <button class="w-full px-4 py-2 bg-[#005281] text-white rounded hover:opacity-90 transition-colors">
-                <i class="bi bi-arrow-right-circle mr-2"></i>Selesai
-            </button>
-        </form>
-    @endif
+                                <!-- Selesai: Finance/Owner -->
+                                @if($purchase->status === 'printing' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
+                                        @csrf
+                                        <input type="hidden" name="new_status" value="selesai">
+                                        <button
+                                            class="w-full px-4 py-2 bg-[#005281] text-white rounded hover:opacity-90 transition-colors">
+                                            <i class="bi bi-arrow-right-circle mr-2"></i>Selesai
+                                        </button>
+                                    </form>
+                                @endif
 
-    <!-- Cancel -->
-    @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
-        <form method="POST" action="{{ route('finance.purchases.cancel', $purchase) }}">
-            @csrf @method('PATCH')
-            <button class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors" 
-                    onclick="return confirm('Apakah Anda yakin ingin membatalkan pembelian ini?')">
-                <i class="bi bi-x-circle mr-2"></i>Batalkan
-            </button>
-        </form>
-    @endif
-</div>
+                                <!-- Rollback / Koreksi Status (Finance Only) -->
+                                @if(in_array($purchase->status, ['payment', 'proses_jahit', 'printing', 'selesai']) && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                    <button onclick="openModal('rollback-modal')"
+                                        class="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors mt-2">
+                                        <i class="bi bi-arrow-counterclockwise mr-2"></i>Koreksi Status / Rollback
+                                    </button>
+                                @endif
 
-<!-- Modal Payment -->
-@if($purchase->status === 'request_kain' && in_array(auth()->user()->usertype, ['finance', 'owner']))
-<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>
-        <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di section bukti pembayaran</p>
-        <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
-                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
-                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
-            </div>
-            <div class="flex justify-end space-x-2">
-                <button type="button" onclick="closeModal('payment-modal')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses Pembayaran</button>
-            </div>
-        </form>
-    </div>
-</div>
-@endif
+                                <!-- Cancel -->
+                                @if(!in_array($purchase->status, ['selesai', 'cancelled', 'payment', 'proses_jahit', 'printing']))
+                                    <form method="POST" action="{{ route('finance.purchases.cancel', $purchase) }}">
+                                        @csrf @method('PATCH')
+                                        <button
+                                            class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                            onclick="return confirm('Apakah Anda yakin ingin membatalkan pembelian ini?')">
+                                            <i class="bi bi-x-circle mr-2"></i>Batalkan
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+
+                            <!-- Modal Rollback Status -->
+                            <div id="rollback-modal"
+                                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+                                <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Koreksi Status (Rollback)</h3>
+                                    <p class="text-sm text-gray-600 mb-4">Kembalikan status pembelian ke tahap
+                                        sebelumnya jika terjadi kesalahan.</p>
+
+                                    <form action="{{ route('finance.purchases.rollback-status', $purchase->id) }}"
+                                        method="POST">
+                                        @csrf
+
+                                        @if($purchase->status === 'selesai')
+                                            <div
+                                                class="bg-red-50 border border-red-200 rounded p-3 mb-4 text-xs text-red-800">
+                                                <strong class="font-bold flex items-center"><i
+                                                        class="bi bi-exclamation-triangle-fill mr-1"></i>
+                                                    Perhatian:</strong>
+                                                Saat ini status <strong>Selesai</strong>. Melakukan rollback akan <u>menarik
+                                                    kembali stok</u> yang sudah masuk. Pastikan stok fisik tersedia!
+                                            </div>
+                                        @endif
+
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Kembalikan ke
+                                                Status:</label>
+                                            <select name="target_status"
+                                                class="w-full border rounded p-2 text-gray-900 bg-white">
+                                                <option value="payment">Payment</option>
+                                                @if($purchase->purchase_type === 'kain')
+                                                    <option value="proses_jahit">Proses Jahit</option>
+                                                @endif
+                                                <option value="printing">Printing / Produksi</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="flex justify-end space-x-2">
+                                            <button type="button" onclick="closeModal('rollback-modal')"
+                                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
+                                            <button type="submit"
+                                                class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Proses
+                                                Rollback</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Modal Payment -->
+                            @if($purchase->status === 'request_kain' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+                                <div id="payment-modal"
+                                    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+                                    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran
+                                            {{ $purchase->po_number }}</h3>
+                                        <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di
+                                            section bukti pembayaran</p>
+                                        <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST"
+                                            enctype="multipart/form-data">
+                                            @csrf
+                                            <div class="mb-4">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur
+                                                    (PDF/JPG/PNG) - Opsional</label>
+                                                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png"
+                                                    class="w-full border rounded p-2 text-gray-900" />
+                                                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum
+                                                    tersedia</p>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti
+                                                    Pembayaran (PDF/JPG/PNG) - Opsional</label>
+                                                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png"
+                                                    class="w-full border rounded p-2 text-gray-900" />
+                                                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum
+                                                    tersedia</p>
+                                            </div>
+                                            <div class="flex justify-end space-x-2">
+                                                <button type="button" onclick="closeModal('payment-modal')"
+                                                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
+                                                <button type="submit"
+                                                    class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses
+                                                    Pembayaran</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -491,32 +639,40 @@
     </div>
 
 
-<!-- Payment Modal -->
-@if($purchase->status === 'request_kain')
-<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>
-        <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di section bukti pembayaran</p>
-        <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) - Opsional</label>
-                <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
+    <!-- Payment Modal -->
+    @if($purchase->status === 'request_kain')
+        <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">Proses Pembayaran {{ $purchase->po_number }}</h3>
+                <p class="text-sm text-gray-600 mb-4">File dapat diunggah sekarang atau nanti di section bukti pembayaran
+                </p>
+                <form action="{{ route('finance.purchases.payment', $purchase->id) }}" method="POST"
+                    enctype="multipart/form-data">
+                    @csrf
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Faktur (PDF/JPG/PNG) -
+                            Opsional</label>
+                        <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png"
+                            class="w-full border rounded p-2 text-gray-900" />
+                        <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) -
+                            Opsional</label>
+                        <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png"
+                            class="w-full border rounded p-2 text-gray-900" />
+                        <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="closeModal('payment-modal')"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses
+                            Pembayaran</button>
+                    </div>
+                </form>
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Upload Bukti Pembayaran (PDF/JPG/PNG) - Opsional</label>
-                <input type="file" name="payment_proof_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded p-2 text-gray-900" />
-                <p class="text-xs text-gray-500 mt-1">Bisa diunggah nanti jika belum tersedia</p>
-            </div>
-            <div class="flex justify-end space-x-2">
-                <button type="button" onclick="closeModal('payment-modal')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:opacity-90">Proses Pembayaran</button>
-            </div>
-        </form>
-    </div>
-</div>
-@endif
+        </div>
+    @endif
 
     <script>
         function toggleSidebar() {
@@ -543,4 +699,5 @@
         }
     </script>
 </body>
+
 </html>

@@ -396,6 +396,65 @@ class PurchaseOrderController extends BaseController
         return back()->with('success', "Status berhasil diupdate ke: {$statusLabel}");
     }
 
+    // ROLLBACK STATUS FEATURE (FINANCE) - Flexible Target
+    public function rollbackStatus(Request $request, PurchaseOrder $purchase): RedirectResponse
+    {
+        $validated = $request->validate([
+            'target_status' => 'required|string|in:payment,proses_jahit,printing',
+        ]);
+
+        $targetStatus = $validated['target_status'];
+        $oldStatus = $purchase->status;
+
+        // Validasi Logika: Tidak bisa rollback ke status yang lebih maju (walau namanya rollback, form UI yang jaga, tapi backend juga perlu validasi basic jika perlu, tapi fleksibilitas diminta).
+        // Kita ijinkan finance bergerak bebas mundur.
+
+        try {
+            DB::transaction(function () use ($purchase, $targetStatus, $oldStatus) {
+                // 1. Jika status saat ini adalah SELESAI, kita HARUS tarik stok
+                if ($oldStatus === PurchaseOrder::STATUS_SELESAI) {
+                    $stockIn = \App\Models\StockIn::where('purchase_order_id', $purchase->id)->first();
+
+                    if ($stockIn) {
+                        foreach ($stockIn->items as $item) {
+                            $product = \App\Models\Product::find($item->product_id);
+                            if ($product) {
+                                $final = $product->stock_qty - $item->qty;
+                                // FORCE ROLLBACK (Allow Negative)
+                                $product->update(['stock_qty' => $final]);
+
+                                \App\Models\StockMovement::where('ref_code', $stockIn->stock_in_number)
+                                    ->where('type', 'INCOMING')
+                                    ->delete();
+                            }
+                        }
+                        $stockIn->items()->delete();
+                        $stockIn->delete();
+                    }
+                }
+
+                // 2. Update Status
+                $purchase->update([
+                    'status' => $targetStatus,
+                    // Reset field tanggal jika mundur (opsional, tapi bagus untuk kebersihan data)
+                    'received_at' => null,
+                    'received_by' => null,
+                ]);
+
+                $this->logAction(
+                    $purchase,
+                    'status_rollback',
+                    "Status dikembalikan (Rollback) dari {$oldStatus} ke {$targetStatus} oleh " . Auth::user()->name
+                );
+            });
+
+            return back()->with('success', "Status berhasil dikembalikan ke: " . ucfirst(str_replace('_', ' ', $targetStatus)));
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal melakukan rollback: ' . $e->getMessage());
+        }
+    }
+
     public function generatePoNumber(): string
     {
         return app(NumberGenerator::class)->generatePurchaseOrderNumber();
