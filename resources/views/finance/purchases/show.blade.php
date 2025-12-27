@@ -405,6 +405,35 @@
         </button>
     @endif
 
+    <!-- Lanjut ke Proses Jahit (Kain) / Printing (Produk Jadi): Finance/Owner -->
+    @if($purchase->status === 'payment' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+        <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
+            @csrf
+            @if($purchase->purchase_type === 'kain')
+                <input type="hidden" name="new_status" value="proses_jahit">
+                <button class="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
+                    <i class="bi bi-scissors mr-2"></i>Lanjut Proses Jahit
+                </button>
+            @else
+                <input type="hidden" name="new_status" value="printing">
+                <button class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                    <i class="bi bi-printer mr-2"></i>Lanjut Printing/Produksi
+                </button>
+            @endif
+        </form>
+    @endif
+
+    <!-- Lanjut ke Printing (Dari Jahit): Finance/Owner -->
+    @if($purchase->status === 'proses_jahit' && in_array(auth()->user()->usertype, ['finance', 'owner']))
+        <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">
+            @csrf
+            <input type="hidden" name="new_status" value="printing">
+            <button class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                <i class="bi bi-printer mr-2"></i>Lanjut Printing
+            </button>
+        </form>
+    @endif
+
     <!-- Selesai: Finance/Owner -->
     @if($purchase->status === 'printing' && in_array(auth()->user()->usertype, ['finance', 'owner']))
         <form method="POST" action="{{ route('finance.purchases.update-status', $purchase) }}">

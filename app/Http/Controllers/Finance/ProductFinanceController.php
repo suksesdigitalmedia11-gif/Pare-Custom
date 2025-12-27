@@ -24,22 +24,31 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
     {
         $q = $request->get('q');
         $categoryId = $request->get('category_id');
+        $sortBy = $request->get('sort_by', 'id');
+        $direction = $request->get('direction', 'desc');
+
+        // Whitelist allowed sort columns
+        $allowedSorts = ['name', 'price', 'stock_qty', 'id'];
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'id';
+            $direction = 'desc';
+        }
 
         $products = Product::with('category')
-            ->when($q, function($query) use ($q) {
-                $query->where(function($subQuery) use ($q) {
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($subQuery) use ($q) {
                     $subQuery->where('name', 'like', "%$q%")
-                             ->orWhere('sku', 'like', "%$q%")
-                             ->orWhere('barcode', 'like', "%$q%");
+                        ->orWhere('sku', 'like', "%$q%")
+                        ->orWhere('barcode', 'like', "%$q%");
                 });
             })
             ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
-            ->orderByDesc('id')
-            ->paginate(15); // Reduced from 50 to 15 for better performance
+            ->orderBy($sortBy, $direction)
+            ->paginate(15);
 
         $categories = Category::orderBy('name')->get();
 
-        return view('finance.product.index', compact('products', 'categories', 'q', 'categoryId'));
+        return view('finance.product.index', compact('products', 'categories', 'q', 'categoryId', 'sortBy', 'direction'));
     }
 
     public function create(): View
@@ -59,19 +68,19 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:10240'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-    
+
         // Cek perbandingan hanya jika cost_price diisi
-        if ($validated['cost_price'] !== null && (float)$validated['price'] < (float)$validated['cost_price']) {
+        if ($validated['cost_price'] !== null && (float) $validated['price'] < (float) $validated['cost_price']) {
             return back()->withErrors(['price' => 'Harga jual tidak boleh lebih kecil dari harga beli.'])->withInput();
         }
-    
+
         if ($request->hasFile('image')) {
             $validated['image_path'] = $request->file('image')->store('products', 'public');
         }
-    
+
         $validated['is_active'] = (bool) ($validated['is_active'] ?? true);
         Product::create($validated);
-    
+
         return redirect()->route('finance.product.index')->with('success', 'Produk berhasil ditambahkan');
     }
 
@@ -98,22 +107,22 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:10240'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-    
+
         // Cek perbandingan hanya jika cost_price diisi
-        if ($validated['cost_price'] !== null && (float)$validated['price'] < (float)$validated['cost_price']) {
+        if ($validated['cost_price'] !== null && (float) $validated['price'] < (float) $validated['cost_price']) {
             return back()->withErrors(['price' => 'Harga jual tidak boleh lebih kecil dari harga beli.'])->withInput();
         }
-    
+
         if ($request->hasFile('image')) {
             if ($product->image_path) {
                 Storage::disk('public')->delete($product->image_path);
             }
             $validated['image_path'] = $request->file('image')->store('products', 'public');
         }
-    
+
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
         $product->update($validated);
-    
+
         return redirect()->route('finance.product.index')->with('success', 'Produk berhasil diperbarui');
     }
 
@@ -129,19 +138,19 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
     public function search(Request $request)
     {
         $query = $request->get('q');
-        
+
         $products = Product::where('is_active', true)
             ->where('price', '>', 0)
-            ->where(function($q) use ($query) {
+            ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('sku', 'like', "%{$query}%")
-                  ->orWhere('barcode', 'like', "%{$query}%");
+                    ->orWhere('sku', 'like', "%{$query}%")
+                    ->orWhere('barcode', 'like', "%{$query}%");
             })
             ->select('id', 'name', 'sku', 'barcode', 'price', 'cost_price', 'stock_qty')
             ->orderBy('name')
             ->limit(10)
             ->get();
-        
+
         return response()->json($products);
     }
 
@@ -220,11 +229,11 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
 
         // Query produk dengan filter yang sama seperti di index
         $products = Product::with('category')
-            ->when($q, function($query) use ($q) {
-                $query->where(function($subQuery) use ($q) {
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($subQuery) use ($q) {
                     $subQuery->where('name', 'like', "%$q%")
-                             ->orWhere('sku', 'like', "%$q%")
-                             ->orWhere('barcode', 'like', "%$q%");
+                        ->orWhere('sku', 'like', "%$q%")
+                        ->orWhere('barcode', 'like', "%$q%");
                 });
             })
             ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
