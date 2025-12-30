@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\NumberGenerator;
 use App\Models\PurchaseOrderItem;
 use Carbon\Carbon;
+use App\Exports\PurchaseOrderExport;
+use App\Exports\PurchaseOrderTemplateExport;
+use App\Imports\PurchaseOrderImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 class PurchaseOrderController extends BaseController
@@ -40,15 +44,15 @@ class PurchaseOrderController extends BaseController
         $group = $request->get('group');
         $type = $request->get('type');
 
-        $purchases = PurchaseOrder::with(['supplier','creator','approver'])
+        $purchases = PurchaseOrder::with(['supplier', 'creator', 'approver'])
             ->when($q, function ($query) use ($q) {
                 $query->where('po_number', 'like', "%$q%")
-                      ->orWhereHas('supplier', fn($qq) => $qq->where('name', 'like', "%$q%"));
+                    ->orWhereHas('supplier', fn($qq) => $qq->where('name', 'like', "%$q%"));
             })
             ->when($type, fn($query) => $query->where('purchase_type', $type))
             ->when($group, function ($query) use ($group) {
                 return match ($group) {
-                    'todo' => $query->whereIn('status', ['draft','pending']),
+                    'todo' => $query->whereIn('status', ['draft', 'pending']),
                     'request_kain' => $query->where('status', 'request_kain'),
                     'in_progress' => $query->whereIn('status', ['payment', 'proses_jahit', 'printing']),
                     'completed' => $query->where('status', 'selesai'),
@@ -60,7 +64,89 @@ class PurchaseOrderController extends BaseController
             ->orderByDesc('id')
             ->paginate(15);
 
-        return view('kepala-toko.purchases.index', compact('purchases','q','status','group','type'));
+        return view('kepala-toko.purchases.index', compact('purchases', 'q', 'status', 'group', 'type'));
+    }
+
+    public function importForm(): View
+    {
+        if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
+            abort(403, 'Akses ditolak untuk kepala-toko');
+        }
+        return view('kepala-toko.purchases.import');
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
+            abort(403, 'Akses ditolak untuk kepala-toko');
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:2048',
+            'import_mode' => 'required|in:migration,full',
+        ]);
+
+        try {
+            $mode = $request->input('import_mode', 'migration');
+            $import = new PurchaseOrderImport($mode);
+            Excel::import($import, $request->file('file'));
+
+            if (!empty($import->errors)) {
+                return back()->withErrors(['import_errors' => $import->errors]);
+            }
+
+            $message = "Import berhasil! {$import->successCount} purchase order berhasil diproses.";
+            if ($mode === 'full') {
+                $message .= " Stok produk telah ditambahkan secara otomatis.";
+            } else {
+                $message .= " (Mode Migrasi: Stok tidak berubah).";
+            }
+
+            return redirect()->route('kepala-toko.purchases.index')->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat import: ' . $e->getMessage()]);
+        }
+    }
+
+    public function export(Request $request)
+    {
+        if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
+            abort(403, 'Akses ditolak untuk kepala-toko');
+        }
+
+        $query = PurchaseOrder::with(['items', 'supplier', 'creator']);
+
+        if ($type = $request->get('type')) {
+            $query->where('purchase_type', $type);
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($startDate = $request->get('start_date')) {
+            $query->whereDate('order_date', '>=', $startDate);
+        }
+
+        if ($endDate = $request->get('end_date')) {
+            $query->whereDate('order_date', '<=', $endDate);
+        }
+
+        $purchases = $query->orderByDesc('order_date')->get();
+
+        if ($purchases->isEmpty()) {
+            return back()->withErrors(['error' => 'Tidak ada data purchase untuk di-export.']);
+        }
+
+        $fileName = 'purchase_orders_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PurchaseOrderExport($purchases), $fileName);
+    }
+
+    public function downloadTemplate()
+    {
+        $fileName = 'purchase_order_template_' . now()->format('Ymd') . '.xlsx';
+        return Excel::download(new PurchaseOrderTemplateExport(), $fileName);
     }
 
     public function create(): View
@@ -72,26 +158,26 @@ class PurchaseOrderController extends BaseController
         $suppliers = Supplier::orderBy('name')->get();
         return view('kepala-toko.purchases.create', compact('suppliers'));
     }
-    
+
     public function store(Request $request): RedirectResponse
     {
         if (!in_array(auth()->user()->usertype, ['kepala_toko', 'owner'])) {
             abort(403, 'Akses ditolak untuk kepala-toko');
         }
         $validated = $request->validate([
-            'order_date' => ['required','date'],
-            'deadline' => ['nullable','date'], // ✅ TAMBAH INI
-            'supplier_id' => ['nullable','exists:suppliers,id'],
-            'supplier_name' => ['nullable','string','max:255'],
-            'purchase_type' => ['required','in:kain,produk_jadi'], // validasi tipe pembelian
-            'is_paid' => ['sometimes','boolean'],
-            'items' => ['required','array','min:1'],
-            'items.*.product_id' => ['nullable','exists:products,id'],
-            'items.*.product_name' => ['required','string','max:255'],
-            'items.*.sku' => ['nullable','string','max:100'],
-            'items.*.cost_price' => ['required','numeric','min:0'],
-            'items.*.qty' => ['required','integer','min:1'],
-            'items.*.discount' => ['nullable','numeric','min:0'],
+            'order_date' => ['required', 'date'],
+            'deadline' => ['nullable', 'date'], // ✅ TAMBAH INI
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'supplier_name' => ['nullable', 'string', 'max:255'],
+            'purchase_type' => ['required', 'in:kain,produk_jadi'], // validasi tipe pembelian
+            'is_paid' => ['sometimes', 'boolean'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.product_name' => ['required', 'string', 'max:255'],
+            'items.*.sku' => ['nullable', 'string', 'max:100'],
+            'items.*.cost_price' => ['required', 'numeric', 'min:0'],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $supplierId = $validated['supplier_id'] ?? null;
@@ -110,10 +196,12 @@ class PurchaseOrderController extends BaseController
         DB::transaction(function () use ($validated, $supplierId) {
             $poNumber = $this->generatePoNumber();
 
-            $subtotal = 0; $discountTotal = 0; $grandTotal = 0;
+            $subtotal = 0;
+            $discountTotal = 0;
+            $grandTotal = 0;
             foreach ($validated['items'] as $item) {
-                $line = ((float)$item['cost_price'] * (int)$item['qty']);
-                $disc = (float)($item['discount'] ?? 0);
+                $line = ((float) $item['cost_price'] * (int) $item['qty']);
+                $disc = (float) ($item['discount'] ?? 0);
                 $subtotal += $line;
                 $discountTotal += $disc;
             }
@@ -129,12 +217,12 @@ class PurchaseOrderController extends BaseController
                 'discount_total' => $discountTotal,
                 'grand_total' => $grandTotal,
                 'status' => PurchaseOrder::STATUS_DRAFT,
-                'is_paid' => (bool)($validated['is_paid'] ?? false),
+                'is_paid' => (bool) ($validated['is_paid'] ?? false),
                 'created_by' => Auth::id(),
             ]);
 
             foreach ($validated['items'] as $item) {
-                $line = ((float)$item['cost_price'] * (int)$item['qty']) - (float)($item['discount'] ?? 0);
+                $line = ((float) $item['cost_price'] * (int) $item['qty']) - (float) ($item['discount'] ?? 0);
                 PurchaseOrderItem::create([
                     'purchase_order_id' => $po->id,
                     'product_id' => $item['product_id'] ?? null,
@@ -147,7 +235,9 @@ class PurchaseOrderController extends BaseController
                 ]);
             }
 
-            $this->logAction($po, 'created', 
+            $this->logAction(
+                $po,
+                'created',
                 "Purchase order dibuat: {$poNumber}, Tipe: {$validated['purchase_type']}, " .
                 "Supplier: " . ($po->supplier->name ?? 'Baru') . ", " .
                 "Total: Rp " . number_format($grandTotal, 0, ',', '.')
@@ -164,10 +254,10 @@ class PurchaseOrderController extends BaseController
         }
 
         $purchase->load([
-            'items', 
-            'supplier', 
-            'creator', 
-            'approver', 
+            'items',
+            'supplier',
+            'creator',
+            'approver',
             'paymentProcessor',
             'kainReceiver',
             'printer',
@@ -214,7 +304,7 @@ class PurchaseOrderController extends BaseController
         }
 
         $validated = $request->validate(['new_status' => 'required|string']);
-        
+
         // kepala-toko hanya bisa update ke tahap produksi setelah pembayaran
         if (!in_array($validated['new_status'], ['proses_jahit', 'printing', 'selesai'])) {
             return back()->withErrors(['status' => 'kepala toko hanya bisa update ke proses jahit, printing, atau selesai.']);
@@ -260,18 +350,18 @@ class PurchaseOrderController extends BaseController
         }
 
         $validated = $request->validate([
-            'order_date' => ['required','date'],
-            'deadline' => ['nullable','date'],
-            'supplier_id' => ['nullable','exists:suppliers,id'],
-            'supplier_name' => ['nullable','string','max:255'],
-            'purchase_type' => ['required','in:kain,produk_jadi'],
-            'items' => ['required','array','min:1'],
-            'items.*.product_id' => ['nullable','exists:products,id'],
-            'items.*.product_name' => ['required','string','max:255'],
-            'items.*.sku' => ['nullable','string','max:100'],
-            'items.*.cost_price' => ['required','numeric','min:0'],
-            'items.*.qty' => ['required','integer','min:1'],
-            'items.*.discount' => ['nullable','numeric','min:0'],
+            'order_date' => ['required', 'date'],
+            'deadline' => ['nullable', 'date'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'supplier_name' => ['nullable', 'string', 'max:255'],
+            'purchase_type' => ['required', 'in:kain,produk_jadi'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.product_name' => ['required', 'string', 'max:255'],
+            'items.*.sku' => ['nullable', 'string', 'max:100'],
+            'items.*.cost_price' => ['required', 'numeric', 'min:0'],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $supplierId = $validated['supplier_id'] ?? null;
@@ -291,11 +381,13 @@ class PurchaseOrderController extends BaseController
             // SIMPAN DATA LAMA SEBELUM UPDATE
             $oldData = $purchase->getOriginal();
             $oldItems = $purchase->items->toArray();
-            
-            $subtotal = 0; $discountTotal = 0; $grandTotal = 0;
+
+            $subtotal = 0;
+            $discountTotal = 0;
+            $grandTotal = 0;
             foreach ($validated['items'] as $item) {
-                $line = ((float)$item['cost_price'] * (int)$item['qty']);
-                $disc = (float)($item['discount'] ?? 0);
+                $line = ((float) $item['cost_price'] * (int) $item['qty']);
+                $disc = (float) ($item['discount'] ?? 0);
                 $subtotal += $line;
                 $discountTotal += $disc;
             }
@@ -314,7 +406,7 @@ class PurchaseOrderController extends BaseController
             // Hapus items lama dan buat yang baru
             $purchase->items()->delete();
             foreach ($validated['items'] as $item) {
-                $line = ((float)$item['cost_price'] * (int)$item['qty']) - (float)($item['discount'] ?? 0);
+                $line = ((float) $item['cost_price'] * (int) $item['qty']) - (float) ($item['discount'] ?? 0);
                 PurchaseOrderItem::create([
                     'purchase_order_id' => $purchase->id,
                     'product_id' => $item['product_id'] ?? null,
@@ -353,7 +445,7 @@ class PurchaseOrderController extends BaseController
                 $changes[] = "Tipe pembelian dari {$oldType} ke {$newType}";
             }
 
-            if ((float)$oldData['grand_total'] != (float)$grandTotal) {
+            if ((float) $oldData['grand_total'] != (float) $grandTotal) {
                 $changes[] = "Total dari Rp " . number_format($oldData['grand_total'], 0, ',', '.') . " ke Rp " . number_format($grandTotal, 0, ',', '.');
             }
 

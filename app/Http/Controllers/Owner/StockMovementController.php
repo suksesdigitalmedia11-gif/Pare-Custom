@@ -42,7 +42,7 @@ class StockMovementController extends Controller
         $stockMovements = $query->orderBy('moved_at', 'desc')
             ->orderBy('id', 'desc')
             ->paginate(20)
-            ->withQueryString();
+            ->appends($request->query());
 
         $prefix = $this->getViewPrefix();
         $view = "{$prefix}.inventory.stock_movements.index";

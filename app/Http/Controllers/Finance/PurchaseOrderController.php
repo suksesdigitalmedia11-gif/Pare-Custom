@@ -15,6 +15,10 @@ use App\Services\NumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use App\Exports\PurchaseOrderExport;
+use App\Exports\PurchaseOrderTemplateExport;
+use App\Imports\PurchaseOrderImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PurchaseOrderController extends BaseController
 {
@@ -82,6 +86,88 @@ class PurchaseOrderController extends BaseController
             ->paginate(15);
 
         return view('finance.purchases.index', compact('purchases', 'q', 'status', 'group', 'type'));
+    }
+
+    public function importForm(): View
+    {
+        if (!in_array(auth()->user()->usertype, ['finance', 'owner'])) {
+            abort(403, 'Akses ditolak untuk finance');
+        }
+        return view('finance.purchases.import');
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        if (!in_array(auth()->user()->usertype, ['finance', 'owner'])) {
+            abort(403, 'Akses ditolak untuk finance');
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:2048',
+            'import_mode' => 'required|in:migration,full',
+        ]);
+
+        try {
+            $mode = $request->input('import_mode', 'migration');
+            $import = new PurchaseOrderImport($mode);
+            Excel::import($import, $request->file('file'));
+
+            if (!empty($import->errors)) {
+                return back()->withErrors(['import_errors' => $import->errors]);
+            }
+
+            $message = "Import berhasil! {$import->successCount} purchase order berhasil diproses.";
+            if ($mode === 'full') {
+                $message .= " Stok produk telah ditambahkan secara otomatis.";
+            } else {
+                $message .= " (Mode Migrasi: Stok tidak berubah).";
+            }
+
+            return redirect()->route('finance.purchases.index')->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat import: ' . $e->getMessage()]);
+        }
+    }
+
+    public function export(Request $request)
+    {
+        if (!in_array(auth()->user()->usertype, ['finance', 'owner'])) {
+            abort(403, 'Akses ditolak untuk finance');
+        }
+
+        $query = PurchaseOrder::with(['items', 'supplier', 'creator']);
+
+        if ($type = $request->get('type')) {
+            $query->where('purchase_type', $type);
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($startDate = $request->get('start_date')) {
+            $query->whereDate('order_date', '>=', $startDate);
+        }
+
+        if ($endDate = $request->get('end_date')) {
+            $query->whereDate('order_date', '<=', $endDate);
+        }
+
+        $purchases = $query->orderByDesc('order_date')->get();
+
+        if ($purchases->isEmpty()) {
+            return back()->withErrors(['error' => 'Tidak ada data purchase untuk di-export.']);
+        }
+
+        $fileName = 'purchase_orders_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PurchaseOrderExport($purchases), $fileName);
+    }
+
+    public function downloadTemplate()
+    {
+        $fileName = 'purchase_order_template_' . now()->format('Ymd') . '.xlsx';
+        return Excel::download(new PurchaseOrderTemplateExport(), $fileName);
     }
 
     public function create(): View

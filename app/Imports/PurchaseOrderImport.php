@@ -39,44 +39,36 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
             return;
         }
 
-        // Kelompokkan berdasarkan PO_NUMBER (boleh kosong, nanti akan digenerate)
+        // Kelompokkan berdasarkan SUPPLIER + TANGGAL + TIPE
+        // Agar baris-baris yang "seharusnya" satu nota bisa bergabung
         $grouped = $rows->groupBy(function ($row, $index) {
-            $poNumber = trim((string) ($row['po_number'] ?? ''));
-            if ($poNumber === '') {
-                // Gunakan key unik sementara berdasarkan index
-                return 'AUTO_' . ($index + 1);
+            $supplier = trim(strtolower((string) ($row['supplier_name'] ?? '')));
+            $date = trim((string) ($row['order_date'] ?? ''));
+            $type = trim(strtolower((string) ($row['purchase_type'] ?? '')));
+
+            // Jika data kuncinya kosong, biarkan jadi grup sendiri (nanti akan gagal validasi di loop)
+            if ($supplier === '' || $date === '') {
+                return 'INVALID_ROW_' . $index;
             }
-            return strtoupper($poNumber);
+
+            // Key unik gabungan
+            return "{$supplier}|{$date}|{$type}";
         });
 
         foreach ($grouped as $key => $group) {
             $firstRow = $group->first();
-            $rowIndex = $group->keys()->first() + 2; // +2 karena heading row
+            // Estimasi baris excel (hanya indikasi untuk error message)
+            $rowIndex = $group->keys()->first() + 2;
 
-            // Cari nilai ORDER_DATE & DEADLINE pertama yang tidak kosong di dalam 1 group
-            $orderDateRaw = null;
-            $deadlineRaw = null;
-            $statusRaw = null;
-
-            foreach ($group as $row) {
-                if ($orderDateRaw === null && isset($row['order_date']) && $row['order_date'] !== '') {
-                    $orderDateRaw = $row['order_date'];
-                }
-                if ($deadlineRaw === null && isset($row['deadline']) && $row['deadline'] !== '') {
-                    $deadlineRaw = $row['deadline'];
-                }
-                if ($statusRaw === null && isset($row['status']) && $row['status'] !== '') {
-                    $statusRaw = strtolower(trim((string) $row['status']));
-                }
-            }
+            // Cari nilai ORDER_DATE & DEADLINE pertama yang tidak kosong
+            $orderDateRaw = $firstRow['order_date'];
+            $deadlineRaw = $firstRow['deadline'] ?? null;
+            $statusRaw = $firstRow['status'] ?? null;
 
             // Siapkan data header untuk validasi
             $headerData = $firstRow->toArray();
-            $headerData['order_date'] = $orderDateRaw;
-            $headerData['deadline'] = $deadlineRaw;
-            $headerData['status'] = $statusRaw;
 
-            // Validasi basic per-group (header PO)
+            // Validasi header
             $validator = Validator::make($headerData, [
                 'order_date' => ['required'],
                 'deadline' => ['nullable'],
@@ -92,7 +84,7 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
             ]);
 
             if ($validator->fails()) {
-                $this->errors[] = "PO di baris {$rowIndex}: " . $validator->errors()->first();
+                $this->errors[] = "Error di baris {$rowIndex}: " . $validator->errors()->first();
                 continue;
             }
 
@@ -112,38 +104,24 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                 ]);
 
                 if ($lineValidator->fails()) {
-                    $this->errors[] = "PO {$key} - baris Excel " . ($index + 2) . ': ' . $lineValidator->errors()->first();
+                    $this->errors[] = "Error baris Excel " . ($rowIndex + $index) . ': ' . $lineValidator->errors()->first();
                     continue 2; // skip entire group
                 }
             }
 
             try {
                 DB::transaction(function () use ($group, $firstRow, $key, $rowIndex, $orderDateRaw, $deadlineRaw, $statusRaw) {
-                    // Supplier
+                    // 1. Supplier (Find or Create)
                     $supplierName = trim((string) ($firstRow['supplier_name'] ?? ''));
                     $supplier = Supplier::firstOrCreate(
                         ['name' => $supplierName],
                         ['is_active' => true]
                     );
 
-                    // Tentukan / generate PO number
-                    $rawPoNumber = trim((string) ($firstRow['po_number'] ?? ''));
-                    if ($rawPoNumber !== '' && !str_starts_with(strtoupper($rawPoNumber), 'PO')) {
-                        $poNumber = 'PO' . strtoupper($rawPoNumber);
-                    } elseif ($rawPoNumber !== '') {
-                        $poNumber = strtoupper($rawPoNumber);
-                    } else {
-                        // generate otomatis dari generator terpusat
-                        $poNumber = app(NumberGenerator::class)->generatePurchaseOrderNumber();
-                    }
+                    // 2. Generate PO Number Otomatis (SELALU BARU)
+                    $poNumber = app(NumberGenerator::class)->generatePurchaseOrderNumber();
 
-                    // Cek duplikasi PO_NUMBER
-                    if (PurchaseOrder::where('po_number', $poNumber)->exists()) {
-                        $this->errors[] = "PO Number {$poNumber} sudah ada di sistem (baris {$rowIndex}).";
-                        return;
-                    }
-
-                    // Hitung total
+                    // 3. Hitung total
                     $subtotal = 0;
                     $discountTotal = 0;
                     foreach ($group as $row) {
@@ -154,25 +132,23 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     }
                     $grandTotal = $subtotal - $discountTotal;
 
-                    // Parse tanggal order & deadline dengan helper yang support berbagai format Excel
+                    // 4. Parse Dates
                     try {
                         $orderDate = $this->parseDate($orderDateRaw, false);
                     } catch (\Exception $e) {
-                        $this->errors[] = "PO {$poNumber} (baris {$rowIndex}): ORDER_DATE tidak bisa diparsing. Gunakan format YYYY-MM-DD atau tanggal standar Excel.";
+                        $this->errors[] = "PO (baris {$rowIndex}): Tanggal order tidak valid.";
                         return;
                     }
 
                     $deadlineDate = null;
-                    if ($deadlineRaw !== null && $deadlineRaw !== '') {
+                    if (!empty($deadlineRaw)) {
                         try {
                             $deadlineDate = $this->parseDate($deadlineRaw, false);
-                        } catch (\Exception $e) {
-                            $this->errors[] = "PO {$poNumber} (baris {$rowIndex}): DEADLINE tidak bisa diparsing. Gunakan format YYYY-MM-DD atau kosongkan.";
-                            return;
+                        } catch (\Exception $e) { /* ignore deadline error, make null */
                         }
                     }
 
-                    // Tentukan status (opsional)
+                    // 5. Tentukan status
                     $allowedStatuses = [
                         PurchaseOrder::STATUS_DRAFT,
                         PurchaseOrder::STATUS_PENDING,
@@ -187,8 +163,8 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     ];
 
                     $status = PurchaseOrder::STATUS_DRAFT;
-                    if ($statusRaw && in_array($statusRaw, $allowedStatuses, true)) {
-                        $status = $statusRaw;
+                    if ($statusRaw && in_array(strtolower($statusRaw), $allowedStatuses, true)) {
+                        $status = strtolower($statusRaw);
                     }
 
                     /** @var \App\Models\PurchaseOrder $purchase */
@@ -197,7 +173,7 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                         'order_date' => $orderDate,
                         'deadline' => $deadlineDate,
                         'supplier_id' => $supplier->id,
-                        'purchase_type' => $firstRow['purchase_type'],
+                        'purchase_type' => strtolower($firstRow['purchase_type']),
                         'subtotal' => $subtotal,
                         'discount_total' => $discountTotal,
                         'grand_total' => $grandTotal,
@@ -206,41 +182,36 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                         'created_by' => Auth::id(),
                     ]);
 
+                    // 6. Create Items
                     foreach ($group as $row) {
                         $lineTotal = ((float) $row['cost_price'] * (int) $row['qty']) - (float) ($row['discount'] ?? 0);
 
-                        // 1. Cari Produk (untuk link ID & Update Stok)
+                        // Cari Produk
                         $product = null;
-
-                        // Prioritas 1: SKU
                         if (!empty($row['sku'])) {
                             $product = Product::where('sku', trim($row['sku']))->first();
                         }
-
-                        // Prioritas 2: Nama Produk (Exact Match)
                         if (!$product) {
                             $product = Product::where('name', trim($row['product_name']))->first();
                         }
 
-                        // 2. Logika Update Stok (Hanya Mode FULL)
+                        // Update Stok (Mode Full)
                         if ($this->mode === 'full' && $product) {
                             $oldQty = $product->stock_qty;
                             $qtyIn = (int) $row['qty'];
 
-                            // Update Stok Master
                             $product->increment('stock_qty', $qtyIn);
 
-                            // Catat Pergerakan Stok
                             StockMovement::create([
                                 'product_id' => $product->id,
-                                'type' => 'IN_PURCHASE', // Type Purchase / Masuk
+                                'type' => 'IN_PURCHASE',
                                 'ref_code' => $poNumber,
                                 'initial_qty' => $oldQty,
                                 'qty_in' => $qtyIn,
                                 'qty_out' => 0,
                                 'final_qty' => $oldQty + $qtyIn,
                                 'user_id' => Auth::id(),
-                                'notes' => "Import Pembelian ({$poNumber})",
+                                'notes' => "Import {$poNumber}",
                                 'moved_at' => now(),
                             ]);
                         }
@@ -260,86 +231,68 @@ class PurchaseOrderImport implements ToCollection, WithHeadingRow
                     $this->successCount++;
                 });
             } catch (\Exception $e) {
-                $this->errors[] = "PO group {$key} (baris {$rowIndex}): " . $e->getMessage();
+                $this->errors[] = "Error processing PO at row {$rowIndex}: " . $e->getMessage();
             }
         }
     }
-
     /**
      * Parse tanggal dari berbagai format Excel / string.
      * Diadaptasi dari SalesOrderImport::parseDate supaya konsisten.
      */
+    /**
+     * Parse tanggal dari berbagai format Excel / string menggunakan library standar.
+     */
     private function parseDate($dateValue, bool $includeTime = true): \Carbon\Carbon
     {
-        // Jika kosong, lempar exception supaya caller bisa handle
         if ($dateValue === null || $dateValue === '') {
             throw new \InvalidArgumentException('Tanggal kosong');
         }
 
-        // Gunakan Carbon helper dari Laravel
-        $carbonClass = class_exists(\Carbon\Carbon::class) ? \Carbon\Carbon::class : null;
-        if ($carbonClass === null) {
-            throw new \RuntimeException('Carbon tidak tersedia');
-        }
-
-        /** @var \Carbon\Carbon $carbon */
-        $carbon = $carbonClass;
-
-        // Numeric → Excel serial date
+        // 1. Jika Numeric (Excel Serial Date), gunakan library PhpSpreadsheet
+        // Ini lebih akurat menangani bug tahun kabisat 1900 daripada hitung manual
         if (is_numeric($dateValue)) {
-            $excelDate = (float) $dateValue;
+            try {
+                $dateTimeObj = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue);
+                // Convert ke Carbon
+                $carbon = \Carbon\Carbon::instance($dateTimeObj);
 
-            if ($excelDate >= 60) {
-                $excelDate = $excelDate - 2;
-            } elseif ($excelDate >= 1) {
-                $excelDate = $excelDate - 1;
+                if (!$includeTime) {
+                    $carbon->startOfDay();
+                }
+                return $carbon;
+            } catch (\Exception $e) {
+                // Fallback jika gagal convert
             }
-
-            $excelEpoch = $carbon::create(1899, 12, 30, 0, 0, 0);
-            $parsedDate = $excelEpoch->copy()->addDays((int) $excelDate);
-
-            $decimalPart = $excelDate - (int) $excelDate;
-            if ($decimalPart > 0 && $includeTime) {
-                $totalSeconds = (int) round($decimalPart * 86400);
-                $hours = (int) floor($totalSeconds / 3600);
-                $minutes = (int) floor(($totalSeconds % 3600) / 60);
-                $seconds = $totalSeconds % 60;
-                $parsedDate->setTime($hours, $minutes, $seconds);
-            }
-
-            if (!$includeTime) {
-                $parsedDate->setTime(0, 0, 0);
-            }
-
-            return $parsedDate;
         }
 
         $dateString = trim((string) $dateValue);
 
-        // Coba format Indonesia dd/mm/yyyy atau dd-mm-yyyy
-        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i', $dateString, $m)) {
+        // 2. Coba format Indonesia dd/mm/yyyy atau dd-mm-yyyy
+        // Format: Tgl-Bln-Thn (Separators: / - .)
+        if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i', $dateString, $m)) {
             $day = (int) $m[1];
             $month = (int) $m[2];
             $year = (int) $m[3];
-
-            return $carbon::create($year, $month, $day, 0, 0, 0);
+            return \Carbon\Carbon::create($year, $month, $day, 0, 0, 0);
         }
 
-        // Coba format ISO yyyy-mm-dd atau yyyy/mm/dd
-        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/i', $dateString, $m)) {
+        // 3. Coba format ISO yyyy-mm-dd (Separators: / - .)
+        if (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/i', $dateString, $m)) {
             $year = (int) $m[1];
             $month = (int) $m[2];
             $day = (int) $m[3];
-
-            return $carbon::create($year, $month, $day, 0, 0, 0);
+            return \Carbon\Carbon::create($year, $month, $day, 0, 0, 0);
         }
 
-        // Fallback: biarkan Carbon coba parse
-        $parsed = $carbon::parse($dateString);
-        if (!$includeTime) {
-            $parsed->setTime(0, 0, 0);
+        // 4. Fallback terakhir: biarkan Carbon coba menebak
+        try {
+            $parsed = \Carbon\Carbon::parse($dateString);
+            if (!$includeTime) {
+                $parsed->startOfDay();
+            }
+            return $parsed;
+        } catch (\Exception $e) {
+            throw new \InvalidArgumentException("Format tanggal tidak dikenali: $dateString");
         }
-
-        return $parsed;
     }
 }

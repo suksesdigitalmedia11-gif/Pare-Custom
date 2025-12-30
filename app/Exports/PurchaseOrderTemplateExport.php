@@ -17,7 +17,6 @@ class PurchaseOrderTemplateExport implements FromArray, WithHeadings, WithTitle,
     public function headings(): array
     {
         return [
-            'PO_NUMBER',        // Opsional, kosongkan jika ingin nomor otomatis
             'ORDER_DATE',       // Tanggal pembelian (YYYY-MM-DD)
             'DEADLINE',         // Opsional: target selesai (YYYY-MM-DD)
             'SUPPLIER_NAME',    // Nama supplier (akan dibuat otomatis jika belum ada)
@@ -34,9 +33,8 @@ class PurchaseOrderTemplateExport implements FromArray, WithHeadings, WithTitle,
     public function array(): array
     {
         return [
-            // Contoh 1: Pembelian kain dengan 2 item (PO_NUMBER sama)
+            // Contoh 1: Pembelian kain dengan 2 item (Satu Supplier = Satu PO Otomatis)
             [
-                'PO2501010001',        // PO_NUMBER (boleh dikosongkan)
                 '2025-01-15',          // ORDER_DATE
                 '2025-01-20',          // DEADLINE
                 'Toko Kain Makmur',    // SUPPLIER_NAME
@@ -49,10 +47,9 @@ class PurchaseOrderTemplateExport implements FromArray, WithHeadings, WithTitle,
                 0,                     // DISCOUNT
             ],
             [
-                'PO2501010001',        // PO_NUMBER sama
-                '2025-01-15',
+                '2025-01-15',          // Tanggal harus sama agar jadi satu PO
                 '2025-01-20',
-                'Toko Kain Makmur',
+                'Toko Kain Makmur',    // Supplier sama agar jadi satu PO
                 'kain',
                 'request_kain',
                 'Kain Linen Halus',
@@ -62,9 +59,8 @@ class PurchaseOrderTemplateExport implements FromArray, WithHeadings, WithTitle,
                 0,
             ],
 
-            // Contoh 2: Pembelian produk jadi 1 item
+            // Contoh 2: PO Berbeda (karena beda supplier / tanggal)
             [
-                'PO2501010002',
                 '2025-01-18',
                 '',
                 'Konveksi Jaya Abadi',
@@ -82,17 +78,16 @@ class PurchaseOrderTemplateExport implements FromArray, WithHeadings, WithTitle,
     public function columnWidths(): array
     {
         return [
-            'A' => 15, // PO_NUMBER
-            'B' => 12, // ORDER_DATE
-            'C' => 12, // DEADLINE
-            'D' => 22, // SUPPLIER_NAME
-            'E' => 14, // PURCHASE_TYPE
-            'F' => 14, // STATUS
-            'G' => 28, // PRODUCT_NAME
-            'H' => 12, // SKU
-            'I' => 14, // COST_PRICE
-            'J' => 8,  // QTY
-            'K' => 12, // DISCOUNT
+            'A' => 12, // ORDER_DATE
+            'B' => 12, // DEADLINE
+            'C' => 22, // SUPPLIER_NAME
+            'D' => 14, // PURCHASE_TYPE
+            'E' => 14, // STATUS
+            'F' => 28, // PRODUCT_NAME
+            'G' => 12, // SKU
+            'H' => 14, // COST_PRICE
+            'I' => 8,  // QTY
+            'J' => 12, // DISCOUNT
         ];
     }
 }

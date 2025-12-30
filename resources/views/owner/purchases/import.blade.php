@@ -11,9 +11,9 @@
 
 <body class="bg-gray-100">
     <div class="flex">
-        <x-navbar-admin />
+        <x-navbar-owner />
         <div class="flex-1 lg:w-5/6">
-            <x-navbar-top-admin />
+            <x-navbar-top-owner />
             <div class="p-4 lg:p-8">
                 <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
                     <h1 class="text-2xl font-semibold text-gray-800 mb-4">Import Purchase Order</h1>
@@ -44,7 +44,7 @@
                             <p class="text-sm text-green-700 mb-3">
                                 Download template untuk memastikan format kolom sesuai dengan sistem.
                             </p>
-                            <a href="{{ route('admin.purchases.download-template') }}"
+                            <a href="{{ route('owner.purchases.download-template') }}"
                                 class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow inline-flex items-center">
                                 <i class="bi bi-download mr-2"></i> Download Template
                             </a>
@@ -122,7 +122,7 @@
 
 
                         <!-- Import Form -->
-                        <form action="{{ route('admin.purchases.import') }}" method="POST" enctype="multipart/form-data"
+                        <form action="{{ route('owner.purchases.import') }}" method="POST" enctype="multipart/form-data"
                             class="bg-gray-50 p-6 rounded-lg">
                             @csrf
 
@@ -195,7 +195,7 @@
                                     class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded shadow flex items-center">
                                     <i class="bi bi-upload mr-2"></i> Import Data
                                 </button>
-                                <a href="{{ route('admin.purchases.index') }}"
+                                <a href="{{ route('owner.purchases.index') }}"
                                     class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded shadow flex items-center">
                                     <i class="bi bi-arrow-left mr-2"></i> Kembali
                                 </a>

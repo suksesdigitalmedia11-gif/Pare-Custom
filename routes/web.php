@@ -104,6 +104,11 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
         ->name('purchases.returns-redirect');
 
     // Purchases
+    Route::get('purchases/import', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'importForm'])->name('purchases.import-form');
+    Route::post('purchases/import', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'import'])->name('purchases.import');
+    Route::get('purchases/export', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'export'])->name('purchases.export');
+    Route::get('purchases/download-template', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'downloadTemplate'])->name('purchases.download-template');
+
     Route::resource('purchases', \App\Http\Controllers\Owner\PurchaseOrderController::class)
         ->parameters(['purchases' => 'purchase'])
         ->only(['index', 'create', 'store', 'show']);
@@ -301,6 +306,11 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
+        Route::get('import', [\App\Http\Controllers\Finance\PurchaseOrderController::class, 'importForm'])->name('import-form');
+        Route::post('import', [\App\Http\Controllers\Finance\PurchaseOrderController::class, 'import'])->name('import');
+        Route::get('export', [\App\Http\Controllers\Finance\PurchaseOrderController::class, 'export'])->name('export');
+        Route::get('download-template', [\App\Http\Controllers\Finance\PurchaseOrderController::class, 'downloadTemplate'])->name('download-template');
+
         Route::get('/', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'index'])->name('index');
         Route::get('create', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'store'])->name('store');
@@ -426,6 +436,11 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         });
     });
     Route::prefix('purchases')->middleware('auth')->name('purchases.')->group(function () {
+        Route::get('import', [\App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'importForm'])->name('import-form');
+        Route::post('import', [\App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'import'])->name('import');
+        Route::get('export', [\App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'export'])->name('export');
+        Route::get('download-template', [\App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'downloadTemplate'])->name('download-template');
+
         Route::get('/', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'index'])->name('index');
         Route::get('create', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'store'])->name('store');
