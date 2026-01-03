@@ -1124,11 +1124,17 @@ if (document.getElementById('clear_supplier')) {
                 const errorMessages = [];
 
                 // Validasi harga produk > 0 untuk semua baris
+                if (grandTotal <= 0) {
+                     hasErrors = true;
+                     errorMessages.push('Total penjualan (Grand Total) tidak boleh Rp 0. Minimal harus ada total penjualan > 0.');
+                }
+                
                 const prices = document.querySelectorAll('.sale-price');
                 prices.forEach((p, index) => {
-                    if (!p.value || parseFloat(p.value) <= 0) {
+                    const val = parseFloat(p.value);
+                    if (val < 0) { // Hanya error jika MINUS, 0 BOLEH
                         hasErrors = true;
-                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh kosong atau nol`);
+                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh minus`);
                     }
                 });
 

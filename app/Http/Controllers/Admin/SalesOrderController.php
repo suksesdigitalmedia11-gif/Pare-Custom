@@ -216,7 +216,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => $status === 'draft' ? ['nullable'] : ['nullable', 'numeric', 'min:0'],
@@ -231,11 +231,12 @@ class SalesOrderController extends Controller
         \Log::info('Validated data', $validated);
 
         foreach ($request->items as $index => $item) {
+            // ✅ MANUAL PRICE CHECK REMOVED to allow free items
+            // Just basic existence check if needed, but validation above handles product_id
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
-                    \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak valid atau harga kosong.'])->withInput();
+                if (!$product) {
+                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak ditemukan.'])->withInput();
                 }
             }
         }
@@ -568,7 +569,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
@@ -584,10 +585,10 @@ class SalesOrderController extends Controller
         foreach ($items as $index => $item) {
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
-                    \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk yang dipilih tidak memiliki harga valid.'])->withInput();
+                if (!$product) {
+                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak ditemukan.'])->withInput();
                 }
+                // Price check removed to allow 0 price
             }
         }
 
