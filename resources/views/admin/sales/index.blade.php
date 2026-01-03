@@ -292,6 +292,7 @@
                                             </div>
                                         </th>
                                         <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+                                        <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status Desain</th>
                                         <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                                         <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                                         <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Dibayar</th>
@@ -313,6 +314,76 @@
                                             <td class="px-4 lg:px-6 py-4">
                                                 <div class="text-sm text-gray-900">{{ $so->customer ? $so->customer->name : 'Umum' }}</div>
                                             <div class="text-xs text-gray-500">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit' : 'Beli Jadi' }}</div>
+                                            </td>
+                                            <td class="px-4 lg:px-6 py-4">
+                                                @php
+                                                    $dStatus = $so->design_status;
+                                                    $dStats = $so->design_stats;
+                                                    $dRisk = $so->deadline_risk;
+                                                    $dAging = $so->design_aging;
+                                                @endphp
+
+                                                @if($dStatus)
+                                                    <div class="flex flex-col gap-1 items-start">
+                                                        {{-- Main Badge --}}
+                                                        @if($dStatus === 'rejected')
+                                                            <span class="status-badge bg-red-600 text-white animate-pulse">
+                                                                <i class="bi bi-exclamation-triangle-fill mr-1"></i> REVISI
+                                                            </span>
+                                                        @elseif($dRisk)
+                                                            <span class="status-badge bg-red-600 text-white font-bold animate-pulse">
+                                                                <i class="bi bi-alarm-fill mr-1"></i> DEADLINE RISK
+                                                            </span>
+                                                        @elseif($dStatus === 'pending')
+                                                            @if($dAging && (str_contains($dAging, 'hari') || str_contains($dAging, 'day')))
+                                                                <span class="status-badge bg-red-100 text-red-800 border border-red-200">
+                                                                    <i class="bi bi-hourglass-bottom mr-1"></i> PENDING LAMA
+                                                                </span>
+                                                            @else
+                                                                <span class="status-badge bg-gray-100 text-gray-600 border border-gray-200">
+                                                                    <i class="bi bi-hourglass mr-1"></i> PENDING
+                                                                </span>
+                                                            @endif
+                                                        @elseif($dStatus === 'in_progress')
+                                                            <span class="status-badge bg-blue-100 text-blue-800 border border-blue-200">
+                                                                <i class="bi bi-pencil-square mr-1"></i> DIKERJAKAN
+                                                            </span>
+                                                        @elseif($dStatus === 'waiting_customer')
+                                                            <span class="status-badge bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                                                <i class="bi bi-person-workspace mr-1"></i> WAIT CUST
+                                                            </span>
+                                                        @elseif($dStatus === 'approved')
+                                                            <span class="status-badge bg-green-100 text-green-800 border border-green-200">
+                                                                <i class="bi bi-check-circle-fill mr-1"></i> ACC
+                                                            </span>
+                                                        @endif
+
+                                                        {{-- Stats / Detail --}}
+                                                        @if(!empty($dStats))
+                                                            <div class="text-[10px] text-gray-500 flex flex-wrap gap-1 mt-0.5">
+                                                                @foreach($dStats as $stat)
+                                                                    <span class="bg-white border border-gray-200 px-1.5 py-0.5 rounded shadow-sm">{{ $stat }}</span>
+                                                                @endforeach
+                                                            </div>
+                                                        @endif
+
+                                                        {{-- Deadline Info if Risk --}}
+                                                        @if($dRisk && $so->deadline)
+                                                            <div class="text-[10px] text-red-600 font-bold">
+                                                                <i class="bi bi-calendar-x"></i> {{ $so->deadline->format('d/m') }} ({{ $so->deadline->diffForHumans() }})
+                                                            </div>
+                                                        @endif
+                                                        
+                                                        {{-- Aging Info if Pending --}}
+                                                        @if($dStatus === 'pending' && $dAging)
+                                                            <div class="text-[10px] text-gray-400">
+                                                                <i class="bi bi-clock-history"></i> {{ $dAging }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <span class="text-gray-300 text-xs">-</span>
+                                                @endif
                                             </td>
                                             <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span class="status-badge 
@@ -382,6 +453,42 @@
                                 </div>
                                 
                                 <div class="text-sm text-gray-600 mb-2">{{ $so->customer ? $so->customer->name : 'Umum' }}</div>
+
+                                {{-- Mobile Design Status --}}
+                                @if($so->design_status)
+                                    <div class="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-xs font-semibold text-gray-500">Desain:</span>
+                                            @if($so->deadline_risk)
+                                                <span class="text-xs text-red-600 font-bold animate-pulse">RISK!</span>
+                                            @endif
+                                        </div>
+                                        <div class="flex flex-wrap gap-2 items-center">
+                                            {{-- Simplified Badge for Mobile --}}
+                                            @if($so->design_status === 'rejected')
+                                                <span class="xs-badge bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded text-[10px]">REVISI</span>
+                                            @elseif($so->design_status === 'pending')
+                                                <span class="xs-badge bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px]">PENDING</span>
+                                            @elseif($so->design_status === 'approved')
+                                                <span class="xs-badge bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px]">ACC</span>
+                                            @else
+                                                <span class="xs-badge bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px]">{{ strtoupper($so->design_status) }}</span>
+                                            @endif
+
+                                            {{-- Aging --}}
+                                            @if($so->design_status === 'pending' && $so->design_aging)
+                                                <span class="text-[10px] text-gray-400">{{ $so->design_aging }}</span>
+                                            @endif
+                                        </div>
+                                        @if(!empty($so->design_stats))
+                                            <div class="mt-1 flex flex-wrap gap-1">
+                                                @foreach($so->design_stats as $stat)
+                                                    <span class="text-[10px] bg-white border border-gray-200 px-1 rounded">{{ $stat }}</span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
                                 
                                 <div class="grid grid-cols-3 gap-2 text-sm">
                                     <div>

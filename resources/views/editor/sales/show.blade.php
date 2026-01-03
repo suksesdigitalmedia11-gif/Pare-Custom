@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,31 +8,51 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
 </head>
+
 <body class="bg-gray-100">
-<div class="flex">
-    <x-navbar-editor />
+    <div class="flex">
+        <x-navbar-editor />
 
-    <div class="flex-1 lg:w-5/6">
-        <x-navbar-top-editor />
+        <div class="flex-1 lg:w-5/6">
+            <x-navbar-top-editor />
 
-        <div class="p-4 lg:p-8 space-y-6">
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500">SO Number</p>
-                        <h1 class="text-2xl font-semibold text-gray-800">{{ $salesOrder->so_number }}</h1>
-                        <p class="text-sm text-gray-500 mt-1">
-                            Customer: {{ $salesOrder->customer->name ?? 'Customer Umum' }} •
-                            Tgl Order: {{ \Carbon\Carbon::parse($salesOrder->order_date)->format('d M Y') }}
-                            @if($salesOrder->deadline)
-                                • Deadline: {{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d M Y') }}
-                            @endif
-                        </p>
+            <div class="p-4 lg:p-8 space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">SO Number</p>
+                            <h1 class="text-2xl font-semibold text-gray-800">{{ $salesOrder->so_number }}</h1>
+                            <p class="text-sm text-gray-500 mt-1">
+                                Customer: {{ $salesOrder->customer->name ?? 'Customer Umum' }} •
+                                Tgl Order: {{ \Carbon\Carbon::parse($salesOrder->order_date)->format('d M Y') }}
+                                @if($salesOrder->deadline)
+                                    • Deadline: {{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d M Y') }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            {{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}
+                        </span>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        {{ ucfirst(str_replace('_', ' ', $salesOrder->status)) }}
-                    </span>
                 </div>
+
+                {{-- Countdown Timer --}}
+                @if($salesOrder->deadline && !in_array($salesOrder->status, ['selesai', 'diterima_toko']))
+                    @php
+                        $daysLeft = now()->diffInDays($salesOrder->deadline, false);
+                        $isUrgent = $daysLeft <= 3;
+                        $bgClass = $daysLeft < 0 ? 'bg-red-600' : ($daysLeft <= 3 ? 'bg-orange-500' : 'bg-blue-600');
+                        $msg = $daysLeft < 0 ? "TELAT " . abs($daysLeft) . " HARI!" : "$daysLeft HARI LAGI";
+                    @endphp
+                    <div class="mt-4 {{ $bgClass }} text-white p-3 rounded-lg flex items-center justify-between shadow-md">
+                        <div class="flex items-center gap-2">
+                            <i class="bi bi-alarm-fill text-xl animate-bounce"></i>
+                            <span class="font-bold text-lg">DEADLINE:
+                                {{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d F Y') }}</span>
+                        </div>
+                        <span class="text-2xl font-black tracking-wider">{{ $msg }}</span>
+                    </div>
+                @endif
             </div>
 
             <div class="bg-white p-6 rounded-xl shadow-lg">
@@ -67,15 +88,18 @@
                                         <div class="font-semibold text-gray-800">{{ $item->product_name }}</div>
                                         <div class="text-xs text-gray-500">SKU: {{ $item->sku ?? '-' }}</div>
                                         @if($isDesign)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-700 mt-1">
-                                                <i class="bi bi-brush mr-1"></i> {{ strtoupper($item->product_type ?? 'design') }}
+                                            <span
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-700 mt-1">
+                                                <i class="bi bi-brush mr-1"></i>
+                                                {{ strtoupper($item->product_type ?? 'design') }}
                                             </span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                     <td class="px-4 py-2 border text-center">
                                         @if($isDesign)
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600' }}">
+                                            <span
+                                                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->design_status] ?? 'bg-gray-100 text-gray-600' }}">
                                                 {{ $statusLabels[$item->design_status] ?? $item->design_status ?? 'Belum Ditetapkan' }}
                                             </span>
                                             @if($item->design_confirmed_at)
@@ -89,13 +113,16 @@
                                     </td>
                                     <td class="px-4 py-2 border text-xs text-gray-700">
                                         @if($item->design_brief)
-                                            <div><strong>Brief:</strong> {{ \Illuminate\Support\Str::limit($item->design_brief, 120) }}</div>
+                                            <div><strong>Brief:</strong>
+                                                {{ \Illuminate\Support\Str::limit($item->design_brief, 120) }}</div>
                                         @endif
                                         @if($item->design_notes)
-                                            <div class="mt-1"><strong>Catatan:</strong> {{ \Illuminate\Support\Str::limit($item->design_notes, 120) }}</div>
+                                            <div class="mt-1"><strong>Catatan:</strong>
+                                                {{ \Illuminate\Support\Str::limit($item->design_notes, 120) }}</div>
                                         @endif
                                         @if($item->design_feedback)
-                                            <div class="mt-1 text-amber-700 bg-amber-50 p-2 rounded"><strong>Feedback:</strong> {{ \Illuminate\Support\Str::limit($item->design_feedback, 120) }}</div>
+                                            <div class="mt-1 text-amber-700 bg-amber-50 p-2 rounded"><strong>Feedback:</strong>
+                                                {{ \Illuminate\Support\Str::limit($item->design_feedback, 120) }}</div>
                                         @endif
                                         @if(!$item->design_brief && !$item->design_notes && !$item->design_feedback)
                                             <span class="text-gray-400">Belum ada catatan</span>
@@ -103,12 +130,14 @@
                                     </td>
                                     <td class="px-4 py-2 border text-center text-xs">
                                         @if($item->design_reference_path)
-                                            <a href="{{ Storage::url($item->design_reference_path) }}" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1">
+                                            <a href="{{ Storage::url($item->design_reference_path) }}" target="_blank"
+                                                class="text-blue-600 hover:underline inline-flex items-center gap-1">
                                                 <i class="bi bi-cloud-arrow-down"></i> Brief
                                             </a><br>
                                         @endif
                                         @if($item->design_preview_path)
-                                            <a href="{{ Storage::url($item->design_preview_path) }}" target="_blank" class="text-emerald-600 hover:underline inline-flex items-center gap-1 mt-1">
+                                            <a href="{{ Storage::url($item->design_preview_path) }}" target="_blank"
+                                                class="text-emerald-600 hover:underline inline-flex items-center gap-1 mt-1">
                                                 <i class="bi bi-eye"></i> Preview
                                             </a>
                                         @endif
@@ -138,7 +167,8 @@
                         <tbody>
                             @forelse($salesOrder->logs as $log)
                                 <tr class="border-b">
-                                    <td class="px-4 py-2 border">{{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
+                                    <td class="px-4 py-2 border">
+                                        {{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i') }}</td>
                                     <td class="px-4 py-2 border">{{ ucfirst(str_replace('_', ' ', $log->action)) }}</td>
                                     <td class="px-4 py-2 border">{{ $log->description }}</td>
                                     <td class="px-4 py-2 border">{{ $log->user->name ?? 'System' }}</td>
@@ -154,7 +184,7 @@
             </div>
         </div>
     </div>
-</div>
+    </div>
 </body>
-</html>
 
+</html>

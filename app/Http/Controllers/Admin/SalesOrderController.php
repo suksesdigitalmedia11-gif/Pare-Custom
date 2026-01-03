@@ -158,7 +158,7 @@ class SalesOrderController extends Controller
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
 
-        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver'])
+        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver', 'items'])
             ->when(
                 $q,
                 fn($query) =>

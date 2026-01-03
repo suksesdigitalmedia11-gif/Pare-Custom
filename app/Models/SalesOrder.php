@@ -123,18 +123,18 @@ class SalesOrder extends Model
     {
         $currentStatus = $this->status;
         $hasPO = $this->hasRelatedPO();
-        
+
         // Workflow untuk SO dengan PO terkait
         if ($hasPO) {
-        $transitions = [
-            'draft' => ['pending'],
+            $transitions = [
+                'draft' => ['pending'],
                 'pending' => ['request_kain'], // Hanya request_kain untuk yang ada PO
                 'request_kain' => ['payment'],
                 'payment' => ['proses_jahit', 'diterima_toko'], // proses_jahit untuk jahit_sendiri, diterima_toko untuk beli_jadi
-            'proses_jahit' => ['printing'],
-            'printing' => ['diterima_toko'],
-            'diterima_toko' => ['selesai'],
-        ];
+                'proses_jahit' => ['printing'],
+                'printing' => ['diterima_toko'],
+                'diterima_toko' => ['selesai'],
+            ];
         } else {
             // Workflow untuk SO tanpa PO (lebih singkat)
             $transitions = [
@@ -143,8 +143,140 @@ class SalesOrder extends Model
                 'selesai' => [], // Final status
             ];
         }
-        
+
         return in_array($newStatus, $transitions[$currentStatus] ?? []);
+    }
+
+    /**
+     * Mengambil status desain global dengan prioritas masalah.
+     * Prioritas:
+     * 1. Rejected (Masalah berat - Revisi)
+     * 2. Pending (Masalah potensi - Belum disentuh/Lupa)
+     * 3. Waiting Customer (Hambatan eksternal)
+     * 4. In Progress (Sedang jalan)
+     * 5. Approved (Aman)
+     */
+    public function getDesignStatusAttribute(): ?string
+    {
+        $designItems = $this->items->filter(function ($item) {
+            return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+        });
+
+        if ($designItems->isEmpty()) {
+            return null;
+        }
+
+        if ($designItems->contains('design_status', 'rejected')) {
+            return 'rejected';
+        }
+
+        // PERUBAHAN KRUSIAL: Mengekspos item yang MASIH PENDING (Belum disentuh editor)
+        if ($designItems->contains('design_status', 'pending')) {
+            return 'pending'; // Dulu 'process', sekarang eksplisit 'pending' agar ketahuan kalau editor belum kerja
+        }
+
+        if ($designItems->contains('design_status', 'waiting_customer')) {
+            return 'waiting_customer';
+        }
+
+        if ($designItems->contains('design_status', 'in_progress')) {
+            return 'in_progress';
+        }
+
+        if ($designItems->every(fn($item) => $item->design_status === 'approved')) {
+            return 'approved';
+        }
+
+        return 'pending'; // Fallback default
+    }
+
+    /**
+     * Mengambil informasi durasi/aging dari status desain saat ini.
+     * Berguna untuk mengetahui berapa lama order "mangkrak" atau didiamkan.
+     */
+    public function getDesignAgingAttribute()
+    {
+        $status = $this->design_status;
+
+        if (!$status || $status === 'approved')
+            return null;
+
+        $designItems = $this->items->filter(function ($item) {
+            return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+        });
+
+        // Ambil item yang menyebabkan status global ini
+        $targetItems = $designItems->where('design_status', $status);
+
+        // Cari yang paling lama (created_at paling tua untuk pending, updated_at paling tua untuk lainnya)
+        if ($status === 'pending') {
+            $oldestItem = $targetItems->sortBy('created_at')->first();
+            return $oldestItem ? $oldestItem->created_at->diffForHumans() : null;
+        } else {
+            $oldestItem = $targetItems->sortBy('updated_at')->first();
+            return $oldestItem ? $oldestItem->updated_at->diffForHumans() : null;
+        }
+    }
+
+    /**
+     * Mengembalikan ringkasan statistik status desain per item.
+     * Contoh: "2 ACC, 1 Revisi"
+     */
+    public function getDesignStatsAttribute(): array
+    {
+        $designItems = $this->items->filter(function ($item) {
+            return $item->requires_design || in_array($item->product_type, ['dtf', 'jersey']);
+        });
+
+        if ($designItems->isEmpty()) {
+            return [];
+        }
+
+        $stats = $designItems->groupBy('design_status')->map->count();
+
+        // Mapping status ke label pendek
+        $labels = [
+            'approved' => 'ACC',
+            'rejected' => 'Rev',
+            'pending' => 'Pend',
+            'in_progress' => 'WIP',
+            'waiting_customer' => 'Wait',
+        ];
+
+        $result = [];
+        foreach ($stats as $status => $count) {
+            $label = $labels[$status] ?? ucfirst($status);
+            $result[$status] = "$count $label";
+        }
+
+        return $result;
+    }
+
+    /**
+     * Menentukan apakah order ini berisiko molor deadline.
+     * Logic: Jika deadline < 3 hari lagi DAN desain belum ACC semua.
+     */
+    public function getDeadlineRiskAttribute(): bool
+    {
+        // Jika tidak ada deadline atau sudah selesai, aman
+        if (!$this->deadline || in_array($this->status, ['diterima_toko', 'selesai'])) {
+            return false;
+        }
+
+        // Jika desain sudah ACC semua, risiko desain minim (pindah ke risiko produksi, tapi kita fokus desain dulu)
+        if ($this->design_status === 'approved') {
+            return false;
+        }
+
+        // Jika design_status NULL (artinya beli jadi/tidak butuh desain), aman
+        if (is_null($this->design_status)) {
+            return false;
+        }
+
+        $daysUntilDeadline = now()->diffInDays($this->deadline, false);
+
+        // Jika deadline sudah lewat (negatif) atau tinggal 3 hari
+        return $daysUntilDeadline <= 3;
     }
 
     public function isEditable(): bool

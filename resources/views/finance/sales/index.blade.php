@@ -263,6 +263,7 @@
                                         </th>
                                         <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
                                         <th class="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                        <th class="px-4 lg:px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Desain</th>
                                         <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                                         <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Dibayar</th>
                                         <th class="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Sisa</th>
@@ -293,6 +294,31 @@
                                                     @else bg-orange-100 text-orange-800 @endif">
                                                     {{ ucfirst(str_replace('_', ' ', $so->status)) }}
                                                 </span>
+                                            </td>
+                                            <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-center">
+                                                @if($so->design_status)
+                                                    <div class="flex flex-col items-center">
+                                                        <span class="status-badge mb-1
+                                                            @if($so->design_status === 'approved') bg-green-100 text-green-800
+                                                            @elseif($so->design_status === 'rejected') bg-red-100 text-red-800
+                                                            @elseif($so->design_status === 'pending') bg-gray-100 text-gray-800 border border-gray-300
+                                                            @elseif($so->design_status === 'waiting_customer') bg-purple-100 text-purple-800
+                                                            @else bg-blue-100 text-blue-800 @endif">
+                                                            {{ $so->design_status === 'process' ? 'Proses' : 
+                                                               ($so->design_status === 'approved' ? 'Acc Desain' : 
+                                                               ($so->design_status === 'rejected' ? 'Revisi' : 
+                                                               ($so->design_status === 'pending' ? 'Belum Disentuh' : 
+                                                               ($so->design_status === 'waiting_customer' ? 'Tunggu Customer' : 'Dikerjakan')))) }}
+                                                        </span>
+                                                        @if($so->design_aging)
+                                                            <span class="text-[10px] {{ $so->design_status === 'pending' ? 'text-red-500 font-semibold' : 'text-gray-400' }}">
+                                                                {{ $so->design_aging }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <span class="text-xs text-gray-400">-</span>
+                                                @endif
                                             </td>
                                             <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
                                                 <div class="text-sm font-medium text-gray-900">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
@@ -371,7 +397,30 @@
                                 </div>
                                 
                                 <div class="mt-2 flex justify-between items-center">
-                                    <span class="text-xs text-gray-500">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit Sendiri' : 'Beli Jadi' }}</span>
+                                    <div>
+                                        <span class="text-xs text-gray-500 block">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit Sendiri' : 'Beli Jadi' }}</span>
+                                        @if($so->design_status)
+                                            <div class="mt-1">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                                    @if($so->design_status === 'approved') bg-green-100 text-green-800
+                                                    @elseif($so->design_status === 'rejected') bg-red-100 text-red-800
+                                                    @elseif($so->design_status === 'pending') bg-gray-100 text-gray-800 border border-gray-300
+                                                    @elseif($so->design_status === 'waiting_customer') bg-purple-100 text-purple-800
+                                                    @else bg-blue-100 text-blue-800 @endif">
+                                                    {{ $so->design_status === 'process' ? 'Proses' : 
+                                                       ($so->design_status === 'approved' ? 'Acc' : 
+                                                       ($so->design_status === 'rejected' ? 'Revisi' : 
+                                                       ($so->design_status === 'pending' ? 'Pending' : 
+                                                       ($so->design_status === 'waiting_customer' ? 'Tunggu Cust' : 'Dikerjakan')))) }}
+                                                </span>
+                                                @if($so->design_aging)
+                                                    <span class="ml-1 text-[10px] {{ $so->design_status === 'pending' ? 'text-red-500 font-semibold' : 'text-gray-400' }}">
+                                                        {{ $so->design_aging }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
                                     <span class="status-badge 
                                         @if($so->payment_status === 'lunas') bg-green-100 text-green-800
                                         @else bg-yellow-100 text-yellow-800 @endif">

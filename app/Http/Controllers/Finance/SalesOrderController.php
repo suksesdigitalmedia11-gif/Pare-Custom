@@ -48,8 +48,8 @@ class SalesOrderController extends Controller
     {
         $user = Auth::user();
         $userType = strtolower($user->usertype ?? $user->role ?? '');
-        
-        return match($action) {
+
+        return match ($action) {
             'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance']),
             'request_kain_to_payment' => $userType === 'finance',
             'payment_to_proses_jahit' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
@@ -99,8 +99,10 @@ class SalesOrderController extends Controller
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
 
-        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver'])
-            ->when($q, fn($query) =>
+        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver', 'items']) // ✅ Tambah 'items' untuk cek status desain di index
+            ->when(
+                $q,
+                fn($query) =>
                 $query->where('so_number', 'like', "%$q%")
                     ->orWhereHas('customer', fn($qq) => $qq->where('name', 'like', "%$q%"))
             )
@@ -128,7 +130,9 @@ class SalesOrderController extends Controller
         $end_date = $request->get('end_date');
 
         $salesOrders = SalesOrder::with(['customer', 'items', 'creator'])
-            ->when($q, fn($query) =>
+            ->when(
+                $q,
+                fn($query) =>
                 $query->where('so_number', 'like', "%$q%")
                     ->orWhereHas('customer', fn($qq) => $qq->where('name', 'like', "%$q%"))
             )
@@ -148,27 +152,27 @@ class SalesOrderController extends Controller
     {
         // AMBIL SHIFT AKTIF GLOBAL (tanpa validasi user)
         $activeShift = Shift::getActiveShift();
-        
+
         $customers = Customer::orderBy('name')->get();
         $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
         $suppliers = Supplier::orderBy('name')->get();
-        
+
         return view('finance.sales.create', compact('customers', 'products', 'activeShift', 'suppliers'));
     }
 
     public function store(Request $request): RedirectResponse|View
     {
         \Log::info('Store request received', $request->all());
-    
+
         // AMBIL SHIFT AKTIF GLOBAL
         $activeShift = Shift::getActiveShift();
-                // Tentukan status dari input (draft atau pending)
-                $status = $request->input('status', 'pending');
-    
+        // Tentukan status dari input (draft atau pending)
+        $status = $request->input('status', 'pending');
+
         $validated = $request->validate([
             'order_type' => ['required', 'in:jahit_sendiri,beli_jadi'],
             'order_date' => ['required', 'date'],
-            'deadline' => ['nullable','date'],
+            'deadline' => ['nullable', 'date'],
             'customer_id' => ['nullable', 'exists:customers,id'],
             'payment_method' => $status === 'draft' ? ['nullable', 'in:cash,transfer,split'] : ['required', 'in:cash,transfer,split'],
             'payment_status' => $status === 'draft' ? ['nullable', 'in:dp,lunas'] : ['required', 'in:dp,lunas'],
@@ -201,10 +205,10 @@ class SalesOrderController extends Controller
         }
 
         $subtotal = collect($validated['items'])->reduce(function ($carry, $item) {
-            return $carry + ((float)$item['sale_price'] * (int)$item['qty']);
+            return $carry + ((float) $item['sale_price'] * (int) $item['qty']);
         }, 0);
-        $discountTotal = (float)($validated['discount_total'] ?? 0);
-        $shippingCost = (float)($validated['shipping_cost'] ?? 0); // ✅ TAMBAH INI
+        $discountTotal = (float) ($validated['discount_total'] ?? 0);
+        $shippingCost = (float) ($validated['shipping_cost'] ?? 0); // ✅ TAMBAH INI
         $grandTotal = $subtotal - $discountTotal + $shippingCost; // ✅ UPDATE INI
 
         $cashAmount = $validated['payment_method'] === 'split' ? ($validated['cash_amount'] ?? 0) : ($validated['payment_method'] === 'cash' ? ($validated['payment_amount'] ?? 0) : 0);
@@ -230,26 +234,26 @@ class SalesOrderController extends Controller
 
         try {
             $salesOrder = DB::transaction(function () use ($validated, $request, $cashAmount, $transferAmount, $paymentAmount, $grandTotal, $activeShift, $status, $subtotal, $discountTotal, $shippingCost) {
-// === AUTO CREATE CUSTOMER LOGIC ===
-$customerId = $validated['customer_id'] ?? null;
-if (empty($customerId) && !empty($validated['customer_name'])) {
-    $existingCustomer = Customer::where('name', $validated['customer_name'])->first();
-    if ($existingCustomer) {
-        $customerId = $existingCustomer->id;
-        \Log::info('Using existing customer', ['customer_id' => $customerId, 'name' => $existingCustomer->name]);
-    } else {
-        $customer = Customer::create([
-            'name' => $validated['customer_name'],
-            'phone' => $validated['customer_phone'] ?? null,
-            'email' => null,
-            'address' => null,
-            'notes' => 'Auto-created from sales order',
-            'is_active' => true,
-        ]);
-        $customerId = $customer->id;
-        \Log::info('Auto-created customer', ['customer_id' => $customerId, 'name' => $customer->name, 'phone' => $customer->phone]);
-    }
-}
+                // === AUTO CREATE CUSTOMER LOGIC ===
+                $customerId = $validated['customer_id'] ?? null;
+                if (empty($customerId) && !empty($validated['customer_name'])) {
+                    $existingCustomer = Customer::where('name', $validated['customer_name'])->first();
+                    if ($existingCustomer) {
+                        $customerId = $existingCustomer->id;
+                        \Log::info('Using existing customer', ['customer_id' => $customerId, 'name' => $existingCustomer->name]);
+                    } else {
+                        $customer = Customer::create([
+                            'name' => $validated['customer_name'],
+                            'phone' => $validated['customer_phone'] ?? null,
+                            'email' => null,
+                            'address' => null,
+                            'notes' => 'Auto-created from sales order',
+                            'is_active' => true,
+                        ]);
+                        $customerId = $customer->id;
+                        \Log::info('Auto-created customer', ['customer_id' => $customerId, 'name' => $customer->name, 'phone' => $customer->phone]);
+                    }
+                }
 
                 $soNumber = $this->generateSoNumber();
 
@@ -270,8 +274,8 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 ]);
 
                 foreach ($validated['items'] as $item) {
-                    $lineTotal = ((float)$item['sale_price'] * (int)$item['qty']) - ((float)($item['discount'] ?? 0) * (int)$item['qty']);
-                    
+                    $lineTotal = ((float) $item['sale_price'] * (int) $item['qty']) - ((float) ($item['discount'] ?? 0) * (int) $item['qty']);
+
                     // ✅ Ambil cost_price dari product saat ini (snapshot)
                     $costPrice = 0;
                     if (!empty($item['product_id'])) {
@@ -280,7 +284,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                             $costPrice = $product->cost_price ?? 0;
                         }
                     }
-                    
+
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
@@ -298,9 +302,9 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                     $proofPath = $request->hasFile('proof_path')
                         ? $request->file('proof_path')->store('payment-proofs', 'public')
                         : null;
-    
+
                     $paymentCategory = ($paymentAmount >= $grandTotal) ? 'pelunasan' : 'dp';
-    
+
                     $payment = Payment::create([
                         'sales_order_id' => $salesOrder->id,
                         'method' => $validated['payment_method'],
@@ -313,20 +317,20 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                         'proof_path' => $proofPath,
                         'created_by' => Auth::id(),
                     ]);
-    
+
                     \Log::info('Payment created', ['payment_id' => $payment->id, 'amount' => $paymentAmount, 'proof_path' => $proofPath ?? 'none']);
-    
+
                     // ✅ UPDATE SHIFT CASH JIKA ADA CASH AMOUNT
                     if ($activeShift && $cashAmount > 0) {
                         $activeShift->increment('cash_total', $cashAmount);
                         \Log::info('Shift cash updated by Finance', ['shift_id' => $activeShift->id, 'cash_amount' => $cashAmount]);
                     }
-    
+
                     $this->logAction($salesOrder, 'payment_added', "Pembayaran ditambahkan: {$paymentCategory}, Jumlah: Rp " . number_format($paymentAmount, 0, ',', '.') . ", Metode: {$validated['payment_method']}" . ($proofPath ? "" : ", tanpa bukti"));
                 }
-    
+
                 $this->logAction($salesOrder, 'created', "Sales order dibuat: {$soNumber}, Tipe: {$validated['order_type']}, Total: Rp " . number_format($grandTotal, 0, ',', '.'));
-    
+
                 return $salesOrder;
             });
 
@@ -410,10 +414,10 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         }
 
         $subtotal = collect($validated['items'])->reduce(function ($carry, $item) {
-            return $carry + ((float)$item['sale_price'] * (int)$item['qty']);
+            return $carry + ((float) $item['sale_price'] * (int) $item['qty']);
         }, 0);
-        $discountTotal = (float)($validated['discount_total'] ?? 0);
-        $shippingCost = (float)($validated['shipping_cost'] ?? 0); // ✅ TAMBAH INI
+        $discountTotal = (float) ($validated['discount_total'] ?? 0);
+        $shippingCost = (float) ($validated['shipping_cost'] ?? 0); // ✅ TAMBAH INI
         $grandTotal = $subtotal - $discountTotal + $shippingCost; // ✅ UPDATE INI
 
         $cashAmount = $validated['payment_method'] === 'split' ? ($validated['cash_amount'] ?? 0) : ($validated['payment_method'] === 'cash' ? ($validated['payment_amount'] ?? 0) : 0);
@@ -455,8 +459,8 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
 
                 $salesOrder->items()->delete();
                 foreach ($validated['items'] as $item) {
-                    $lineTotal = ((float)$item['sale_price'] * (int)$item['qty']) - ((float)($item['discount'] ?? 0) * (int)$item['qty']);
-                    
+                    $lineTotal = ((float) $item['sale_price'] * (int) $item['qty']) - ((float) ($item['discount'] ?? 0) * (int) $item['qty']);
+
                     // ✅ Ambil cost_price dari product saat ini (snapshot)
                     $costPrice = 0;
                     if (!empty($item['product_id'])) {
@@ -465,7 +469,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                             $costPrice = $product->cost_price ?? 0;
                         }
                     }
-                    
+
                     SalesOrderItem::create([
                         'sales_order_id' => $salesOrder->id,
                         'product_id' => $item['product_id'] ?? null,
@@ -510,14 +514,19 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
     public function addPayment(Request $request, SalesOrder $salesOrder): RedirectResponse
     {
         $validated = $request->validate([
-            'payment_amount' => ['required', 'numeric', 'min:0', function ($attribute, $value, $fail) use ($salesOrder) {
-                if ($salesOrder->paid_total == 0 && $value < $salesOrder->grand_total * 0.5) {
-                    $fail('DP minimal 50% dari grand total: Rp ' . number_format($salesOrder->grand_total * 0.5, 0, ',', '.'));
+            'payment_amount' => [
+                'required',
+                'numeric',
+                'min:0',
+                function ($attribute, $value, $fail) use ($salesOrder) {
+                    if ($salesOrder->paid_total == 0 && $value < $salesOrder->grand_total * 0.5) {
+                        $fail('DP minimal 50% dari grand total: Rp ' . number_format($salesOrder->grand_total * 0.5, 0, ',', '.'));
+                    }
+                    if ($value > $salesOrder->remaining_amount) {
+                        $fail('Jumlah tidak boleh melebihi sisa: Rp ' . number_format($salesOrder->remaining_amount, 0, ',', '.'));
+                    }
                 }
-                if ($value > $salesOrder->remaining_amount) {
-                    $fail('Jumlah tidak boleh melebihi sisa: Rp ' . number_format($salesOrder->remaining_amount, 0, ',', '.'));
-                }
-            }],
+            ],
             'payment_method' => ['required', 'in:cash,transfer,split'],
             'cash_amount' => ['nullable', 'required_if:payment_method,split', 'numeric', 'min:0'],
             'transfer_amount' => ['nullable', 'required_if:payment_method,split', 'numeric', 'min:0'],
@@ -542,14 +551,14 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 $proofPath = $request->hasFile('proof_path')
                     ? $request->file('proof_path')->store('payment-proofs', 'public')
                     : null;
-    
+
                 $cashAmount = $validated['payment_method'] === 'cash' ? $validated['payment_amount'] : ($validated['payment_method'] === 'split' ? ($validated['cash_amount'] ?? 0) : 0);
                 $transferAmount = $validated['payment_method'] == 'transfer' ? $validated['payment_amount'] : ($validated['payment_method'] === 'split' ? ($validated['transfer_amount'] ?? 0) : 0);
-    
+
                 $paidBefore = $salesOrder->payments()->sum('amount');
                 $newPaidTotal = $paidBefore + $validated['payment_amount'];
                 $paymentCategory = ($newPaidTotal >= $salesOrder->grand_total) ? 'pelunasan' : 'dp';
-    
+
                 $payment = Payment::create([
                     'sales_order_id' => $salesOrder->id,
                     'method' => $validated['payment_method'],
@@ -564,19 +573,19 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                     'note' => $validated['note'] ?? null,
                     'created_by' => Auth::id(),
                 ]);
-    
+
                 $salesOrder->update(['payment_status' => ($newPaidTotal >= $salesOrder->grand_total) ? 'lunas' : 'dp']);
-    
+
                 // ✅ UPDATE SHIFT CASH JIKA ADA CASH AMOUNT
                 $activeShift = Shift::getActiveShift();
                 if ($activeShift && $cashAmount > 0) {
                     $activeShift->increment('cash_total', $cashAmount);
                     \Log::info('Shift cash updated by Finance in addPayment', ['shift_id' => $activeShift->id, 'cash_amount' => $cashAmount]);
                 }
-    
+
                 $this->logAction($salesOrder, 'payment_added', "Pembayaran ditambahkan: {$paymentCategory}, Jumlah: Rp " . number_format($validated['payment_amount'], 0, ',', '.') . ", Metode: {$validated['payment_method']}");
             });
-    
+
             \Log::info('Payment added successfully', ['so_number' => $salesOrder->so_number]);
             return back()->with('success', 'Pembayaran ditambahkan.');
         } catch (\Exception $e) {
@@ -606,40 +615,40 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
     }
 
     public function searchCustomers(Request $request)
-{
-    $query = $request->get('q');
-    
-    if (strlen($query) < 2) {
-        return response()->json([]);
+    {
+        $query = $request->get('q');
+
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $customers = Customer::where('name', 'like', "%{$query}%")
+            ->orWhere('phone', 'like', "%{$query}%")
+            ->where('is_active', true)
+            ->limit(10)
+            ->get(['id', 'name', 'phone']);
+
+        return response()->json($customers);
     }
-    
-    $customers = Customer::where('name', 'like', "%{$query}%")
-        ->orWhere('phone', 'like', "%{$query}%")
-        ->where('is_active', true)
-        ->limit(10)
-        ->get(['id', 'name', 'phone']);
-    
-    return response()->json($customers);
-}
-// Tambahkan method ini di class Finance SalesOrderController
-public function search(Request $request)
-{
-    $query = $request->get('q');
-    
-    $products = Product::where('is_active', true)
-        ->where('price', '>', 0)
-        ->where(function($q) use ($query) {
-            $q->where('name', 'like', "%{$query}%")
-              ->orWhere('sku', 'like', "%{$query}%")
-              ->orWhere('barcode', 'like', "%{$query}%");
-        })
-        ->select('id', 'name', 'sku', 'barcode', 'price', 'stock_qty')
-        ->orderBy('name')
-        ->limit(10)
-        ->get();
-    
-    return response()->json($products);
-}
+    // Tambahkan method ini di class Finance SalesOrderController
+    public function search(Request $request)
+    {
+        $query = $request->get('q');
+
+        $products = Product::where('is_active', true)
+            ->where('price', '>', 0)
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                    ->orWhere('sku', 'like', "%{$query}%")
+                    ->orWhere('barcode', 'like', "%{$query}%");
+            })
+            ->select('id', 'name', 'sku', 'barcode', 'price', 'stock_qty')
+            ->orderBy('name')
+            ->limit(10)
+            ->get();
+
+        return response()->json($products);
+    }
 
     /**
      * ✅ WORKFLOW BARU: pending → request_kain (untuk SO dengan PO)
@@ -673,15 +682,15 @@ public function search(Request $request)
         if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
             $invalidPayments = $salesOrder->payments()
                 ->whereNull('proof_path')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('reference_number')
-                      ->orWhere('reference_number', '')
-                      ->orWhere('reference_number', ' ')
-                      ->orWhere('reference_number', 'null')
-                      ->orWhere('reference_number', 'NULL');
+                        ->orWhere('reference_number', '')
+                        ->orWhere('reference_number', ' ')
+                        ->orWhere('reference_number', 'null')
+                        ->orWhere('reference_number', 'NULL');
                 })
                 ->count();
-            
+
             if ($invalidPayments > 0) {
                 return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
             }
@@ -693,7 +702,7 @@ public function search(Request $request)
                 $salesOrder->update(['status' => 'request_kain']);
                 $this->logAction($salesOrder, 'moved_to_request_kain', 'Status berubah ke request_kain');
             });
-            
+
             $salesOrder->refresh();
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Status berhasil diubah ke request_kain.');
@@ -725,7 +734,7 @@ public function search(Request $request)
         try {
             $salesOrder->update(['status' => 'payment']);
             $this->logAction($salesOrder, 'moved_to_payment', 'Status berubah ke payment');
-            
+
             $salesOrder->refresh();
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Status berhasil diubah ke payment.');
@@ -763,7 +772,7 @@ public function search(Request $request)
                 $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
                 $this->logAction($salesOrder, 'completed', 'Sales order selesai (tanpa PO)');
             });
-            
+
             return back()->with('success', 'Sales order selesai.');
         } catch (\Exception $e) {
             \Log::error('Error completing SO without PO: ' . $e->getMessage());
@@ -797,7 +806,7 @@ public function search(Request $request)
         try {
             $salesOrder->update(['status' => 'proses_jahit']);
             $this->logAction($salesOrder, 'jahit_processed', 'Proses jahit dimulai: Status berubah ke proses_jahit');
-            
+
             $salesOrder->refresh();
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Proses jahit dimulai.');
@@ -833,7 +842,7 @@ public function search(Request $request)
         try {
             $salesOrder->update(['status' => 'printing']);
             $this->logAction($salesOrder, 'marked_jadi', 'Produk selesai dijahit: Status berubah ke printing');
-            
+
             $salesOrder->refresh();
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Produk selesai dijahit.');
@@ -867,7 +876,7 @@ public function search(Request $request)
         try {
             $salesOrder->update(['status' => 'diterima_toko']);
             $this->logAction($salesOrder, 'marked_diterima_toko', 'Produk diterima toko: Status berubah ke diterima_toko');
-            
+
             $salesOrder->refresh();
             // ✅ Ketika SO diterima_toko, PO harus selesai
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
@@ -900,7 +909,7 @@ public function search(Request $request)
         try {
             $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
             $this->logAction($salesOrder, 'completed', 'Sales order selesai: Status berubah ke selesai');
-            
+
             $salesOrder->refresh();
             SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
             return back()->with('success', 'Sales order selesai.');
@@ -915,7 +924,7 @@ public function search(Request $request)
     {
         try {
             $purchaseOrder = PurchaseOrder::where('sales_order_id', $salesOrder->id)->first();
-            
+
             if (!$purchaseOrder) {
                 return response()->json(['exists' => false], 200);
             }
@@ -935,7 +944,7 @@ public function search(Request $request)
                 'error' => 'Error loading PO data: ' . $e->getMessage()
             ], 500);
         }
-}
+    }
 
     /**
      * ✅ Update cost_price untuk SalesOrderItem (Finance only)
