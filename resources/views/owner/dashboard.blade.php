@@ -28,7 +28,7 @@
         <x-navbar-top-owner></x-navbar-top-owner>
         <div class="p-4 lg:p-6 space-y-4">
           
-          <!-- HEADER & FILTERS -->
+          <!-- [SECTION 1] HEADER & FILTERS -->
           <div class="bg-white p-4 rounded-xl shadow-lg">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
@@ -53,92 +53,126 @@
             </div>
           </div>
 
-          <!-- ADVERTISEMENT PERFORMANCE - 3 CARDS -->
-          @if(isset($advertisementChatCount))
-          <div class="bg-white p-4 rounded-xl shadow-lg">
-            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <i class="bi bi-megaphone text-blue-600"></i>
-              Data Iklan
-            </h2>
-            
-            <!-- PEMBERITAHUAN: Tidak ada data iklan -->
-            @if(isset($advertisementHasActualData) && !$advertisementHasActualData)
-                @if(!empty($advertisementHasValidatedEmpty))
-                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
-                    <div class="flex items-center gap-2">
-                      <i class="bi bi-info-circle-fill text-gray-600"></i>
-                      <p class="text-sm text-gray-700">
-                        <strong>Tidak ada data iklan untuk periode ini.</strong> Admin telah memvalidasi bahwa tidak ada aktivitas iklan.
-                      </p>
-                    </div>
-                  </div>
-                @elseif(empty($advertisementHasAnyData))
-                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
-                    <div class="flex items-center gap-2">
-                      <i class="bi bi-info-circle-fill text-gray-600"></i>
-                      <p class="text-sm text-gray-700">
-                        <strong>Belum ada data iklan untuk periode ini.</strong> Silakan input atau validasi aktivitas.
-                      </p>
-                    </div>
-                  </div>
-                @else
-                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
-                    <div class="flex items-center gap-2">
-                      <i class="bi bi-info-circle-fill text-gray-600"></i>
-                      <p class="text-sm text-gray-700">
-                        <strong>Tidak ada data iklan untuk periode ini.</strong> Data ada, namun belum ada aktivitas (menunggu input).
-                      </p>
-                    </div>
-                  </div>
-                @endif
-            @endif
-            
-            <!-- 3 CARDS -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div class="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500">
+          <!-- [SECTION 2] ALERTS & TODAY'S PERFORMANCE (Priority 1: Danger Zone & Pulse) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- DEADLINE ALERTS COMPACT -->
+            <div class="space-y-3">
+              @if($overdueCount > 0)
+              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500 pulse-alert">
                 <div class="flex items-center justify-between mb-2">
-                  <div>
-                    <p class="text-xs text-blue-600 font-medium mb-1">Chat Masuk</p>
-                    <p class="text-2xl font-bold text-blue-800">{{ $advertisementChatCount ?? 0 }}</p>
-                  </div>
-                  <i class="bi bi-chat-left-text text-blue-500 text-2xl"></i>
+                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="bi bi-exclamation-octagon text-red-500"></i>
+                    Deadline Terlewat
+                  </h3>
+                  <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
                 </div>
-                <p class="text-xs text-blue-600">Total chat masuk periode ini</p>
+                <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                  @foreach($overdueOrders as $order)
+                    @php $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay()); @endphp
+                    <div class="flex justify-between items-center p-2 bg-red-50 rounded text-xs">
+                      <div>
+                        <a href="{{ route('owner.sales.show', $order->id) }}" class="font-semibold text-gray-800 hover:text-blue-600 hover:underline decoration-blue-500 underline-offset-2">
+                          {{ $order->so_number }}
+                        </a>
+                        <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
+                      </div>
+                      <span class="font-bold text-red-600">{{ $daysLate }} HARI</span>
+                    </div>
+                  @endforeach
+                </div>
               </div>
-              
-              <div class="bg-orange-50 p-4 rounded-xl border-l-4 border-orange-500">
+              @endif
+
+              @if($upcomingCount > 0)
+              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
                 <div class="flex items-center justify-between mb-2">
-                  <div>
-                    <p class="text-xs text-orange-600 font-medium mb-1">Follow Up</p>
-                    <p class="text-2xl font-bold text-orange-800">{{ $advertisementFollowupCount ?? 0 }}</p>
-                  </div>
-                  <i class="bi bi-telephone text-orange-500 text-2xl"></i>
+                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="bi bi-exclamation-triangle text-orange-500"></i>
+                    Deadline Mendekat (≤5 hari)
+                  </h3>
+                  <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
                 </div>
-                <p class="text-xs text-orange-600">Total follow up periode ini</p>
+                <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                  @foreach($upcomingOrders as $order)
+                    @php
+                      $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
+                      $isToday = $daysLeft == 0;
+                      $statusText = $isToday ? 'HARI INI' : ($daysLeft <= 1 ? '1 HARI' : $daysLeft . ' HARI');
+                      $bgColor = $isToday ? 'bg-red-50' : ($daysLeft <= 1 ? 'bg-orange-50' : 'bg-yellow-50');
+                    @endphp
+                    <div class="flex justify-between items-center p-2 {{ $bgColor }} rounded text-xs">
+                      <div>
+                        <a href="{{ route('owner.sales.show', $order->id) }}" class="font-semibold text-gray-800 hover:text-blue-600 hover:underline decoration-blue-500 underline-offset-2">
+                          {{ $order->so_number }}
+                        </a>
+                        <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
+                      </div>
+                      <span class="font-bold text-orange-600">{{ $statusText }}</span>
                     </div>
-              
-              <div class="bg-green-50 p-4 rounded-xl border-l-4 border-green-500">
-                <div class="flex items-center justify-between mb-2">
-                  <div>
-                    <p class="text-xs text-green-600 font-medium mb-1">Closing</p>
-                    <p class="text-2xl font-bold text-green-800">{{ $advertisementClosingCount ?? 0 }}</p>
-                    <p class="text-sm text-green-700 mt-1">Rp {{ number_format($advertisementClosingAmount ?? 0, 0, ',', '.') }}</p>
-                    </div>
-                  <i class="bi bi-currency-dollar text-green-500 text-2xl"></i>
+                  @endforeach
                 </div>
-                <p class="text-xs text-green-600">Total closing periode ini</p>
               </div>
+              @endif
             </div>
-            
-            <!-- GRAFIK -->
-            <div class="bg-white p-4 rounded-lg border">
-              <h3 class="text-sm font-semibold text-gray-800 mb-3">Grafik Data Iklan</h3>
-              <canvas id="advertisementChart" height="80"></canvas>
+
+            <!-- PERFORMANCE & PIUTANG COMPACT -->
+            <div class="space-y-3">
+              <!-- TODAY'S PERFORMANCE -->
+              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <i class="bi bi-graph-up text-green-500"></i>
+                  Performa Hari Ini
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="text-center p-2 bg-green-50 rounded">
+                    <div class="text-lg font-bold text-green-700">{{ $todayStats['transactions'] ?? 0 }}</div>
+                    <div class="text-xs text-green-600">Transaksi</div>
+                  </div>
+                  <div class="text-center p-2 bg-blue-50 rounded">
+                    <div class="text-lg font-bold text-blue-700">Rp {{ number_format($todayStats['revenue'] ?? 0, 0, ',', '.') }}</div>
+                    <div class="text-xs text-blue-600">Pendapatan</div>
+                  </div>
+                  <div class="text-center p-2 bg-purple-50 rounded">
+                    <div class="text-lg font-bold text-purple-700">{{ $todayStats['customers'] ?? 0 }}</div>
+                    <div class="text-xs text-purple-600">Customer</div>
+                  </div>
+                  <div class="text-center p-2 bg-orange-50 rounded">
+                    <div class="text-lg font-bold text-orange-700">Rp {{ number_format($todayStats['avg_transaction'] ?? 0, 0, ',', '.') }}</div>
+                    <div class="text-xs text-orange-600">Rata-rata</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PIUTANG -->
+              @if($pendingPaymentsCount > 0)
+              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="bi bi-clock text-yellow-500"></i>
+                    Belum Lunas
+                  </h3>
+                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">{{ $pendingPaymentsCount }}</span>
+                </div>
+                <p class="text-xs text-gray-600 mb-2">Total Piutang: <span class="font-bold text-yellow-700">Rp {{ number_format($totalPiutang ?? 0, 0, ',', '.') }}</span></p>
+                <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                  @foreach($pendingPayments as $order)
+                    <div class="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
+                      <div>
+                        <a href="{{ route('owner.sales.show', $order->id) }}" class="font-medium text-gray-800 hover:text-blue-600 hover:underline decoration-blue-500 underline-offset-2">
+                          {{ $order->so_number }}
+                        </a>
+                        <p class="text-gray-500">{{ $order->customer->name ?? 'Umum' }}</p>
+                      </div>
+                      <span class="font-semibold text-yellow-700">Rp {{ number_format($order->remaining_amount, 0, ',', '.') }}</span>
+                    </div>
+                  @endforeach
+                </div>
+              </div>
+              @endif
             </div>
           </div>
-          @endif
 
-          <!-- FINANCIAL OVERVIEW - 6 CARDS COMPACT -->
+          <!-- [SECTION 3] FINANCIAL OVERVIEW (Priority 2: Financial Health) -->
           <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
             <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
               <p class="text-xs text-gray-500 mb-1">OMSET</p>
@@ -172,7 +206,7 @@
             </div>
           </div>
 
-          <!-- PAYMENT BREAKDOWN - 4 CARDS COMPACT -->
+          <!-- [SECTION 4] PAYMENT BREAKDOWN (Part of Financial Health) -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500">
               <p class="text-xs text-blue-600 font-medium mb-1">Total Orders</p>
@@ -195,7 +229,282 @@
             </div>
           </div>
 
-          <!-- RINCIAN OPERASIONAL -->
+          <!-- [SECTION 5] MONITORING IKLAN & TARGET (Priority 3: Strategic Tracking) -->
+          @if(isset($monthlySales) && isset($grossProfit))
+          <div class="bg-white p-4 rounded-xl shadow-lg">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <i class="bi bi-megaphone text-blue-600"></i>
+                  Monitoring Iklan & Target
+                </h2>
+                <p class="text-xs text-gray-600">Bulan: 
+                  <form method="GET" class="inline">
+                    <input type="hidden" name="start_date" value="{{ $startDate }}">
+                    <input type="hidden" name="end_date" value="{{ $endDate }}">
+                    <select name="month" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
+                      @foreach($availableMonths as $month)
+                        @php $monthDate = \Carbon\Carbon::createFromFormat('Y-m', $month); @endphp
+                        <option value="{{ $month }}" {{ $month === $selectedMonth ? 'selected' : '' }}>
+                          {{ $monthDate->translatedFormat('F Y') }}
+                        </option>
+                      @endforeach
+                    </select>
+                  </form>
+                </p>
+              </div>
+            </div>
+
+            @php
+              $grossProfitIsPositive = $grossProfit >= 0;
+              $statusColor = $grossProfit >= $targetGrossProfit ? 'text-green-600' : ($grossProfitIsPositive ? 'text-amber-600' : 'text-red-600');
+              $invoiceStatusColor = ($currentMonthInvoiceCount ?? 0) >= ($invoiceTarget ?? 0) ? 'text-green-600' : 'text-amber-600';
+            @endphp
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <!-- Target Gross Profit -->
+              <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border-l-4 border-blue-500">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-xs font-semibold text-gray-600 uppercase">Target Gross Profit</p>
+                    <h3 class="text-xl font-bold text-gray-900">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h3>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                    <p class="text-sm font-semibold {{ $statusColor }}">{{ $grossProfit >= $targetGrossProfit ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between text-xs font-medium text-gray-700">
+                    <span>Progress</span>
+                    <span>{{ number_format($grossProfitProgress, 1) }}%</span>
+                  </div>
+                  <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="h-2 rounded-full {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}" style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
+                  </div>
+                  <div class="flex justify-between text-xs text-gray-600">
+                    <span>Realisasi: <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span></span>
+                    @if($grossProfitShortfall > 0)
+                      <span class="text-red-600">Kurang: Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }}</span>
+                    @endif
+                  </div>
+                </div>
+              </div>
+
+              <!-- Target Invoice -->
+              @if(isset($invoiceTarget) && isset($currentMonthInvoiceCount))
+              <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-lg border-l-4 border-indigo-500">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-xs font-semibold text-gray-600 uppercase">Target Invoice</p>
+                    <h3 class="text-xl font-bold text-gray-900">{{ number_format($invoiceTarget, 0, ',', '.') }} Nota</h3>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
+                    <p class="text-sm font-semibold {{ $invoiceStatusColor }}">{{ $currentMonthInvoiceCount >= $invoiceTarget ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between text-xs font-medium text-gray-700">
+                    <span>Progress</span>
+                    <span>{{ number_format($invoiceProgress, 1) }}%</span>
+                  </div>
+                  <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="h-2 rounded-full {{ $invoiceProgress >= 100 ? 'bg-green-500' : 'bg-indigo-500' }}" style="width: {{ min(100, max(0, $invoiceProgress)) }}%"></div>
+                  </div>
+                  <div class="flex justify-between text-xs text-gray-600">
+                    <span>Realisasi: <span class="font-semibold {{ $invoiceStatusColor }}">{{ number_format($currentMonthInvoiceCount, 0, ',', '.') }} nota</span></span>
+                    @if($remainingInvoiceTarget > 0)
+                      <span class="text-red-600">Kurang: {{ number_format($remainingInvoiceTarget, 0, ',', '.') }} nota</span>
+                    @endif
+                  </div>
+                  <p class="text-xs text-gray-500">Bulan lalu: {{ number_format($previousMonthInvoiceCount, 0, ',', '.') }} nota</p>
+                </div>
+              </div>
+              @endif
+            </div>
+          </div>
+          @endif
+
+          <!-- [SECTION 6] ADVERTISEMENT PERFORMANCE CHART -->
+          @if(isset($advertisementChatCount))
+          <div class="bg-white p-4 rounded-xl shadow-lg">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <i class="bi bi-megaphone text-blue-600"></i>
+              Data Iklan
+            </h2>
+            
+            @if(isset($advertisementHasActualData) && !$advertisementHasActualData)
+                @if(!empty($advertisementHasValidatedEmpty))
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Tidak ada data iklan untuk periode ini.</strong> Admin telah memvalidasi bahwa tidak ada aktivitas iklan.
+                      </p>
+                    </div>
+                  </div>
+                @elseif(empty($advertisementHasAnyData))
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Belum ada data iklan untuk periode ini.</strong> Silakan input atau validasi aktivitas.
+                      </p>
+                    </div>
+                  </div>
+                @else
+                  <div class="bg-gray-50 border-l-4 border-gray-400 p-3 mb-4 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <i class="bi bi-info-circle-fill text-gray-600"></i>
+                      <p class="text-sm text-gray-700">
+                        <strong>Tidak ada data iklan untuk periode ini.</strong> Data ada, namun belum ada aktivitas (menunggu input).
+                      </p>
+                    </div>
+                  </div>
+                @endif
+            @endif
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div class="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-xs text-blue-600 font-medium mb-1">Chat Masuk</p>
+                    <p class="text-2xl font-bold text-blue-800">{{ $advertisementChatCount ?? 0 }}</p>
+                  </div>
+                  <i class="bi bi-chat-left-text text-blue-500 text-2xl"></i>
+                </div>
+                <p class="text-xs text-blue-600">Total chat masuk periode ini</p>
+              </div>
+              
+              <div class="bg-orange-50 p-4 rounded-xl border-l-4 border-orange-500">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-xs text-orange-600 font-medium mb-1">Follow Up</p>
+                    <p class="text-2xl font-bold text-orange-800">{{ $advertisementFollowupCount ?? 0 }}</p>
+                  </div>
+                  <i class="bi bi-telephone text-orange-500 text-2xl"></i>
+                </div>
+                <p class="text-xs text-orange-600">Total follow up periode ini</p>
+              </div>
+              
+              <div class="bg-green-50 p-4 rounded-xl border-l-4 border-green-500">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-xs text-green-600 font-medium mb-1">Closing</p>
+                    <p class="text-2xl font-bold text-green-800">{{ $advertisementClosingCount ?? 0 }}</p>
+                    <p class="text-sm text-green-700 mt-1">Rp {{ number_format($advertisementClosingAmount ?? 0, 0, ',', '.') }}</p>
+                  </div>
+                  <i class="bi bi-currency-dollar text-green-500 text-2xl"></i>
+                </div>
+                <p class="text-xs text-green-600">Total closing periode ini</p>
+              </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg border">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3">Grafik Data Iklan</h3>
+              <canvas id="advertisementChart" height="80"></canvas>
+            </div>
+          </div>
+          @endif
+
+          <!-- [SECTION 7] THREE COLUMN ANALYSIS (Payment Methods, Trans Type, Best Selling) -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Payment Methods -->
+            <div class="bg-white p-4 rounded-xl shadow">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <i class="bi bi-credit-card text-blue-500"></i>
+                Metode Pembayaran
+              </h3>
+              <div class="space-y-2">
+                @if(isset($salesByPaymentMethod) && is_iterable($salesByPaymentMethod))
+                  @foreach($salesByPaymentMethod as $method)
+                    @if(isset($method) && is_object($method))
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded text-xs">
+                      <div class="flex items-center gap-2">
+                        @php $methodType = $method->method ?? ''; @endphp
+                        @if($methodType === 'cash')
+                          <i class="bi bi-cash-coin text-green-500"></i>
+                        @elseif($methodType === 'transfer')
+                          <i class="bi bi-bank text-blue-500"></i>
+                        @else
+                          <i class="bi bi-arrow-left-right text-purple-500"></i>
+                        @endif
+                        <span class="font-medium capitalize">{{ $methodType }}</span>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-semibold">Rp {{ number_format($method->total_amount ?? 0, 0, ',', '.') }}</p>
+                        <p class="text-gray-500">{{ $method->transaction_count ?? 0 }} transaksi</p>
+                      </div>
+                    </div>
+                    @endif
+                  @endforeach
+                @else
+                  <p class="text-xs text-gray-400 text-center py-2">Belum ada data</p>
+                @endif
+              </div>
+            </div>
+
+            <!-- Jenis Transaksi -->
+            <div class="bg-white p-4 rounded-xl shadow">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <i class="bi bi-pie-chart text-purple-500"></i>
+                Jenis Transaksi
+              </h3>
+              <div class="space-y-2">
+                <div class="flex justify-between items-center p-2 bg-blue-50 rounded">
+                  <span class="text-xs font-medium text-blue-700">Total</span>
+                  <span class="text-sm font-bold text-blue-800">{{ $salesTypeStats['total'] ?? 0 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-green-50 rounded">
+                  <span class="text-xs font-medium text-green-700">Langsung</span>
+                  <span class="text-sm font-bold text-green-800">{{ $salesTypeStats['direct'] ?? 0 }} ({{ $salesTypeStats['direct_percentage'] ?? 0 }}%)</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-purple-50 rounded">
+                  <span class="text-xs font-medium text-purple-700">Pre-Order</span>
+                  <span class="text-sm font-bold text-purple-800">{{ $salesTypeStats['po'] ?? 0 }} ({{ $salesTypeStats['po_percentage'] ?? 0 }}%)</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div class="flex h-2 rounded-full">
+                    <div class="bg-green-500" style="width: {{ $salesTypeStats['direct_percentage'] ?? 0 }}%"></div>
+                    <div class="bg-purple-500" style="width: {{ $salesTypeStats['po_percentage'] ?? 0 }}%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Produk Terlaris -->
+            <div class="bg-white p-4 rounded-xl shadow">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <i class="bi bi-trophy text-yellow-500"></i>
+                Produk Terlaris
+              </h3>
+              <div class="space-y-2 max-h-48 overflow-y-auto">
+                @if(isset($bestSellingProducts) && $bestSellingProducts->count() > 0)
+                  @foreach($bestSellingProducts as $product)
+                    @if(isset($product) && is_object($product))
+                    <div class="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
+                      <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xs font-bold">#{{ $loop->iteration }}</span>
+                        <div>
+                          <a href="{{ route('owner.product.show', $product->product_id) }}" class="font-medium text-gray-800 hover:text-blue-600 hover:underline decoration-blue-500 underline-offset-2">
+                            {{ $product->product_name ?? '-' }}
+                          </a>
+                          <p class="text-gray-500 text-xs">{{ $product->product_sku ?? '-' }}</p>
+                        </div>
+                      </div>
+                      <span class="font-semibold text-yellow-700">{{ number_format($product->total_terjual ?? 0) }} pcs</span>
+                    </div>
+                    @endif
+                  @endforeach
+                @else
+                  <p class="text-xs text-gray-400 text-center py-2">Belum ada data</p>
+                @endif
+              </div>
+            </div>
+          </div>
+
+          <!-- [SECTION 8] RINCIAN OPERASIONAL -->
           @if(isset($operasionalDetails) && $operasionalDetails->count() > 0)
           <div class="bg-white p-4 rounded-xl shadow-lg">
             <h2 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
@@ -249,312 +558,7 @@
           </div>
           @endif
 
-          <!-- 2 COLUMN LAYOUT: ALERTS & PERFORMANCE -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- DEADLINE ALERTS COMPACT -->
-            <div class="space-y-3">
-              @if($overdueCount > 0)
-              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500 {{ $overdueCount > 0 ? 'pulse-alert' : '' }}">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="bi bi-exclamation-octagon text-red-500"></i>
-                    Deadline Terlewat
-                  </h3>
-                  <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
-                </div>
-                <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                  @foreach($overdueOrders as $order)
-                    @php $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay()); @endphp
-                    <div class="flex justify-between items-center p-2 bg-red-50 rounded text-xs">
-                <div>
-                        <p class="font-semibold text-gray-800">{{ $order->so_number }}</p>
-                        <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
-                      </div>
-                      <span class="font-bold text-red-600">{{ $daysLate }} HARI</span>
-                    </div>
-                  @endforeach
-                </div>
-              </div>
-              @endif
-
-              @if($upcomingCount > 0)
-              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="bi bi-exclamation-triangle text-orange-500"></i>
-                    Deadline Mendekat (≤5 hari)
-                  </h3>
-                  <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
-                </div>
-                <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                  @foreach($upcomingOrders as $order)
-                    @php
-                      $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
-                      $isToday = $daysLeft == 0;
-                      $statusText = $isToday ? 'HARI INI' : ($daysLeft <= 1 ? '1 HARI' : $daysLeft . ' HARI');
-                      $bgColor = $isToday ? 'bg-red-50' : ($daysLeft <= 1 ? 'bg-orange-50' : 'bg-yellow-50');
-                    @endphp
-                    <div class="flex justify-between items-center p-2 {{ $bgColor }} rounded text-xs">
-                <div>
-                        <p class="font-semibold text-gray-800">{{ $order->so_number }}</p>
-                        <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
-                      </div>
-                      <span class="font-bold text-orange-600">{{ $statusText }}</span>
-                    </div>
-                  @endforeach
-                </div>
-              </div>
-              @endif
-            </div>
-
-            <!-- PERFORMANCE & PIUTANG COMPACT -->
-            <div class="space-y-3">
-              <!-- TODAY'S PERFORMANCE -->
-              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
-                <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <i class="bi bi-graph-up text-green-500"></i>
-                  Performa Hari Ini
-                </h3>
-                <div class="grid grid-cols-2 gap-2">
-                  <div class="text-center p-2 bg-green-50 rounded">
-                    <div class="text-lg font-bold text-green-700">{{ $todayStats['transactions'] ?? 0 }}</div>
-                    <div class="text-xs text-green-600">Transaksi</div>
-                  </div>
-                  <div class="text-center p-2 bg-blue-50 rounded">
-                    <div class="text-lg font-bold text-blue-700">Rp {{ number_format($todayStats['revenue'] ?? 0, 0, ',', '.') }}</div>
-                    <div class="text-xs text-blue-600">Pendapatan</div>
-                  </div>
-                  <div class="text-center p-2 bg-purple-50 rounded">
-                    <div class="text-lg font-bold text-purple-700">{{ $todayStats['customers'] ?? 0 }}</div>
-                    <div class="text-xs text-purple-600">Customer</div>
-                  </div>
-                  <div class="text-center p-2 bg-orange-50 rounded">
-                    <div class="text-lg font-bold text-orange-700">Rp {{ number_format($todayStats['avg_transaction'] ?? 0, 0, ',', '.') }}</div>
-                    <div class="text-xs text-orange-600">Rata-rata</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- PIUTANG -->
-              @if($pendingPaymentsCount > 0)
-              <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-500">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="bi bi-clock text-yellow-500"></i>
-                    Belum Lunas
-                  </h3>
-                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">{{ $pendingPaymentsCount }}</span>
-                </div>
-                <p class="text-xs text-gray-600 mb-2">Total Piutang: <span class="font-bold text-yellow-700">Rp {{ number_format($totalPiutang ?? 0, 0, ',', '.') }}</span></p>
-                <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                  @foreach($pendingPayments as $order)
-                    <div class="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
-                <div>
-                        <p class="font-medium">{{ $order->so_number }}</p>
-                        <p class="text-gray-500">{{ $order->customer->name ?? 'Umum' }}</p>
-                      </div>
-                      <span class="font-semibold text-yellow-700">Rp {{ number_format($order->remaining_amount, 0, ',', '.') }}</span>
-                    </div>
-                  @endforeach
-                </div>
-              </div>
-              @endif
-            </div>
-          </div>
-
-          <!-- MONITORING IKLAN & TARGET - COMPACT 2 COLUMNS -->
-          @if(isset($monthlySales) && isset($grossProfit))
-          <div class="bg-white p-4 rounded-xl shadow-lg">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-              <div>
-                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <i class="bi bi-megaphone text-blue-600"></i>
-                  Monitoring Iklan & Target
-                </h2>
-                <p class="text-xs text-gray-600">Bulan: 
-                  <form method="GET" class="inline">
-                    <input type="hidden" name="start_date" value="{{ $startDate }}">
-                    <input type="hidden" name="end_date" value="{{ $endDate }}">
-                    <select name="month" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
-                      @foreach($availableMonths as $month)
-                        @php $monthDate = \Carbon\Carbon::createFromFormat('Y-m', $month); @endphp
-                        <option value="{{ $month }}" {{ $month === $selectedMonth ? 'selected' : '' }}>
-                          {{ $monthDate->translatedFormat('F Y') }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </form>
-                </p>
-              </div>
-            </div>
-
-            @php
-              $grossProfitIsPositive = $grossProfit >= 0;
-              $statusColor = $grossProfit >= $targetGrossProfit ? 'text-green-600' : ($grossProfitIsPositive ? 'text-amber-600' : 'text-red-600');
-              $invoiceStatusColor = ($currentMonthInvoiceCount ?? 0) >= ($invoiceTarget ?? 0) ? 'text-green-600' : 'text-amber-600';
-            @endphp
-
-            <!-- 2 COLUMNS: TARGET GROSS PROFIT & TARGET INVOICE -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <!-- Target Gross Profit -->
-              <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border-l-4 border-blue-500">
-                <div class="flex items-center justify-between mb-2">
-                  <div>
-                    <p class="text-xs font-semibold text-gray-600 uppercase">Target Gross Profit</p>
-                    <h3 class="text-xl font-bold text-gray-900">Rp {{ number_format($targetGrossProfit, 0, ',', '.') }}</h3>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
-                    <p class="text-sm font-semibold {{ $statusColor }}">{{ $grossProfit >= $targetGrossProfit ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
-                  </div>
-                </div>
-                <div class="space-y-1.5">
-                  <div class="flex justify-between text-xs font-medium text-gray-700">
-                    <span>Progress</span>
-                    <span>{{ number_format($grossProfitProgress, 1) }}%</span>
-                  </div>
-                  <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="h-2 rounded-full {{ $grossProfitProgress >= 100 ? 'bg-green-500' : 'bg-blue-500' }}" style="width: {{ min(100, max(0, $grossProfitProgress)) }}%"></div>
-                  </div>
-                  <div class="flex justify-between text-xs text-gray-600">
-                    <span>Realisasi: <span class="font-semibold {{ $statusColor }}">Rp {{ number_format($grossProfit, 0, ',', '.') }}</span></span>
-                    @if($grossProfitShortfall > 0)
-                      <span class="text-red-600">Kurang: Rp {{ number_format($grossProfitShortfall, 0, ',', '.') }}</span>
-                    @endif
-                  </div>
-                </div>
-              </div>
-
-              <!-- Target Invoice -->
-              @if(isset($invoiceTarget) && isset($currentMonthInvoiceCount))
-              <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-lg border-l-4 border-indigo-500">
-                <div class="flex items-center justify-between mb-2">
-                <div>
-                    <p class="text-xs font-semibold text-gray-600 uppercase">Target Invoice</p>
-                    <h3 class="text-xl font-bold text-gray-900">{{ number_format($invoiceTarget, 0, ',', '.') }} Nota</h3>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-xs text-gray-500">Hari {{ $currentDay }}/{{ $daysInMonth }}</p>
-                    <p class="text-sm font-semibold {{ $invoiceStatusColor }}">{{ $currentMonthInvoiceCount >= $invoiceTarget ? '✓ Tercapai' : 'Perlu Akselerasi' }}</p>
-                  </div>
-                </div>
-                <div class="space-y-1.5">
-                  <div class="flex justify-between text-xs font-medium text-gray-700">
-                    <span>Progress</span>
-                    <span>{{ number_format($invoiceProgress, 1) }}%</span>
-                  </div>
-                  <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="h-2 rounded-full {{ $invoiceProgress >= 100 ? 'bg-green-500' : 'bg-indigo-500' }}" style="width: {{ min(100, max(0, $invoiceProgress)) }}%"></div>
-                  </div>
-                  <div class="flex justify-between text-xs text-gray-600">
-                    <span>Realisasi: <span class="font-semibold {{ $invoiceStatusColor }}">{{ number_format($currentMonthInvoiceCount, 0, ',', '.') }} nota</span></span>
-                    @if($remainingInvoiceTarget > 0)
-                      <span class="text-red-600">Kurang: {{ number_format($remainingInvoiceTarget, 0, ',', '.') }} nota</span>
-                    @endif
-                  </div>
-                  <p class="text-xs text-gray-500">Bulan lalu: {{ number_format($previousMonthInvoiceCount, 0, ',', '.') }} nota</p>
-                </div>
-              </div>
-              @endif
-            </div>
-          </div>
-          @endif
-
-          <!-- 3 COLUMN: PAYMENT METHODS, JENIS TRANSAKSI, PRODUK TERLARIS -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <!-- Payment Methods -->
-            <div class="bg-white p-4 rounded-xl shadow">
-              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <i class="bi bi-credit-card text-blue-500"></i>
-                Metode Pembayaran
-              </h3>
-              <div class="space-y-2">
-                @if(isset($salesByPaymentMethod) && is_iterable($salesByPaymentMethod))
-                  @foreach($salesByPaymentMethod as $method)
-                    @if(isset($method) && is_object($method))
-                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded text-xs">
-                      <div class="flex items-center gap-2">
-                        @php $methodType = $method->method ?? ''; @endphp
-                        @if($methodType === 'cash')
-                          <i class="bi bi-cash-coin text-green-500"></i>
-                        @elseif($methodType === 'transfer')
-                          <i class="bi bi-bank text-blue-500"></i>
-                        @else
-                          <i class="bi bi-arrow-left-right text-purple-500"></i>
-                        @endif
-                        <span class="font-medium capitalize">{{ $methodType }}</span>
-                      </div>
-                      <div class="text-right">
-                        <p class="font-semibold">Rp {{ number_format($method->total_amount ?? 0, 0, ',', '.') }}</p>
-                        <p class="text-gray-500">{{ $method->transaction_count ?? 0 }} transaksi</p>
-                      </div>
-                    </div>
-                    @endif
-                  @endforeach
-                @else
-                  <p class="text-xs text-gray-400 text-center py-2">Belum ada data</p>
-                @endif
-            </div>
-          </div>
-
-            <!-- Jenis Transaksi -->
-            <div class="bg-white p-4 rounded-xl shadow">
-              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <i class="bi bi-pie-chart text-purple-500"></i>
-                Jenis Transaksi
-              </h3>
-              <div class="space-y-2">
-                <div class="flex justify-between items-center p-2 bg-blue-50 rounded">
-                  <span class="text-xs font-medium text-blue-700">Total</span>
-                  <span class="text-sm font-bold text-blue-800">{{ $salesTypeStats['total'] ?? 0 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <span class="text-xs font-medium text-green-700">Langsung</span>
-                  <span class="text-sm font-bold text-green-800">{{ $salesTypeStats['direct'] ?? 0 }} ({{ $salesTypeStats['direct_percentage'] ?? 0 }}%)</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-purple-50 rounded">
-                  <span class="text-xs font-medium text-purple-700">Pre-Order</span>
-                  <span class="text-sm font-bold text-purple-800">{{ $salesTypeStats['po'] ?? 0 }} ({{ $salesTypeStats['po_percentage'] ?? 0 }}%)</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div class="flex h-2 rounded-full">
-                    <div class="bg-green-500" style="width: {{ $salesTypeStats['direct_percentage'] ?? 0 }}%"></div>
-                    <div class="bg-purple-500" style="width: {{ $salesTypeStats['po_percentage'] ?? 0 }}%"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Produk Terlaris -->
-            <div class="bg-white p-4 rounded-xl shadow">
-              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <i class="bi bi-trophy text-yellow-500"></i>
-                Produk Terlaris
-              </h3>
-              <div class="space-y-2 max-h-48 overflow-y-auto">
-                @if(isset($bestSellingProducts) && $bestSellingProducts->count() > 0)
-                  @foreach($bestSellingProducts as $product)
-                    @if(isset($product) && is_object($product))
-                    <div class="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
-                      <div class="flex items-center gap-2">
-                        <span class="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xs font-bold">#{{ $loop->iteration }}</span>
-              <div>
-                          <p class="font-medium">{{ $product->product_name ?? '-' }}</p>
-                          <p class="text-gray-500 text-xs">{{ $product->product_sku ?? '-' }}</p>
-                        </div>
-                      </div>
-                      <span class="font-semibold text-yellow-700">{{ number_format($product->total_terjual ?? 0) }} pcs</span>
-                    </div>
-                    @endif
-                  @endforeach
-                @else
-                  <p class="text-xs text-gray-400 text-center py-2">Belum ada data</p>
-                @endif
-              </div>
-            </div>
-          </div>
-
-          <!-- TRANSaksi TERBARU - COMPACT -->
+          <!-- [SECTION 9] TRANSAKSI TERBARU -->
           <div class="bg-white p-4 rounded-xl shadow">
             <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <i class="bi bi-clock-history text-gray-500"></i>
@@ -577,7 +581,11 @@
                     @foreach($recentSales as $sale)
                       @if(isset($sale) && is_object($sale))
                       <tr class="hover:bg-gray-50">
-                        <td class="px-3 py-2 font-medium">{{ $sale->so_number ?? '-' }}</td>
+                        <td class="px-3 py-2">
+                          <a href="{{ route('owner.sales.show', $sale->id) }}" class="font-medium text-blue-600 hover:underline decoration-blue-500 underline-offset-2">
+                            {{ $sale->so_number ?? '-' }}
+                          </a>
+                        </td>
                         <td class="px-3 py-2 text-gray-600">{{ ($sale->customer->name ?? null) ?? 'Guest' }}</td>
                         <td class="px-3 py-2 text-right">Rp {{ number_format($sale->grand_total ?? 0, 0, ',', '.') }}</td>
                         <td class="px-3 py-2 text-right">Rp {{ number_format($sale->paid_total ?? 0, 0, ',', '.') }}</td>

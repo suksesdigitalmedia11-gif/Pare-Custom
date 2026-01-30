@@ -159,105 +159,119 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             
             <!-- 🔴 DEADLINE TERLEWAT -->
-            @if($overdueCount > 0)
-            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500 pulse-alert">
+            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500 {{ $overdueCount > 0 ? 'pulse-alert' : '' }}">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold text-gray-700 flex items-center gap-2">
                         <i class="bi bi-exclamation-octagon text-red-500"></i>
                         Deadline Terlewat
                     </h3>
-                    <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm font-bold">
-                        {{ $overdueCount }}
-                    </span>
+                    @if($overdueCount > 0)
+                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm font-bold">
+                            {{ $overdueCount }}
+                        </span>
+                    @endif
                 </div>
                 
-                <div class="space-y-2">
-                    @foreach($overdueOrders as $order)
-                        @php
-                            $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay());
-                        @endphp
-                        
-                        <a href="{{ route('kepala-toko.sales.show', $order) }}" class="block">
-                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-bold text-red-600">
-                                        {{ $daysLate }} HARI TERLEWAT
+                @if($overdueCount > 0)
+                    <div class="space-y-2">
+                        @foreach($overdueOrders as $order)
+                            @php
+                                $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay());
+                            @endphp
+                            
+                            <a href="{{ route('kepala-toko.sales.show', $order) }}" class="block">
+                                <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
                                     </div>
-                                    <div class="text-xs text-gray-500 mt-1 capitalize">
-                                        {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-red-600">
+                                            {{ $daysLate }} HARI TERLEWAT
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1 capitalize">
+                                            {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
+                        @endforeach
+                    </div>
+                    <div class="mt-4 pt-4 border-t">
+                        <a href="{{ route('kepala-toko.sales.index') }}?status=pending" class="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1">
+                            <i class="bi bi-arrow-right"></i>
+                            Lihat Semua
                         </a>
-                    @endforeach
-                </div>
-                <div class="mt-4 pt-4 border-t">
-                    <a href="{{ route('kepala-toko.sales.index') }}?status=pending" class="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1">
-                        <i class="bi bi-arrow-right"></i>
-                        Lihat Semua
-                    </a>
-                </div>
+                    </div>
+                @else
+                    <div class="text-center py-6">
+                        <i class="bi bi-check-circle text-green-500 text-3xl mb-2"></i>
+                        <p class="text-gray-500 text-sm">Tidak ada deadline terlewat 🎉</p>
+                    </div>
+                @endif
             </div>
-            @endif
 
             <!-- 🟡 DEADLINE MENDEKAT -->
-            @if($upcomingCount > 0)
-            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500">
+            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500 {{ $upcomingCount > 0 ? 'pulse-alert' : '' }}">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold text-gray-700 flex items-center gap-2">
                         <i class="bi bi-exclamation-triangle text-orange-500"></i>
                         Deadline Mendekat (≤5 hari)
                     </h3>
-                    <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
-                        {{ $upcomingCount }}
-                    </span>
+                    @if($upcomingCount > 0)
+                        <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
+                            {{ $upcomingCount }}
+                        </span>
+                    @endif
                 </div>
                 
-                <div class="space-y-2">
-                    @foreach($upcomingOrders as $order)
-                        @php
-                            $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
-                            $isToday = $daysLeft == 0;
+                @if($upcomingCount > 0)
+                    <div class="space-y-2">
+                        @foreach($upcomingOrders as $order)
+                            @php
+                                $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
+                                $isToday = $daysLeft == 0;
+                                
+                                if ($isToday) {
+                                    $bgColor = 'bg-red-100';
+                                    $textColor = 'text-red-800';
+                                    $statusText = 'HARI INI';
+                                } elseif ($daysLeft <= 1) {
+                                    $bgColor = 'bg-orange-100';
+                                    $textColor = 'text-orange-800';
+                                    $statusText = '1 HARI LAGI';
+                                } else {
+                                    $bgColor = 'bg-yellow-100';
+                                    $textColor = 'text-yellow-800';
+                                    $statusText = $daysLeft . ' HARI LAGI';
+                                }
+                            @endphp
                             
-                            if ($isToday) {
-                                $bgColor = 'bg-red-100';
-                                $textColor = 'text-red-800';
-                                $statusText = 'HARI INI';
-                            } elseif ($daysLeft <= 1) {
-                                $bgColor = 'bg-orange-100';
-                                $textColor = 'text-orange-800';
-                                $statusText = '1 HARI LAGI';
-                            } else {
-                                $bgColor = 'bg-yellow-100';
-                                $textColor = 'text-yellow-800';
-                                $statusText = $daysLeft . ' HARI LAGI';
-                            }
-                        @endphp
-                        
-                        <a href="{{ route('kepala-toko.sales.show', $order) }}" class="block">
-                            <div class="flex justify-between items-center p-3 {{ $bgColor }} rounded-lg border hover:opacity-90 transition-opacity">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-bold {{ $textColor }}">
-                                        {{ $statusText }}
+                            <a href="{{ route('kepala-toko.sales.show', $order) }}" class="block">
+                                <div class="flex justify-between items-center p-3 {{ $bgColor }} rounded-lg border hover:opacity-90 transition-opacity">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
                                     </div>
-                                    <div class="text-xs text-gray-500 mt-1 capitalize">
-                                        {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold {{ $textColor }}">
+                                            {{ $statusText }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1 capitalize">
+                                            {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-6">
+                        <i class="bi bi-check-circle text-green-500 text-3xl mb-2"></i>
+                        <p class="text-gray-500 text-sm">Tidak ada deadline mendekat 🎉</p>
+                    </div>
+                @endif
             </div>
-            @endif
           </div>
 
           <!-- === PENDING APPROVALS & LOW STOCK === -->

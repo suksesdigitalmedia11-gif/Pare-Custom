@@ -104,11 +104,44 @@
             $paymentValid = $invalidPayments == 0;
         }
     @endphp
+    
+    <!-- ✅ INFORMASI JIKA TOMBOL TIDAK MUNCUL -->
+    @if($salesOrder->status === 'pending' && $salesOrder->approved_by !== null)
+        {{-- 1. Cek Payment Valid --}}
+        @if(in_array($salesOrder->payment_method, ['transfer', 'split']) && !$paymentValid)
+            <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
+                <i class="bi bi-exclamation-triangle-fill text-yellow-600 mt-1"></i>
+                <div>
+                    <h4 class="font-bold">Bukti Pembayaran Belum Lengkap</h4>
+                    <p class="text-sm">Anda memilih pembayaran Transfer/Split, namun belum ada bukti transfer atau nomor referensi yang valid pada riwayat pembayaran. Harap lengkapi salah satu agar tombol proses muncul.</p>
+                </div>
+            </div>
+        @endif
+
+        {{-- 2. Cek PO Existence untuk Jahit Sendiri --}}
+        @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && !$salesOrder->add_to_purchase)
+            <div class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
+                <i class="bi bi-file-earmark-x-fill text-red-600 mt-1"></i>
+                <div>
+                    <h4 class="font-bold">Purchase Order (PO) Tidak Ditemukan</h4>
+                    <p class="text-sm">Order ini bertipe 'Jahit Sendiri' namun tidak memiliki PO Kain terkait. Tombol proses produksi tidak akan muncul. Anda hanya dapat menyelesaikan secara langsung jika pembayaran lunas.</p>
+                </div>
+            </div>
+        @elseif($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && $salesOrder->add_to_purchase)
+            <div class="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
+                <i class="bi bi-info-circle-fill text-blue-600 mt-1"></i>
+                <div>
+                    <h4 class="font-bold">Info: Penyiapan PO Kain</h4>
+                    <p class="text-sm">Order ini memerlukan PO Kain namun belum terbuat secara otomatis. Menekan tombol "Mulai Proses" di bawah akan mencoba membuat PO secara otomatis sebelum memindahkan status.</p>
+                </div>
+            </div>
+        @endif
+    @endif
 
     <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
     
     <!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
-    @if($salesOrder->status === 'pending' && $hasPO && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $activeShift && $canPendingToRequestKain)
+    @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase) && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $activeShift && $canPendingToRequestKain)
         <form action="{{ route('kepala-toko.sales.move-to-request-kain', $salesOrder) }}" method="POST">
             @csrf
             <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
@@ -118,7 +151,7 @@
     @endif
 
     <!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
-    @if($salesOrder->status === 'pending' && !$hasPO && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && $activeShift && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+    @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && $activeShift && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
         <form action="{{ route('kepala-toko.sales.complete-without-po', $salesOrder) }}" method="POST">
             @csrf
             <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">

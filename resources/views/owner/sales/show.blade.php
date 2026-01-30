@@ -163,7 +163,7 @@
                                 @endif
 
                                 {{-- 2. Cek PO Existence untuk Jahit Sendiri --}}
-                                @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO)
+                                @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && !$salesOrder->add_to_purchase)
                                     <div
                                         class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 flex items-start gap-3">
                                         <i class="bi bi-file-earmark-x-fill text-red-600 mt-1"></i>
@@ -175,13 +175,22 @@
                                                 PO).</p>
                                         </div>
                                     </div>
+                                @elseif($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && $salesOrder->add_to_purchase)
+                                    <div
+                                        class="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded mb-4 flex items-start gap-3">
+                                        <i class="bi bi-info-circle-fill text-blue-600 mt-1"></i>
+                                        <div>
+                                            <h4 class="font-bold">Info: Penyiapan PO Kain</h4>
+                                            <p class="text-sm">Order ini memerlukan PO Kain namun belum terbuat secara otomatis. Menekan tombol "Mulai Proses" di bawah akan mencoba membuat PO secara otomatis sebelum memindahkan status.</p>
+                                        </div>
+                                    </div>
                                 @endif
                             @endif
 
                             <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
 
                             <!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
-                            @if($salesOrder->status === 'pending' && $hasPO && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
+                            @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase) && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
                                 <form action="{{ route('owner.sales.move-to-request-kain', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -192,7 +201,7 @@
                             @endif
 
                             <!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
-                            @if($salesOrder->status === 'pending' && !$hasPO && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+                            @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
                                 <form action="{{ route('owner.sales.complete-without-po', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"

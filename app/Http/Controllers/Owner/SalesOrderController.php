@@ -24,20 +24,12 @@ use Illuminate\Http\RedirectResponse;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
+use App\Traits\HandlesSalesOrderWorkflow;
 
 class SalesOrderController extends Controller
 {
+    use HandlesSalesOrderWorkflow;
 
-    private function logAction(SalesOrder $salesOrder, string $action, string $description): void
-    {
-        SalesOrderLog::create([
-            'sales_order_id' => $salesOrder->id,
-            'user_id' => Auth::id(),
-            'action' => $action,
-            'description' => $description,
-            'created_at' => now(), // Eksplisit set created_at
-        ]);
-    }
 
     /**
      * Helper method untuk cek apakah user bisa melakukan aksi tertentu
@@ -754,62 +746,9 @@ class SalesOrderController extends Controller
      * ✅ WORKFLOW BARU: pending → request_kain (untuk SO dengan PO)
      * Hanya Owner, Kepala Toko, Finance yang bisa
      */
-    public function moveToRequestKain(SalesOrder $salesOrder): RedirectResponse
+        public function moveToRequestKain(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('pending_to_request_kain')) {
-            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
-        }
-
-        // Validasi status dan PO
-        if ($salesOrder->status !== 'pending') {
-            return back()->withErrors(['status' => 'Hanya status pending yang bisa dipindah ke request_kain.']);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
-        }
-
-        if ($salesOrder->approved_by === null) {
-            return back()->withErrors(['status' => 'Sales order harus di-approve terlebih dahulu.']);
-        }
-
-        if ($salesOrder->paid_total <= 0) {
-            return back()->withErrors(['payment' => 'Harus ada pembayaran untuk mulai proses.']);
-        }
-
-        // Validasi pembayaran transfer/split
-        if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
-            $invalidPayments = $salesOrder->payments()
-                ->whereNull('proof_path')
-                ->where(function ($q) {
-                    $q->whereNull('reference_number')
-                        ->orWhere('reference_number', '')
-                        ->orWhere('reference_number', ' ')
-                        ->orWhere('reference_number', 'null')
-                        ->orWhere('reference_number', 'NULL');
-                })
-                ->count();
-
-            if ($invalidPayments > 0) {
-                return back()->withErrors(['payment' => 'Semua pembayaran transfer/split harus memiliki bukti pembayaran ATAU no referensi yang valid.']);
-            }
-        }
-
-        try {
-            DB::transaction(function () use ($salesOrder) {
-                $this->updateStockOnPayment($salesOrder);
-                $salesOrder->update(['status' => 'request_kain']);
-                $this->logAction($salesOrder, 'moved_to_request_kain', 'Status berubah ke request_kain');
-            });
-
-            $salesOrder->refresh();
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Status berhasil diubah ke request_kain.');
-        } catch (\Exception $e) {
-            \Log::error('Error moving to request_kain: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToRequestKain($salesOrder);
     }
 
     /**
@@ -1033,40 +972,7 @@ class SalesOrderController extends Controller
             'autoPrint' => true,
         ]);
     }
-    private function updateStockOnPayment(SalesOrder $salesOrder)
-    {
-        DB::transaction(function () use ($salesOrder) {
-            foreach ($salesOrder->items as $item) {
-                if ($item->product_id) {
-                    $product = $item->product;
-                    $initialStock = $product->stock_qty;
-                    $newStock = $initialStock - $item->qty;
-                    if ($newStock < 0) {
-                        \Log::warning('Negative stock for product ' . $product->id . ' on SO ' . $salesOrder->so_number . ': New stock ' . $newStock);
-                    }
-                    $product->stock_qty = $newStock;
-                    $product->save();
 
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'type' => 'OUTGOING',
-                        'ref_code' => $salesOrder->so_number,
-                        'initial_qty' => $initialStock,
-                        'qty_in' => 0,
-                        'qty_out' => $item->qty,
-                        'final_qty' => $product->stock_qty,
-                        'user_id' => Auth::id(),
-                        'notes' => 'Pembayaran SO: ' . $salesOrder->so_number,
-                        'moved_at' => Carbon::now(),
-                    ]);
-                }
-            }
-        });
-    }
-    private function generateSoNumber(): string
-    {
-        return app(NumberGenerator::class)->generateSalesOrderNumber();
-    }
     public function destroy(SalesOrder $salesOrder): RedirectResponse
     {
         // Validasi: hanya owner yang bisa hapus
