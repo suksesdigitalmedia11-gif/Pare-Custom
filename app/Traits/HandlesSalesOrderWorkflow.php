@@ -18,21 +18,27 @@ use Illuminate\Support\Facades\Log;
 trait HandlesSalesOrderWorkflow
 {
     /**
-     * Log action for Sales Order
+     * Centralized permission check for workflow actions
      */
-    protected function logAction(SalesOrder $salesOrder, string $action, string $description): void
+    protected function canPerformWorkflowAction(string $action): bool
     {
-        SalesOrderLog::create([
-            'sales_order_id' => $salesOrder->id,
-            'user_id' => Auth::id(),
-            'action' => $action,
-            'description' => $description,
-            'created_at' => now(),
-        ]);
+        $user = Auth::user();
+        $userType = strtolower($user->usertype ?? $user->role ?? '');
+
+        return match ($action) {
+            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin', 'owner']),
+            'request_kain_to_payment' => in_array($userType, ['finance', 'owner', 'kepala_toko', 'admin']),
+            'payment_to_proses_jahit' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
+            'proses_jahit_to_printing' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
+            'printing_to_diterima_toko' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
+            'diterima_toko_to_selesai' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
+            'pending_to_selesai' => in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']),
+            default => false,
+        };
     }
 
     /**
-     * Ensure Purchase Order exists for Sales Order if add_to_purchase is true
+     * Ensure Purchase Order exists for Sales Order (Recovery for legacy/stuck orders)
      */
     protected function ensurePurchaseOrderExists(SalesOrder $salesOrder): ?PurchaseOrder
     {
@@ -41,61 +47,45 @@ trait HandlesSalesOrderWorkflow
             return $existingPO;
         }
 
-        if (!$salesOrder->add_to_purchase) {
+        // Logic to create PO from SO if missing for production types
+        if (!$salesOrder->add_to_purchase && $salesOrder->order_type !== 'jahit_sendiri') {
             return null;
         }
 
-        // Logic to create PO from SO if missing
         return DB::transaction(function () use ($salesOrder) {
             $itemsToPurchase = [];
             foreach ($salesOrder->items as $item) {
-                if (!empty($item->product_id)) {
-                    $product = Product::find($item->product_id);
-                    // Create PO item if stock is low OR it's a pre-order type
-                    if (!$product || $product->stock_qty < $item->qty || $salesOrder->order_type !== 'beli_jadi') {
-                        $itemsToPurchase[] = [
-                            'product_id' => $item->product_id,
-                            'product_name' => $item->product_name,
-                            'sku' => $item->sku,
-                            'cost_price' => $item->cost_price ?? 0,
-                            'qty' => $item->qty,
-                            'discount' => 0,
-                        ];
-                    }
-                } else {
-                    $itemsToPurchase[] = [
-                        'product_id' => null,
-                        'product_name' => $item->product_name,
-                        'sku' => $item->sku,
-                        'cost_price' => 0,
-                        'qty' => $item->qty,
-                        'discount' => 0,
-                    ];
-                }
+                // Legacy data recovery: include all items for production
+                $itemsToPurchase[] = [
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'sku' => $item->sku,
+                    'cost_price' => $item->cost_price ?? 0,
+                    'qty' => $item->qty,
+                    'discount' => 0,
+                ];
             }
 
             if (empty($itemsToPurchase)) {
                 return null;
             }
 
-            // Get default supplier or fallback
             $supplier = Supplier::where('name', 'Pre-order Customer')->first() 
                         ?? Supplier::firstOrCreate(['name' => 'Pre-order Customer'], ['is_active' => true]);
 
             $poNumber = 'PO' . now()->format('ymd') . str_pad((string) (PurchaseOrder::whereDate('created_at', now()->toDateString())->count() + 1), 4, '0', STR_PAD_LEFT);
 
             $subtotalPo = collect($itemsToPurchase)->sum(fn($i) => $i['cost_price'] * $i['qty']);
-            $grandTotalPo = $subtotalPo;
 
             $purchaseOrder = PurchaseOrder::create([
                 'po_number' => $poNumber,
-                'order_date' => now(),
+                'order_date' => $salesOrder->order_date ?? now(),
                 'supplier_id' => $supplier->id,
                 'purchase_type' => $salesOrder->order_type === 'jahit_sendiri' ? 'kain' : 'produk_jadi',
                 'deadline' => $salesOrder->deadline,
                 'subtotal' => $subtotalPo,
                 'discount_total' => 0,
-                'grand_total' => $grandTotalPo,
+                'grand_total' => $subtotalPo,
                 'status' => PurchaseOrder::STATUS_DRAFT,
                 'is_paid' => false,
                 'created_by' => Auth::id(),
@@ -115,15 +105,7 @@ trait HandlesSalesOrderWorkflow
                 ]);
             }
 
-            \App\Models\PurchaseOrderLog::create([
-                'purchase_order_id' => $purchaseOrder->id,
-                'user_id' => Auth::id(),
-                'action' => 'created',
-                'description' => "Purchase order otomatis dibuat (recovery) dari Sales Order: {$salesOrder->so_number}",
-                'created_at' => now(),
-            ]);
-
-            $this->logAction($salesOrder, 'linked_to_purchase_recovery', "Linked to Purchase Order secara otomatis (recovery): {$poNumber}");
+            $this->logAction($salesOrder, 'linked_to_purchase_recovery', "Linked to Purchase Order secara otomatis (recovery data lama): {$poNumber}");
 
             return $purchaseOrder;
         });
@@ -134,7 +116,6 @@ trait HandlesSalesOrderWorkflow
      */
     protected function updateStockOnPayment(SalesOrder $salesOrder): void
     {
-        // Only deduct stock for products that don't have a PO (available in shop)
         $hasPO = $salesOrder->hasRelatedPO();
         if (!$hasPO) {
             DB::transaction(function () use ($salesOrder) {
@@ -143,15 +124,8 @@ trait HandlesSalesOrderWorkflow
                         $product = Product::find($item->product_id);
                         if ($product) {
                             $initialStock = $product->stock_qty;
-                            $newStock = $initialStock - $item->qty;
+                            $product->decrement('stock_qty', $item->qty);
                             
-                            if ($newStock < 0) {
-                                Log::warning('Negative stock for product ' . $product->id . ' on SO ' . $salesOrder->so_number . ': New stock ' . $newStock);
-                            }
-                            
-                            $product->stock_qty = $newStock;
-                            $product->save();
-
                             \App\Models\StockMovement::create([
                                 'product_id' => $product->id,
                                 'type' => 'OUTGOING',
@@ -176,19 +150,20 @@ trait HandlesSalesOrderWorkflow
      */
     public function performMoveToRequestKain(SalesOrder $salesOrder)
     {
-        // Validasi status
+        if (!$this->canPerformWorkflowAction('pending_to_request_kain')) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
+        }
+
         if ($salesOrder->status !== 'pending') {
             return back()->withErrors(['status' => 'Hanya status pending yang bisa dipindah ke request_kain.']);
         }
 
-        // Pastikan PO ada jika add_to_purchase true
-        if ($salesOrder->add_to_purchase && !$salesOrder->hasRelatedPO()) {
+        if (!$salesOrder->hasRelatedPO()) {
             $this->ensurePurchaseOrderExists($salesOrder);
         }
 
-        // Jika setelah usaha di atas tetap tidak ada PO, maka ini bukan workflow PO
         if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Gagal membuat/menemukan Purchase Order. Pastikan pesanan ini memang Pre-Order.']);
+            return back()->withErrors(['error' => 'Gagal membuat/menemukan Purchase Order. Pastikan pesanan ini adalah Pre-Order/Jahit Sendiri.']);
         }
 
         if ($salesOrder->approved_by === null) {
@@ -229,6 +204,66 @@ trait HandlesSalesOrderWorkflow
             return back()->with('success', 'Status berhasil diubah ke request_kain.');
         } catch (\Exception $e) {
             Log::error('Error moving to request_kain: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Shared moveToPayment logic
+     */
+    public function performMoveToPayment(SalesOrder $salesOrder)
+    {
+        if (!$this->canPerformWorkflowAction('request_kain_to_payment')) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
+        }
+
+        if ($salesOrder->status !== 'request_kain') {
+            return back()->withErrors(['status' => 'Hanya status request_kain yang bisa dipindah ke payment.']);
+        }
+
+        try {
+            DB::transaction(function () use ($salesOrder) {
+                $salesOrder->update(['status' => 'payment']);
+                $this->logAction($salesOrder, 'moved_to_payment', 'Status berubah ke payment');
+            });
+
+            $salesOrder->refresh();
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
+            return back()->with('success', 'Status berhasil diubah ke payment.');
+        } catch (\Exception $e) {
+            Log::error('Error moving to payment: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Common step logic for subsequent statuses
+     */
+    public function performMoveToGeneric(SalesOrder $salesOrder, string $newStatus, string $actionKey)
+    {
+        if (!$this->canPerformWorkflowAction($actionKey)) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
+        }
+
+        if (!$salesOrder->isValidTransition($newStatus)) {
+            return back()->withErrors(['status' => "Transisi status ke {$newStatus} tidak valid."]);
+        }
+
+        try {
+            DB::transaction(function () use ($salesOrder, $newStatus) {
+                $salesOrder->update(['status' => $newStatus]);
+                $this->logAction($salesOrder, "moved_to_{$newStatus}", "Status berubah ke {$newStatus}");
+                
+                if ($newStatus === 'selesai') {
+                    $salesOrder->update(['completed_at' => now()]);
+                }
+            });
+
+            $salesOrder->refresh();
+            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
+            return back()->with('success', "Status berhasil diubah ke {$newStatus}.");
+        } catch (\Exception $e) {
+            Log::error("Error moving to {$newStatus}: " . $e->getMessage());
             return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
     }

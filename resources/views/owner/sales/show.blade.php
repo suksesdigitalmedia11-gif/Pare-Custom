@@ -124,11 +124,11 @@
                                 $userType = strtolower(Auth::user()->usertype ?? Auth::user()->role ?? '');
                                 $hasPO = $salesOrder->hasRelatedPO();
                                 $canPendingToRequestKain = in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin']);
-                                $canRequestKainToPayment = $userType === 'finance';
-                                $canPaymentToProsesJahit = in_array($userType, ['admin', 'finance', 'kepala_toko']);
-                                $canProsesJahitToPrinting = in_array($userType, ['admin', 'finance', 'kepala_toko']);
-                                $canPrintingToDiterimaToko = in_array($userType, ['admin', 'finance', 'kepala_toko']);
-                                $canDiterimaTokoToSelesai = in_array($userType, ['admin', 'finance', 'kepala_toko']);
+                                $canRequestKainToPayment = in_array($userType, ['finance', 'owner', 'kepala_toko']);
+                                $canPaymentToProsesJahit = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
+                                $canProsesJahitToPrinting = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
+                                $canPrintingToDiterimaToko = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
+                                $canDiterimaTokoToSelesai = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
 
                                 // Validasi pembayaran untuk pending → request_kain
                                 $paymentValid = true;
@@ -190,7 +190,7 @@
                             <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
 
                             <!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
-                            @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase) && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
+                            @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase || $salesOrder->order_type === 'jahit_sendiri') && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
                                 <form action="{{ route('owner.sales.move-to-request-kain', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -201,7 +201,7 @@
                             @endif
 
                             <!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
-                            @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+                            @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->order_type !== 'jahit_sendiri' && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
                                 <form action="{{ route('owner.sales.complete-without-po', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -212,7 +212,7 @@
                             @endif
 
                             <!-- request_kain → payment - Hanya Finance -->
-                            @if($salesOrder->status === 'request_kain' && $hasPO && $canRequestKainToPayment)
+                            @if($salesOrder->status === 'request_kain' && $canRequestKainToPayment)
                                 <form action="{{ route('owner.sales.move-to-payment', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -223,7 +223,7 @@
                             @endif
 
                             <!-- payment → proses_jahit (untuk jahit_sendiri) - Admin, Finance, Kepala Toko -->
-                            @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $canPaymentToProsesJahit)
+                            @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $canPaymentToProsesJahit)
                                 <form action="{{ route('owner.sales.process-jahit', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -234,7 +234,7 @@
                             @endif
 
                             <!-- proses_jahit → printing - Admin, Finance, Kepala Toko -->
-                            @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $hasPO && $canProsesJahitToPrinting)
+                            @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $canProsesJahitToPrinting)
                                 <form action="{{ route('owner.sales.mark-as-jadi', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"
@@ -245,7 +245,7 @@
                             @endif
 
                             <!-- printing → diterima_toko (jahit_sendiri) atau payment → diterima_toko (beli_jadi) - Admin, Finance, Kepala Toko -->
-                            @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $hasPO && $canPrintingToDiterimaToko)
+                            @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $canPrintingToDiterimaToko)
                                 <form action="{{ route('owner.sales.mark-as-diterima-toko', $salesOrder) }}" method="POST">
                                     @csrf
                                     <button type="submit"

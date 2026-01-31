@@ -122,15 +122,22 @@ class SalesOrder extends Model
     public function isValidTransition(string $newStatus): bool
     {
         $currentStatus = $this->status;
-        // Gunakan add_to_purchase sebagai indikator workflow, bukan hanya keberadaan PO fisik
-        // Ini untuk menangani kasus di mana PO belum terbuat tapi SO seharusnya melalui workflow PO
-        $shouldHavePO = $this->add_to_purchase || $this->hasRelatedPO();
+        
+        // Pola deteksi workflow: 
+        // 1. Ada PO fisik
+        // 2. add_to_purchase dicentang
+        // 3. Status saat ini sudah masuk di alur PO (recovery data lama)
+        // 4. Tipe order adalah jahit_sendiri (hampir dipastikan butuh PO kain)
+        $isPOWorkflow = $this->hasRelatedPO() || 
+                         $this->add_to_purchase || 
+                         in_array($currentStatus, ['request_kain', 'payment', 'proses_jahit', 'printing', 'diterima_toko']) ||
+                         $this->order_type === 'jahit_sendiri';
 
         // Workflow untuk SO dengan PO terkait (atau seharusnya punya PO)
-        if ($shouldHavePO) {
+        if ($isPOWorkflow) {
             $transitions = [
                 'draft' => ['pending'],
-                'pending' => ['request_kain', 'selesai'], // Tambahkan selesai sebagai fallback
+                'pending' => ['request_kain', 'selesai'], 
                 'request_kain' => ['payment'],
                 'payment' => ['proses_jahit', 'diterima_toko'],
                 'proses_jahit' => ['printing'],
@@ -141,7 +148,7 @@ class SalesOrder extends Model
             // Workflow untuk SO tanpa PO (lebih singkat)
             $transitions = [
                 'draft' => ['pending'],
-                'pending' => ['selesai'], // Langsung selesai setelah approved
+                'pending' => ['selesai'], 
                 'selesai' => [],
             ];
         }

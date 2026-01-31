@@ -31,24 +31,7 @@ class SalesOrderController extends Controller
     use HandlesSalesOrderWorkflow;
 
 
-    /**
-     * Helper method untuk cek apakah user bisa melakukan aksi tertentu
-     */
-    private function canPerformAction(string $action): bool
-    {
-        $user = Auth::user();
-        $userType = strtolower($user->usertype ?? $user->role ?? '');
 
-        return match ($action) {
-            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin']),
-            'request_kain_to_payment' => $userType === 'finance',
-            'payment_to_proses_jahit' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
-            'proses_jahit_to_printing' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
-            'printing_to_diterima_toko' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
-            'diterima_toko_to_selesai' => in_array($userType, ['admin', 'finance', 'kepala_toko']),
-            default => false,
-        };
-    }
 
     public function index(Request $request): View
     {
@@ -757,30 +740,7 @@ class SalesOrderController extends Controller
      */
     public function moveToPayment(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('request_kain_to_payment')) {
-            return back()->withErrors(['error' => 'Hanya Finance yang dapat mengubah status dari request_kain ke payment.']);
-        }
-
-        if ($salesOrder->status !== 'request_kain') {
-            return back()->withErrors(['status' => 'Hanya status request_kain yang bisa dipindah ke payment.']);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
-        }
-
-        try {
-            $salesOrder->update(['status' => 'payment']);
-            $this->logAction($salesOrder, 'moved_to_payment', 'Status berubah ke payment');
-
-            $salesOrder->refresh();
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Status berhasil diubah ke payment.');
-        } catch (\Exception $e) {
-            \Log::error('Error moving to payment: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToPayment($salesOrder);
     }
 
     /**
@@ -825,34 +785,7 @@ class SalesOrderController extends Controller
      */
     public function processJahit(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('payment_to_proses_jahit')) {
-            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
-        }
-
-        if ($salesOrder->status !== 'payment') {
-            return back()->withErrors(['status' => 'Hanya status payment yang bisa dipindah ke proses_jahit.']);
-        }
-
-        if ($salesOrder->order_type !== 'jahit_sendiri') {
-            return back()->withErrors(['status' => 'Hanya order jahit_sendiri yang bisa diproses jahit.']);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
-        }
-
-        try {
-            $salesOrder->update(['status' => 'proses_jahit']);
-            $this->logAction($salesOrder, 'jahit_processed', 'Proses jahit dimulai: Status berubah ke proses_jahit');
-
-            $salesOrder->refresh();
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Proses jahit dimulai.');
-        } catch (\Exception $e) {
-            \Log::error('Error processing jahit: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToGeneric($salesOrder, 'proses_jahit', 'payment_to_proses_jahit');
     }
 
     /**
@@ -861,34 +794,7 @@ class SalesOrderController extends Controller
      */
     public function markAsJadi(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('proses_jahit_to_printing')) {
-            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
-        }
-
-        if ($salesOrder->status !== 'proses_jahit') {
-            return back()->withErrors(['status' => 'Hanya status proses_jahit yang bisa dipindah ke printing.']);
-        }
-
-        if ($salesOrder->order_type !== 'jahit_sendiri') {
-            return back()->withErrors(['status' => 'Hanya order jahit_sendiri yang bisa ditandai printing.']);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
-        }
-
-        try {
-            $salesOrder->update(['status' => 'printing']);
-            $this->logAction($salesOrder, 'marked_jadi', 'Produk selesai dijahit: Status berubah ke printing');
-
-            $salesOrder->refresh();
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Produk selesai dijahit.');
-        } catch (\Exception $e) {
-            \Log::error('Error marking as jadi: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToGeneric($salesOrder, 'printing', 'proses_jahit_to_printing');
     }
     /**
      * ✅ WORKFLOW BARU: printing → diterima_toko (untuk jahit_sendiri) atau payment → diterima_toko (untuk beli_jadi)
@@ -896,33 +802,7 @@ class SalesOrderController extends Controller
      */
     public function markAsDiterimaToko(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('printing_to_diterima_toko')) {
-            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
-        }
-
-        // Validasi status: printing (untuk jahit_sendiri) atau payment (untuk beli_jadi)
-        $validStatuses = $salesOrder->order_type === 'jahit_sendiri' ? ['printing'] : ['payment'];
-        if (!in_array($salesOrder->status, $validStatuses)) {
-            return back()->withErrors(['status' => 'Hanya status ' . implode(' atau ', $validStatuses) . ' yang bisa ditandai diterima toko.']);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Sales order ini tidak memiliki Purchase Order terkait.']);
-        }
-
-        try {
-            $salesOrder->update(['status' => 'diterima_toko']);
-            $this->logAction($salesOrder, 'marked_diterima_toko', 'Produk diterima toko: Status berubah ke diterima_toko');
-
-            $salesOrder->refresh();
-            // ✅ Ketika SO diterima_toko, PO harus selesai
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Produk diterima toko.');
-        } catch (\Exception $e) {
-            \Log::error('Error marking as diterima toko: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToGeneric($salesOrder, 'diterima_toko', 'printing_to_diterima_toko');
     }
 
     /**
@@ -931,30 +811,7 @@ class SalesOrderController extends Controller
      */
     public function complete(SalesOrder $salesOrder): RedirectResponse
     {
-        // Validasi role
-        if (!$this->canPerformAction('diterima_toko_to_selesai')) {
-            return back()->withErrors(['error' => 'Anda tidak memiliki izin untuk melakukan aksi ini.']);
-        }
-
-        if ($salesOrder->status !== 'diterima_toko') {
-            return back()->withErrors(['status' => 'Hanya status diterima_toko yang bisa diselesaikan.']);
-        }
-
-        if ($salesOrder->remaining_amount > 0) {
-            return back()->withErrors(['payment' => 'Pembayaran harus lunas untuk menyelesaikan.']);
-        }
-
-        try {
-            $salesOrder->update(['status' => 'selesai', 'completed_at' => Carbon::now()]);
-            $this->logAction($salesOrder, 'completed', 'Sales order selesai: Status berubah ke selesai');
-
-            $salesOrder->refresh();
-            SalesPurchaseSyncService::syncPurchaseFromSales($salesOrder);
-            return back()->with('success', 'Sales order selesai.');
-        } catch (\Exception $e) {
-            \Log::error('Error completing sales order: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
-        }
+        return $this->performMoveToGeneric($salesOrder, 'selesai', 'diterima_toko_to_selesai');
     }
     public function printNota(Payment $payment): \Illuminate\Http\Response
     {
