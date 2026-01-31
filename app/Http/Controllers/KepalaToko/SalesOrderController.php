@@ -1074,6 +1074,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                     'is_paid' => false,
                     'created_by' => Auth::id(),
                     'sales_order_id' => $salesOrder->id,
+                    'notes' => 'Customer: ' . ($salesOrder->customer->name ?? 'N/A'),
                 ]);
     
                 // Tentukan items SO yang akan dimasukkan ke PO

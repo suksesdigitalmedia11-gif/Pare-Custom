@@ -114,6 +114,13 @@
                             <div>{{ $purchase->creator->name ?? 'System' }}</div>
                         </div>
                         
+                        <div class="md:col-span-2">
+                            <div class="text-sm text-gray-500">Keterangan</div>
+                            <div class="p-3 bg-gray-50 rounded-lg border italic text-gray-600">
+                                {{ $purchase->notes ?? '-' }}
+                            </div>
+                        </div>
+                        
                         <!-- 🔧 FIX: Tampilkan informasi customer jika dari sales -->
                         @if($purchase->is_from_sales)
                         <div class="md:col-span-2 border-t pt-4 mt-4">

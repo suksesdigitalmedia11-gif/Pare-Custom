@@ -67,6 +67,11 @@
                                 <label class="block mb-1 text-sm text-gray-600">Atau Nama Supplier Baru</label>
                                 <input name="supplier_name" placeholder="Supplier Baru" class="border rounded p-2 w-full text-gray-900" />
                             </div>
+
+                            <div class="md:col-span-4">
+                                <label class="block mb-1 text-sm text-gray-600">Keterangan</label>
+                                <textarea name="notes" class="border rounded p-2 w-full text-gray-900" rows="2" placeholder="Masukkan keterangan tambahan jika ada..."></textarea>
+                            </div>
                         </div>
 
                         <!-- Info panel berdasarkan tipe pembelian -->

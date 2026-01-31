@@ -119,6 +119,7 @@
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700">Tipe</th>
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden md:table-cell">Supplier</th>
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden lg:table-cell">Jumlah</th>
+                                    <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden xl:table-cell">Keterangan</th>
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 hidden lg:table-cell">Progress</th>
                                     <th class="px-3 lg:px-4 py-3 text-left font-semibold text-gray-700 text-center">Aksi</th>
@@ -142,6 +143,11 @@
                                         <div class="text-xs text-gray-500 lg:hidden">Rp {{ number_format($p->grand_total,0,',','.') }}</div>
                                     </td>
                                     <td class="px-3 lg:px-4 py-3 hidden lg:table-cell font-medium">Rp {{ number_format($p->grand_total,0,',','.') }}</td>
+                                    <td class="px-3 lg:px-4 py-3 hidden xl:table-cell">
+                                        <div class="truncate max-w-[150px] text-gray-500 italic" title="{{ $p->notes }}">
+                                            {{ $p->notes ?? '-' }}
+                                        </div>
+                                    </td>
                                     <td class="px-3 lg:px-4 py-3">
                                         <span class="px-2 py-1 rounded text-xs font-medium
                                         @if($p->status === 'draft') bg-gray-100 text-gray-800

@@ -61,6 +61,7 @@ class PurchaseOrder extends Model
         'selesai_by',
         'deadline', // tambah ini
         'sales_order_id',
+        'notes',
     ];
 
     protected $casts = [

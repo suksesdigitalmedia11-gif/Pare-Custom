@@ -60,6 +60,11 @@
                                     @endforeach
                                 </select>
                             </div>
+
+                            <div class="md:col-span-4">
+                                <label class="block mb-1 text-sm text-gray-600">Keterangan</label>
+                                <textarea name="notes" class="border rounded p-2 w-full text-gray-900" rows="2" placeholder="Masukkan keterangan tambahan jika ada...">{{ old('notes', $purchase->notes) }}</textarea>
+                            </div>
                         </div>
 
                         <!-- Info panel berdasarkan tipe pembelian -->

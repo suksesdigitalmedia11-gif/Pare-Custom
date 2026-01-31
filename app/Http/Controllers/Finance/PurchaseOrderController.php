@@ -200,6 +200,7 @@ class PurchaseOrderController extends BaseController
             'items.*.cost_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
         ]);
 
         $supplierId = $validated['supplier_id'] ?? null;
@@ -241,6 +242,7 @@ class PurchaseOrderController extends BaseController
                 'status' => PurchaseOrder::STATUS_DRAFT,
                 'is_paid' => (bool) ($validated['is_paid'] ?? false),
                 'created_by' => Auth::id(),
+                'notes' => $validated['notes'] ?? null,
             ]);
 
             foreach ($validated['items'] as $item) {
@@ -315,6 +317,7 @@ class PurchaseOrderController extends BaseController
             'items.*.cost_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
         ]);
 
         $supplierId = $validated['supplier_id'] ?? null;
@@ -350,6 +353,7 @@ class PurchaseOrderController extends BaseController
                 'subtotal' => $subtotal,
                 'discount_total' => $discountTotal,
                 'grand_total' => $grandTotal,
+                'notes' => $validated['notes'] ?? null,
             ]);
 
             $purchase->items()->delete();
