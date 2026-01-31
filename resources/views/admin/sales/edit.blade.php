@@ -1124,9 +1124,9 @@ if (document.getElementById('clear_supplier')) {
                 const errorMessages = [];
 
                 // Validasi harga produk > 0 untuk semua baris
-                if (grandTotal <= 0) {
+                if (grandTotal < 0) {
                      hasErrors = true;
-                     errorMessages.push('Total penjualan (Grand Total) tidak boleh Rp 0. Minimal harus ada total penjualan > 0.');
+                     errorMessages.push('Total penjualan (Grand Total) tidak boleh kurang dari 0.');
                 }
                 
                 const prices = document.querySelectorAll('.sale-price');
@@ -1165,9 +1165,9 @@ if (document.getElementById('clear_supplier')) {
 
                 // Validasi grand total
                 const grandTotal = parseFloat(document.getElementById('grand_total').value) || 0;
-                if (grandTotal <= 0) {
+                if (grandTotal < 0) {
                     hasErrors = true;
-                    errorMessages.push('Grand total harus lebih dari 0');
+                    errorMessages.push('Grand total tidak boleh kurang dari 0');
                 }
 
                 if (hasErrors) {

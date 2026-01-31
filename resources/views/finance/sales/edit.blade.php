@@ -641,9 +641,9 @@ customerSearch.addEventListener('focus', function () {
     soForm.addEventListener('submit', function(e) {
         const prices = document.querySelectorAll('.sale-price');
         for (let p of prices) {
-            if (!p.value || parseFloat(p.value) <= 0) {
+            if (!p.value || parseFloat(p.value) < 0) {
                 e.preventDefault();
-                alert('Harga produk tidak boleh kosong atau nol.');
+                alert('Harga produk tidak boleh kosong atau negatif.');
                 return;
             }
         }
@@ -664,6 +664,16 @@ customerSearch.addEventListener('focus', function () {
             return;
         }
     });
+
+    function updatePaymentAmount() {
+        // Finance edit page doesn't have payment amount input
+        // but this function is called by updateGrandTotal
+    }
+
+    function updatePaymentStatus() {
+        // Finance edit page doesn't have payment status auto-update logic like Create
+        // but this function is called by updateGrandTotal
+    }
 
     // === INISIALISASI AWAL ===
     updateGrandTotal();

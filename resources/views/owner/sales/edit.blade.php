@@ -293,14 +293,17 @@
     }
 
     function updatePaymentStatus() {
-        const paymentAmount = parseFloat(document.getElementById('payment_amount').value) || 0;
-        const paymentStatus = document.getElementById('payment_status').value;
+        const paymentAmountInput = document.getElementById('payment_amount');
+        const paymentStatusInput = document.getElementById('payment_status');
+        const amount = parseFloat(paymentAmountInput ? paymentAmountInput.value : 0) || 0;
         const dpInfo = document.getElementById('dp-info');
-        if (paymentStatus === 'dp' && paymentAmount > 0) {
-            const minDp = grandTotal * 0.5;
-            dpInfo.textContent = `Minimal DP 50%: Rp ${minDp.toLocaleString('id-ID')}`;
+
+        if (amount >= grandTotal) {
+            paymentStatusInput.value = 'lunas';
+            if (dpInfo) dpInfo.textContent = 'Pembayaran lunas';
         } else {
-            dpInfo.textContent = '';
+            paymentStatusInput.value = 'dp';
+            if (dpInfo) dpInfo.textContent = amount > 0 ? `Pembayaran DP: Rp ${amount.toLocaleString('id-ID')}` : 'Belum ada pembayaran';
         }
     }
 
@@ -418,9 +421,9 @@
         console.log('Form submitted, validating...');
         const salePriceInputs = document.querySelectorAll('.sale-price');
         for (let input of salePriceInputs) {
-            if (!input.value || parseFloat(input.value) <= 0) {
+            if (!input.value || parseFloat(input.value) < 0) {
                 e.preventDefault();
-                alert('Harga produk tidak boleh kosong atau nol. Silakan pilih produk yang valid.');
+                alert('Harga produk tidak boleh kosong atau negatif.');
                 console.log('Validation failed: Invalid sale price');
                 return;
             }
@@ -461,12 +464,6 @@
                 }
             }
 
-            if (paymentStatus === 'dp' && paymentAmount < grandTotal * 0.5) {
-                e.preventDefault();
-                alert(`Jumlah pembayaran kurang dari DP minimal 50%: Rp ${(grandTotal * 0.5).toLocaleString('id-ID')}`);
-                console.log('Validation failed: Payment amount below 50% DP');
-                return;
-            }
             if (paymentAmount > grandTotal) {
                 e.preventDefault();
                 alert(`Jumlah pembayaran melebihi grand total: Rp ${grandTotal.toLocaleString('id-ID')}`);

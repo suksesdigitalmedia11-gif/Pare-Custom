@@ -648,7 +648,7 @@
 
             function updatePaymentStatus() {
                 const amount = parseFloat(paymentAmount.value) || 0;
-                if (grandTotal > 0 && amount >= grandTotal) {
+                if (amount >= grandTotal) {
                     paymentStatus.value = 'lunas';
                 } else {
                     paymentStatus.value = 'dp';
@@ -668,9 +668,9 @@
                     // validasi harga produk > 0 untuk semua baris
                     const prices = document.querySelectorAll('.sale-price');
                     for (let p of prices) {
-                        if (!p.value || parseFloat(p.value) <= 0) {
+                        if (!p.value || parseFloat(p.value) < 0) {
                             e.preventDefault();
-                            alert('Harga produk tidak boleh kosong atau nol. Silakan pilih produk yang valid.');
+                            alert('Harga produk tidak boleh kosong atau negatif.');
                             return;
                         }
                     }

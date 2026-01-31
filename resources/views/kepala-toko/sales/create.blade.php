@@ -817,7 +817,7 @@
 
         function updatePaymentStatus() {
             const amount = parseFloat(paymentAmount.value) || 0;
-            if (grandTotal > 0 && amount >= grandTotal) {
+            if (amount >= grandTotal) {
                 paymentStatus.value = 'lunas';
                 if (dpInfo) dpInfo.textContent = 'Pembayaran lunas';
                 if (dpInfo) dpInfo.className = 'text-sm text-green-600 mt-2';
@@ -845,12 +845,11 @@
                 let hasErrors = false;
                 const errorMessages = [];
 
-                // Validasi harga produk > 0 untuk semua baris
                 const prices = document.querySelectorAll('.sale-price');
                 prices.forEach((p, index) => {
-                    if (!p.value || parseFloat(p.value) <= 0) {
+                    if (!p.value || parseFloat(p.value) < 0) {
                         hasErrors = true;
-                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh kosong atau nol`);
+                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh kosong atau negatif`);
                     }
                 });
 

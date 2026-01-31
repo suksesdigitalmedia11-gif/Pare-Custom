@@ -75,7 +75,7 @@ class SalesOrderController extends Controller
             return redirect()->route('kepala-toko.shift.dashboard')->with('error', 'Silakan mulai shift dan masukkan kas awal terlebih dahulu.');
         }
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         $suppliers = Supplier::orderBy('name')->get(); // ✅ Tambahkan ini
         return view('kepala-toko.sales.create', compact('customers', 'products', 'activeShift', 'suppliers')); // ✅ Tambahkan 'suppliers'
     }
@@ -107,7 +107,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => $status === 'draft' ? ['nullable'] : ['nullable', 'numeric', 'min:0'],
@@ -126,9 +126,9 @@ class SalesOrderController extends Controller
         foreach ($request->items as $index => $item) {
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
+                if (!$product) {
                     \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak valid atau harga kosong.'])->withInput();
+                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak valid.'])->withInput();
                 }
             }
         }
@@ -407,7 +407,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         }
         
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         $activeShift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
         
         // ✅ TAMBAH INI: Cari PO terkait dan ambil supplier data
@@ -470,7 +470,7 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
@@ -486,9 +486,9 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         foreach ($items as $index => $item) {
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
+                if (!$product) {
                     \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk yang dipilih tidak memiliki harga valid.'])->withInput();
+                    return back()->withErrors(["items.$index.product_id" => 'Produk yang dipilih tidak valid.'])->withInput();
                 }
             }
         }

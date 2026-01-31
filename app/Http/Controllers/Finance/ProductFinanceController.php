@@ -140,7 +140,7 @@ class ProductFinanceController extends Controller implements FromArray, WithHead
         $query = $request->get('q');
 
         $products = Product::where('is_active', true)
-            ->where('price', '>', 0)
+            ->where('price', '>=', 0)
             ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                     ->orWhere('sku', 'like', "%{$query}%")

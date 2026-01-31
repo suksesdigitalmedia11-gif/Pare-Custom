@@ -1123,12 +1123,12 @@ if (document.getElementById('clear_supplier')) {
                 let hasErrors = false;
                 const errorMessages = [];
 
-                // Validasi harga produk > 0 untuk semua baris
                 const prices = document.querySelectorAll('.sale-price');
                 prices.forEach((p, index) => {
-                    if (!p.value || parseFloat(p.value) <= 0) {
+                    const val = parseFloat(p.value);
+                    if (val < 0) { // Hanya error jika MINUS, 0 BOLEH
                         hasErrors = true;
-                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh kosong atau nol`);
+                        errorMessages.push(`Harga produk pada item ${index + 1} tidak boleh minus`);
                     }
                 });
 
@@ -1159,9 +1159,9 @@ if (document.getElementById('clear_supplier')) {
 
                 // Validasi grand total
                 const grandTotal = parseFloat(document.getElementById('grand_total').value) || 0;
-                if (grandTotal <= 0) {
+                if (grandTotal < 0) {
                     hasErrors = true;
-                    errorMessages.push('Grand total harus lebih dari 0');
+                    errorMessages.push('Grand total tidak boleh kurang dari 0');
                 }
 
                 if (hasErrors) {

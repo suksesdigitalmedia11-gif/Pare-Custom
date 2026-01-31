@@ -64,7 +64,7 @@ class SalesOrderController extends Controller
     {
 
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         $suppliers = Supplier::orderBy('name')->get(); // ✅ Tambahkan ini
         return view('owner.sales.create', compact('customers', 'products', 'suppliers')); // ✅ Tambahkan 'suppliers'
     }
@@ -85,7 +85,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
@@ -101,9 +101,9 @@ class SalesOrderController extends Controller
         foreach ($request->items as $index => $item) {
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
+                if (!$product) {
                     \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak valid atau harga kosong.'])->withInput();
+                    return back()->withErrors(["items.$index.product_id" => 'Produk tidak valid.'])->withInput();
                 }
             }
         }
@@ -123,10 +123,6 @@ class SalesOrderController extends Controller
         \Log::info('Calculated payment', ['payment_amount' => $paymentAmount, 'cash' => $cashAmount, 'transfer' => $transferAmount, 'grand_total' => $grandTotal]);
 
         if ($paymentAmount > 0) {
-            if ($validated['payment_status'] === 'dp' && $paymentAmount < $grandTotal * 0.5) {
-                \Log::error('Payment amount below 50% DP', ['payment_amount' => $paymentAmount, 'grand_total' => $grandTotal]);
-                return back()->withErrors(['payment_amount' => 'DP minimal 50%: Rp ' . number_format($grandTotal * 0.5, 0, ',', '.')])->withInput();
-            }
             if ($paymentAmount > $grandTotal) {
                 \Log::error('Payment amount exceeds grand total', ['payment_amount' => $paymentAmount, 'grand_total' => $grandTotal]);
                 return back()->withErrors(['payment_amount' => 'Jumlah melebihi grand total: Rp ' . number_format($grandTotal, 0, ',', '.')])->withInput();
@@ -361,7 +357,7 @@ class SalesOrderController extends Controller
             return back()->withErrors(['error' => 'Sales order yang selesai tidak bisa diedit.']);
         }
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         return view('owner.sales.edit', compact('salesOrder', 'customers', 'products'));
     }
 
@@ -384,7 +380,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
@@ -398,9 +394,9 @@ class SalesOrderController extends Controller
         foreach ($request->items as $index => $item) {
             if (!empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
-                if (!$product || $product->price <= 0) {
+                if (!$product) {
                     \Log::error("Invalid product at index $index", $item);
-                    return back()->withErrors(["items.$index.product_id" => 'Produk yang dipilih tidak memiliki harga valid.'])->withInput();
+                    return back()->withErrors(["items.$index.product_id" => 'Produk yang dipilih tidak valid.'])->withInput();
                 }
             }
         }
@@ -420,10 +416,6 @@ class SalesOrderController extends Controller
         \Log::info('Calculated payment in update', ['payment_amount' => $paymentAmount, 'cash' => $cashAmount, 'transfer' => $transferAmount, 'grand_total' => $grandTotal]);
 
         if ($paymentAmount > 0) {
-            if ($validated['payment_status'] === 'dp' && $paymentAmount < $grandTotal * 0.5) {
-                \Log::error('Payment amount below 50% DP', ['payment_amount' => $paymentAmount, 'grand_total' => $grandTotal]);
-                return back()->withErrors(['payment_amount' => 'DP minimal 50%: Rp ' . number_format($grandTotal * 0.5, 0, ',', '.')])->withInput();
-            }
             if ($paymentAmount > $grandTotal) {
                 \Log::error('Payment amount exceeds grand total', ['payment_amount' => $paymentAmount, 'grand_total' => $grandTotal]);
                 return back()->withErrors(['payment_amount' => 'Jumlah melebihi grand total: Rp ' . number_format($grandTotal, 0, ',', '.')])->withInput();

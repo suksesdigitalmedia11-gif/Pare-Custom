@@ -838,7 +838,7 @@
 
             function updatePaymentStatus() {
                 const amount = parseFloat(paymentAmount.value) || 0;
-                if (grandTotal > 0 && amount >= grandTotal) {
+                if (amount >= grandTotal) {
                     paymentStatus.value = 'lunas';
                     if (dpInfo) dpInfo.textContent = 'Pembayaran lunas';
                     if (dpInfo) dpInfo.className = 'text-sm text-green-600 mt-2';
@@ -868,9 +868,9 @@
 
                     // Validasi harga produk > 0 untuk semua baris -- DIHAPUS (Boleh 0)
                     // GANTINYA: Validasi Grand Total tidak boleh 0
-                    if (grandTotal <= 0) {
+                    if (grandTotal < 0) {
                         hasErrors = true;
-                        errorMessages.push('Total penjualan (Grand Total) tidak boleh Rp 0. Minimal harus ada total penjualan > 0.');
+                        errorMessages.push('Total penjualan (Grand Total) tidak boleh kurang dari 0.');
                     }
 
                     const prices = document.querySelectorAll('.sale-price');

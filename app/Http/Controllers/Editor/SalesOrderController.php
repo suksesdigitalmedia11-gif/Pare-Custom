@@ -69,7 +69,7 @@ class SalesOrderController extends Controller
             return $shiftCheck;
         }
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         $activeShift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
         return view('editor.sales.create', compact('customers', 'products', 'activeShift'));
     }
@@ -91,7 +91,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
@@ -110,9 +110,6 @@ class SalesOrderController extends Controller
         $paymentAmount = $cashAmount + $transferAmount;
 
         if ($paymentAmount > 0) {
-            if ($validated['payment_status'] === 'dp' && $paymentAmount < $grandTotal * 0.5) {
-                return back()->withErrors(['payment_amount' => 'DP minimal 50%: Rp ' . number_format($grandTotal * 0.5, 0, ',', '.')])->withInput();
-            }
             if ($paymentAmount > $grandTotal) {
                 return back()->withErrors(['payment_amount' => 'Jumlah melebihi grand total: Rp ' . number_format($grandTotal, 0, ',', '.')])->withInput();
             }
@@ -291,7 +288,7 @@ class SalesOrderController extends Controller
             return back()->withErrors(['error' => 'Sales order yang selesai tidak bisa diedit.']);
         }
         $customers = Customer::orderBy('name')->get();
-        $products = Product::where('is_active', true)->where('price', '>', 0)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->where('price', '>=', 0)->orderBy('name')->get();
         $activeShift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
         return view('editor.sales.edit', compact('salesOrder', 'customers', 'products', 'activeShift'));
     }
@@ -317,7 +314,7 @@ class SalesOrderController extends Controller
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku' => ['nullable', 'string', 'max:100'],
-            'items.*.sale_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.sale_price' => ['required', 'numeric', 'min:0'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
@@ -336,9 +333,6 @@ class SalesOrderController extends Controller
         $paymentAmount = $cashAmount + $transferAmount;
 
         if ($paymentAmount > 0) {
-            if ($validated['payment_status'] === 'dp' && $paymentAmount < $grandTotal * 0.5) {
-                return back()->withErrors(['payment_amount' => 'DP minimal 50%: Rp ' . number_format($grandTotal * 0.5, 0, ',', '.')])->withInput();
-            }
             if ($paymentAmount > $grandTotal) {
                 return back()->withErrors(['payment_amount' => 'Jumlah melebihi grand total: Rp ' . number_format($grandTotal, 0, ',', '.')])->withInput();
             }
@@ -447,9 +441,6 @@ class SalesOrderController extends Controller
 
         $validated = $request->validate([
             'payment_amount' => ['required', 'numeric', 'min:0', function ($attribute, $value, $fail) use ($salesOrder) {
-                if ($salesOrder->paid_total == 0 && $value < $salesOrder->grand_total * 0.5) {
-                    $fail('DP minimal 50% dari grand total: Rp ' . number_format($salesOrder->grand_total * 0.5, 0, ',', '.'));
-                }
                 if ($value > $salesOrder->remaining_amount) {
                     $fail('Jumlah tidak boleh melebihi sisa: Rp ' . number_format($salesOrder->remaining_amount, 0, ',', '.'));
                 }
