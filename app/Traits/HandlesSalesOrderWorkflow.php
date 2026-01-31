@@ -18,6 +18,20 @@ use Illuminate\Support\Facades\Log;
 trait HandlesSalesOrderWorkflow
 {
     /**
+     * Log an action for a sales order
+     */
+    protected function logAction(SalesOrder $salesOrder, string $action, string $description): void
+    {
+        \App\Models\SalesOrderLog::create([
+            'sales_order_id' => $salesOrder->id,
+            'user_id' => Auth::id(),
+            'action' => $action,
+            'description' => $description,
+            'created_at' => now(),
+        ]);
+    }
+
+    /**
      * Centralized permission check for workflow actions
      */
     protected function canPerformWorkflowAction(string $action): bool
