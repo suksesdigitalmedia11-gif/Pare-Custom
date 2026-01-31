@@ -51,9 +51,12 @@ class DashboardController extends Controller
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
         
         // RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
+        // RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
         $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
             ->orderBy('created_at', 'desc')
-            ->get(['id', 'amount', 'description', 'created_at']);
+            ->select(['id', 'amount', 'description', 'created_at'])
+            ->paginate(10)
+            ->withQueryString();
         
         // ✅ GROSS PROFIT - Sesuai kartu Omset (Omset = totalSales + manualIncome)
         // Gross Profit = Omset - HPP
@@ -99,7 +102,7 @@ class DashboardController extends Controller
         
         // === DEADLINE ALERTS ===
         $overdueOrders = SalesOrder::where('deadline', '<', now()->startOfDay())
-            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft'])
             ->with('customer')
             ->orderBy('deadline', 'asc')
             ->limit(5)
@@ -108,7 +111,7 @@ class DashboardController extends Controller
         
         $upcomingOrders = SalesOrder::where('deadline', '>=', now()->startOfDay())
             ->where('deadline', '<=', now()->addDays(5)->endOfDay())
-            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft'])
             ->with('customer')
             ->orderBy('deadline', 'asc')
             ->limit(5)
@@ -499,6 +502,33 @@ class DashboardController extends Controller
             'advertisementHasValidatedEmpty' => $hasValidatedEmpty,
             'advertisementHasAnyData' => $hasAnyData,
         ];
+    }
+
+    /**
+     * AJAX Handler for Expenses Pagination (Owner)
+     */
+    public function expensesPagination(Request $request)
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
+        
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at', 'desc')
+            ->select(['id', 'amount', 'description', 'created_at'])
+            ->paginate(10)
+            ->withQueryString();
+            
+        // Calculate total for footer
+        $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+
+        return view('owner.partials.expenses_table', [
+            'operasionalDetails' => $operasionalDetails,
+            'operasional' => $operasional,
+            'showTotal' => true
+        ]);
     }
 }
 

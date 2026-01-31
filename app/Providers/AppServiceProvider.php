@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Pagination\Paginator::useTailwind();
+
         Gate::define('admin-access', function ($user) {
             return $user->role === 'admin' || $user->role === 'owner';
         });

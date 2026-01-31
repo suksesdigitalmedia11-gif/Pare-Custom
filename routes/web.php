@@ -127,6 +127,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
 
     // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Owner (jauh dari toko)
     Route::middleware(['auth', 'owner'])->group(function () {
+        Route::get('/dashboard/expenses-pagination', [\App\Http\Controllers\Owner\DashboardController::class, 'expensesPagination'])->name('dashboard.expenses-pagination');
         Route::post('/sales/{salesOrder}/move-to-request-kain', [SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
         Route::post('/sales/{salesOrder}/complete-without-po', [SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
     });
@@ -342,6 +343,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
 
     // ✅ ROUTE TANPA SHIFT CHECK untuk aksi administratif Finance (jauh dari toko)
     Route::middleware(['auth', 'finance'])->group(function () {
+        Route::get('/dashboard/expenses-pagination', [\App\Http\Controllers\Finance\FinanceController::class, 'expensesPagination'])->name('dashboard.expenses-pagination');
         Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
         Route::post('/sales/{salesOrder}/move-to-payment', [\App\Http\Controllers\Finance\SalesOrderController::class, 'moveToPayment'])->name('sales.move-to-payment');
         Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');

@@ -136,10 +136,10 @@
               </h3>
               
               <div class="grid grid-cols-2 gap-4">
-                <div class="text-center p-3 bg-green-50 rounded-lg">
-                  <div class="text-2xl font-bold text-green-700">{{ $todayStats['transactions'] }}</div>
+                <a href="{{ route('admin.sales.index') }}" class="group text-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors block cursor-pointer">
+                  <div class="text-2xl font-bold text-green-700 group-hover:scale-110 transition-transform">{{ $todayStats['transactions'] }}</div>
                   <div class="text-xs text-green-600">Transaksi</div>
-                </div>
+                </a>
                 <div class="text-center p-3 bg-blue-50 rounded-lg">
                   <div class="text-2xl font-bold text-blue-700">Rp {{ number_format($todayStats['revenue'], 0, ',', '.') }}</div>
                   <div class="text-xs text-blue-600">Pendapatan</div>
@@ -211,20 +211,22 @@
                                 $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay());
                             @endphp
                             
-                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-bold text-red-600">
-                                        {{ $daysLate }} HARI TERLEWAT
+                            <a href="{{ route('admin.sales.show', $order->id) }}" class="block group">
+                                <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200 group-hover:bg-red-100 transition-colors">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-gray-800 group-hover:text-blue-700">{{ $order->so_number }}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
                                     </div>
-                                    <div class="text-xs text-gray-500 mt-1 capitalize">
-                                        {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-red-600">
+                                            {{ $daysLate }} HARI TERLEWAT
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1 capitalize">
+                                            {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 @else
@@ -260,31 +262,36 @@
                                     $bgColor = 'bg-red-100';
                                     $textColor = 'text-red-800';
                                     $statusText = 'HARI INI';
+                                    $hoverColor = 'group-hover:bg-red-200';
                                 } elseif ($daysLeft <= 1) {
                                     $bgColor = 'bg-orange-100';
                                     $textColor = 'text-orange-800';
                                     $statusText = '1 HARI LAGI';
+                                    $hoverColor = 'group-hover:bg-orange-200';
                                 } else {
                                     $bgColor = 'bg-yellow-100';
                                     $textColor = 'text-yellow-800';
                                     $statusText = $daysLeft . ' HARI LAGI';
+                                    $hoverColor = 'group-hover:bg-yellow-200';
                                 }
                             @endphp
                             
-                            <div class="flex justify-between items-center p-3 {{ $bgColor }} rounded-lg border">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-sm text-gray-800">{{ $order->so_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-bold {{ $textColor }}">
-                                        {{ $statusText }}
+                            <a href="{{ route('admin.sales.show', $order->id) }}" class="block group">
+                                <div class="flex justify-between items-center p-3 {{ $bgColor }} {{ $hoverColor }} rounded-lg border transition-colors border-transparent group-hover:border-gray-200">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-gray-800 group-hover:text-blue-700">{{ $order->so_number }}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{ $order->customer->name ?? 'Customer Umum' }}</div>
                                     </div>
-                                    <div class="text-xs text-gray-500 mt-1 capitalize">
-                                        {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold {{ $textColor }}">
+                                            {{ $statusText }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1 capitalize">
+                                            {{ \Carbon\Carbon::parse($order->deadline)->format('d/m') }} • {{ $order->status }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 @else
@@ -353,18 +360,20 @@
             @if($pendingPaymentsCount > 0)
               <div class="space-y-2">
                 @foreach($pendingPayments as $order)
-                  <div class="flex justify-between items-center p-2 hover:bg-yellow-50 rounded">
-                    <div>
-                      <div class="font-medium text-sm">{{ $order->so_number }}</div>
-                      <div class="text-xs text-gray-500">{{ $order->customer->name ?? 'Umum' }}</div>
-                    </div>
-                    <div class="text-right">
-                      <div class="text-sm font-semibold text-yellow-700">
-                        Rp {{ number_format($order->remaining_amount, 0, ',', '.') }}
+                  <a href="{{ route('admin.sales.show', $order->id) }}" class="block group">
+                      <div class="flex justify-between items-center p-2 hover:bg-yellow-50 rounded bg-white transition-colors border border-transparent group-hover:border-yellow-200">
+                        <div>
+                          <div class="font-medium text-sm group-hover:text-blue-600">{{ $order->so_number }}</div>
+                          <div class="text-xs text-gray-500">{{ $order->customer->name ?? 'Umum' }}</div>
+                        </div>
+                        <div class="text-right">
+                          <div class="text-sm font-semibold text-yellow-700">
+                            Rp {{ number_format($order->remaining_amount, 0, ',', '.') }}
+                          </div>
+                          <div class="text-xs text-gray-500">{{ $order->payment_status }}</div>
+                        </div>
                       </div>
-                      <div class="text-xs text-gray-500">{{ $order->payment_status }}</div>
-                    </div>
-                  </div>
+                  </a>
                 @endforeach
               </div>
               <div class="mt-4 pt-4 border-t">

@@ -66,9 +66,12 @@ class FinanceController extends Controller
         $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
 
         // 4b. RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
+        // 4b. RINCIAN OPERASIONAL - Detail pengeluaran dengan nominal dan keterangan
         $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
             ->orderBy('created_at', 'desc')
-            ->get(['id', 'amount', 'description', 'created_at']);
+            ->select(['id', 'amount', 'description', 'created_at'])
+            ->paginate(10)
+            ->withQueryString();
 
         // 5. HITUNG PROFIT
         $profit = $omset - $hpp - $operasional;
@@ -134,7 +137,7 @@ class FinanceController extends Controller
 
         // === DEADLINE ALERTS ===
         $overdueOrders = SalesOrder::where('deadline', '<', now()->startOfDay())
-            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft'])
             ->with('customer')
             ->orderBy('deadline', 'asc')
             ->limit(5)
@@ -143,7 +146,7 @@ class FinanceController extends Controller
 
         $upcomingOrders = SalesOrder::where('deadline', '>=', now()->startOfDay())
             ->where('deadline', '<=', now()->addDays(5)->endOfDay())
-            ->whereNotIn('status', ['selesai', 'diterima_toko'])
+            ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft'])
             ->with('customer')
             ->orderBy('deadline', 'asc')
             ->limit(5)
@@ -487,5 +490,32 @@ class FinanceController extends Controller
         ]);
 
         return back()->with('success', 'Shift auto-close telah di-approve. Login admin telah diaktifkan kembali.');
+    }
+
+    /**
+     * AJAX Handler for Expenses Pagination
+     */
+    public function expensesPagination(Request $request)
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
+        
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        $operasionalDetails = Expense::whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at', 'desc')
+            ->select(['id', 'amount', 'description', 'created_at'])
+            ->paginate(10)
+            ->withQueryString();
+            
+        // Calculate total for footer (always total of filtered range, not just page)
+        $operasional = Expense::whereBetween('created_at', [$start, $end])->sum('amount') ?? 0;
+
+        return view('finance.partials.expenses_table', [
+            'operasionalDetails' => $operasionalDetails,
+            'operasional' => $operasional,
+            'showTotal' => true
+        ]);
     }
 }

@@ -282,7 +282,7 @@
                                 <tbody class="divide-y divide-gray-200">
                                     @forelse ($salesOrders as $so)
                                         <tr class="hover:bg-gray-50 smooth-transition cursor-pointer group"
-                                            onclick="window.location='{{ route('kepala-toko.sales.show', $so) }}'">
+                                            onclick="window.location='{{ route('kepala-toko.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                                             <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm font-medium text-gray-900 group-hover:text-blue-600">{{ $so->so_number }}</div>
                                             </td>
@@ -343,7 +343,7 @@
                     <div class="md:hidden">
                         @forelse ($salesOrders as $so)
                             <div class="border-b border-gray-200 p-4 hover:bg-gray-50 smooth-transition cursor-pointer"
-                                onclick="window.location='{{ route('kepala-toko.sales.show', $so) }}'">
+                                onclick="window.location='{{ route('kepala-toko.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                                 <div class="flex justify-between items-start mb-2">
                                     <div>
                                         <div class="font-medium text-gray-900">{{ $so->so_number }}</div>

@@ -96,6 +96,83 @@
                     </div>
                 </div>
 
+            <!-- DEADLINE ALERTS (Priority: Top) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Overdue -->
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500 {{ ($overdueCount ?? 0) > 0 ? 'pulse-alert' : '' }}">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <i class="bi bi-exclamation-octagon text-red-500"></i>
+                            Deadline Terlewat
+                        </h3>
+                        @if(($overdueCount ?? 0)>0)
+                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
+                        @endif
+                    </div>
+                    @if(($overdueCount ?? 0) > 0)
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                        @foreach($overdueOrders as $order)
+                        @php $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay()); @endphp
+                        <a href="{{ route('finance.sales.show', $order->id) }}" class="block group">
+                            <div class="flex justify-between items-center p-2 bg-red-50 rounded text-xs group-hover:bg-red-100 transition-colors border border-transparent group-hover:border-red-200">
+                                <div>
+                                    <div class="font-semibold text-gray-800 group-hover:text-blue-700">{{ $order->so_number }}</div>
+                                    <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
+                                </div>
+                                <span class="font-bold text-red-600">{{ $daysLate }} HARI</span>
+                            </div>
+                        </a>
+                        @endforeach
+                    </div>
+                    @else
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-green-500 text-2xl mb-1"></i>
+                        <p class="text-gray-500 text-xs">Tidak ada deadline terlewat 🎉</p>
+                    </div>
+                    @endif
+                </div>
+                
+                <!-- Upcoming -->
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <i class="bi bi-exclamation-triangle text-orange-500"></i>
+                            Deadline Mendekat (≤5 hari)
+                        </h3>
+                        @if(($upcomingCount ?? 0) > 0)
+                        <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
+                        @endif
+                    </div>
+                    @if(($upcomingCount ?? 0) > 0)
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                        @foreach($upcomingOrders as $order)
+                        @php
+                            $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
+                            $isToday = $daysLeft == 0;
+                            $statusText = $isToday ? 'HARI INI' : ($daysLeft <= 1 ? '1 HARI' : $daysLeft . ' HARI');
+                            $bgColor = $isToday ? 'bg-red-50' : ($daysLeft <= 1 ? 'bg-orange-50' : 'bg-yellow-50');
+                            $hoverColor = $isToday ? 'group-hover:bg-red-100' : ($daysLeft <= 1 ? 'group-hover:bg-orange-100' : 'group-hover:bg-yellow-100');
+                        @endphp
+                        <a href="{{ route('finance.sales.show', $order->id) }}" class="block group">
+                            <div class="flex justify-between items-center p-2 {{ $bgColor }} {{ $hoverColor }} rounded text-xs transition-colors border border-transparent group-hover:border-gray-200">
+                                <div>
+                                    <div class="font-semibold text-gray-800 group-hover:text-blue-700">{{ $order->so_number }}</div>
+                                    <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
+                                </div>
+                                <span class="font-bold text-orange-600">{{ $statusText }}</span>
+                            </div>
+                        </a>
+                        @endforeach
+                    </div>
+                    @else
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-green-500 text-2xl mb-1"></i>
+                        <p class="text-gray-500 text-xs">Tidak ada deadline mendekat 🎉</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+
                 <!-- ADVERTISEMENT PERFORMANCE - 3 CARDS COMPACT -->
                 @if(isset($advertisementChatCount))
                     <div class="bg-white p-4 rounded-xl shadow-lg mb-4">
@@ -287,65 +364,7 @@
                     </div>
                 </div>
 
-                <!-- DEADLINE ALERTS -->
-            @if((isset($overdueCount) && $overdueCount > 0) || (isset($upcomingCount) && $upcomingCount > 0))
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <!-- Overdue -->
-                @if(isset($overdueCount) && $overdueCount > 0)
-                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500 {{ $overdueCount > 0 ? 'pulse-alert' : '' }}">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i class="bi bi-exclamation-octagon text-red-500"></i>
-                            Deadline Terlewat
-                        </h3>
-                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
-                    </div>
-                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                        @foreach($overdueOrders as $order)
-                        @php $daysLate = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay()); @endphp
-                        <div class="flex justify-between items-center p-2 bg-red-50 rounded text-xs">
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ $order->so_number }}</p>
-                                <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
-                            </div>
-                            <span class="font-bold text-red-600">{{ $daysLate }} HARI</span>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
-                
-                <!-- Upcoming -->
-                @if(isset($upcomingCount) && $upcomingCount > 0)
-                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-orange-500">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i class="bi bi-exclamation-triangle text-orange-500"></i>
-                            Deadline Mendekat (≤5 hari)
-                        </h3>
-                        <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
-                    </div>
-                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                        @foreach($upcomingOrders as $order)
-                        @php
-                            $daysLeft = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($order->deadline)->startOfDay(), false);
-                            $isToday = $daysLeft == 0;
-                            $statusText = $isToday ? 'HARI INI' : ($daysLeft <= 1 ? '1 HARI' : $daysLeft . ' HARI');
-                            $bgColor = $isToday ? 'bg-red-50' : ($daysLeft <= 1 ? 'bg-orange-50' : 'bg-yellow-50');
-                        @endphp
-                        <div class="flex justify-between items-center p-2 {{ $bgColor }} rounded text-xs">
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ $order->so_number }}</p>
-                                <p class="text-gray-600">{{ $order->customer->name ?? 'Umum' }}</p>
-                            </div>
-                            <span class="font-bold text-orange-600">{{ $statusText }}</span>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
-            </div>
-            @endif
+
 
             <!-- BREAKDOWN STATUS PEMBAYARAN COMPACT -->
                 <div class="bg-white p-4 rounded-xl shadow mb-4">
@@ -417,47 +436,20 @@
                 </div>
 
                 <!-- RINCIAN OPERASIONAL -->
-                @if(isset($operasionalDetails) && $operasionalDetails->count() > 0)
+                @if(isset($operasionalDetails) && $operasionalDetails->total() > 0)
                     <div class="bg-white p-4 rounded-xl shadow mb-4">
                         <h2 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                             <i class="bi bi-list-ul text-orange-600"></i>
                             Rincian Operasional
-                            <span class="text-xs font-normal text-gray-500">({{ $operasionalDetails->count() }} item)</span>
+                            <span class="text-xs font-normal text-gray-500">({{ $operasionalDetails->total() }} item)</span>
                         </h2>
 
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="bg-orange-50 border-b border-orange-200">
-                                        <th class="text-left py-2 px-3 text-orange-700 font-semibold">Tanggal</th>
-                                        <th class="text-left py-2 px-3 text-orange-700 font-semibold">Keterangan</th>
-                                        <th class="text-right py-2 px-3 text-orange-700 font-semibold">Nominal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($operasionalDetails as $detail)
-                                        <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                            <td class="py-2 px-3 text-gray-600">
-                                                {{ \Carbon\Carbon::parse($detail->created_at)->format('d/m/Y H:i') }}
-                                            </td>
-                                            <td class="py-2 px-3 text-gray-800">
-                                                {{ $detail->description }}
-                                            </td>
-                                            <td class="py-2 px-3 text-right font-semibold text-orange-600">
-                                                Rp {{ number_format($detail->amount, 0, ',', '.') }}
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                                <tfoot>
-                                    <tr class="bg-orange-50 font-bold">
-                                        <td colspan="2" class="py-2 px-3 text-orange-700">TOTAL OPERASIONAL</td>
-                                        <td class="py-2 px-3 text-right text-orange-700">
-                                            Rp {{ number_format($operasional, 0, ',', '.') }}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <div id="expenses-container">
+                             @include('finance.partials.expenses_table', [
+                                'operasionalDetails' => $operasionalDetails, 
+                                'operasional' => $operasional, 
+                                'showTotal' => true
+                             ])
                         </div>
                     </div>
                 @else
@@ -836,6 +828,58 @@
             @endif
         @endif
     </script>
-</body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Expenses Pagination AJAX
+            const expensesContainer = document.getElementById('expenses-container');
+            if (expensesContainer) {
+                expensesContainer.addEventListener('click', function(e) {
+                    const link = e.target.closest('a');
+                    // Ensure it is a pagination link
+                    if (link && link.href && !link.href.includes('#')) {
+                        e.preventDefault();
+                        fetchExpenses(link.href);
+                    }
+                });
+            }
 
+            function fetchExpenses(url) {
+                const expensesContainer = document.getElementById('expenses-container');
+                expensesContainer.style.opacity = '0.5';
+                
+                try {
+                    const urlObj = new URL(url);
+                    const params = urlObj.search;
+                    
+                    // Gunakan route helper agar URL selalu benar dan absolut
+                    // Hindari manipulasi string path manual yang rawan error duplikasi path
+                    const baseUrl = "{{ route('finance.dashboard.expenses-pagination') }}";
+                    const ajaxUrl = baseUrl + params; // ex: http://.../expenses-pagination?page=2&date=...
+
+                    fetch(ajaxUrl, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(html => {
+                        expensesContainer.innerHTML = html;
+                        expensesContainer.style.opacity = '1';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        expensesContainer.style.opacity = '1';
+                        // Optional: Show error message to user
+                    });
+                } catch (e) {
+                    console.error('Invalid URL:', e);
+                    expensesContainer.style.opacity = '1';
+                }
+            }
+        });
+    </script>
+</body>
 </html>

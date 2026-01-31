@@ -40,8 +40,8 @@ trait HandlesSalesOrderWorkflow
         $userType = strtolower($user->usertype ?? $user->role ?? '');
 
         return match ($action) {
-            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin', 'owner']),
-            'request_kain_to_payment' => in_array($userType, ['finance', 'owner', 'kepala_toko', 'admin']),
+            'pending_to_request_kain' => in_array($userType, ['owner', 'kepala_toko', 'finance', 'admin']),
+            'request_kain_to_payment' => in_array($userType, ['finance', 'owner', 'kepala_toko']), // Admin excluded as per request
             'payment_to_proses_jahit' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
             'proses_jahit_to_printing' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
             'printing_to_diterima_toko' => in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']),
@@ -53,6 +53,7 @@ trait HandlesSalesOrderWorkflow
 
     /**
      * Ensure Purchase Order exists for Sales Order (Recovery for legacy/stuck orders)
+     * Now strictly optional/manual - requested to allow workflow without forced PO
      */
     protected function ensurePurchaseOrderExists(SalesOrder $salesOrder): ?PurchaseOrder
     {
@@ -61,68 +62,7 @@ trait HandlesSalesOrderWorkflow
             return $existingPO;
         }
 
-        // Logic to create PO from SO if missing for production types
-        if (!$salesOrder->add_to_purchase && $salesOrder->order_type !== 'jahit_sendiri') {
-            return null;
-        }
-
-        return DB::transaction(function () use ($salesOrder) {
-            $itemsToPurchase = [];
-            foreach ($salesOrder->items as $item) {
-                // Legacy data recovery: include all items for production
-                $itemsToPurchase[] = [
-                    'product_id' => $item->product_id,
-                    'product_name' => $item->product_name,
-                    'sku' => $item->sku,
-                    'cost_price' => $item->cost_price ?? 0,
-                    'qty' => $item->qty,
-                    'discount' => 0,
-                ];
-            }
-
-            if (empty($itemsToPurchase)) {
-                return null;
-            }
-
-            $supplier = Supplier::where('name', 'Pre-order Customer')->first() 
-                        ?? Supplier::firstOrCreate(['name' => 'Pre-order Customer'], ['is_active' => true]);
-
-            $poNumber = 'PO' . now()->format('ymd') . str_pad((string) (PurchaseOrder::whereDate('created_at', now()->toDateString())->count() + 1), 4, '0', STR_PAD_LEFT);
-
-            $subtotalPo = collect($itemsToPurchase)->sum(fn($i) => $i['cost_price'] * $i['qty']);
-
-            $purchaseOrder = PurchaseOrder::create([
-                'po_number' => $poNumber,
-                'order_date' => $salesOrder->order_date ?? now(),
-                'supplier_id' => $supplier->id,
-                'purchase_type' => $salesOrder->order_type === 'jahit_sendiri' ? 'kain' : 'produk_jadi',
-                'deadline' => $salesOrder->deadline,
-                'subtotal' => $subtotalPo,
-                'discount_total' => 0,
-                'grand_total' => $subtotalPo,
-                'status' => PurchaseOrder::STATUS_DRAFT,
-                'is_paid' => false,
-                'created_by' => Auth::id(),
-                'sales_order_id' => $salesOrder->id,
-            ]);
-
-            foreach ($itemsToPurchase as $item) {
-                PurchaseOrderItem::create([
-                    'purchase_order_id' => $purchaseOrder->id,
-                    'product_id' => $item['product_id'],
-                    'product_name' => $item['product_name'],
-                    'sku' => $item['sku'],
-                    'cost_price' => $item['cost_price'],
-                    'qty' => $item['qty'],
-                    'discount' => $item['discount'],
-                    'line_total' => ($item['cost_price'] * $item['qty']) - $item['discount'],
-                ]);
-            }
-
-            $this->logAction($salesOrder, 'linked_to_purchase_recovery', "Linked to Purchase Order secara otomatis (recovery data lama): {$poNumber}");
-
-            return $purchaseOrder;
-        });
+        return null;
     }
 
     /**
@@ -172,13 +112,8 @@ trait HandlesSalesOrderWorkflow
             return back()->withErrors(['status' => 'Hanya status pending yang bisa dipindah ke request_kain.']);
         }
 
-        if (!$salesOrder->hasRelatedPO()) {
-            $this->ensurePurchaseOrderExists($salesOrder);
-        }
-
-        if (!$salesOrder->hasRelatedPO()) {
-            return back()->withErrors(['error' => 'Gagal membuat/menemukan Purchase Order. Pastikan pesanan ini adalah Pre-Order/Jahit Sendiri.']);
-        }
+        // PO is now optional as requested. Sync will handle it if PO exists.
+        // Recovery logic removed to avoid "surprising" PO creation.
 
         if ($salesOrder->approved_by === null) {
             return back()->withErrors(['status' => 'Sales order harus di-approve terlebih dahulu.']);

@@ -24,7 +24,7 @@
                         <p class="text-sm text-gray-500 mt-1">SO Number: {{ $salesOrder->so_number }}</p>
                     </div>
                     <div class="flex space-x-2">
-    <a href="{{ route('kepala-toko.sales.index') }}"
+    <a href="{{ route('kepala-toko.sales.index', request()->query()) }}"
        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded shadow">
         <i class="bi bi-arrow-left"></i> Kembali
     </a>
@@ -88,7 +88,6 @@
         $canPrintingToDiterimaToko = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
         $canDiterimaTokoToSelesai = in_array($userType, ['admin', 'finance', 'kepala_toko', 'owner']);
         
-        // Validasi pembayaran untuk pending → request_kain
         $paymentValid = true;
         if (in_array($salesOrder->payment_method, ['transfer', 'split'])) {
             $invalidPayments = $salesOrder->payments()
@@ -104,114 +103,118 @@
             $paymentValid = $invalidPayments == 0;
         }
     @endphp
-    
-    <!-- ✅ INFORMASI JIKA TOMBOL TIDAK MUNCUL -->
-    @if($salesOrder->status === 'pending' && $salesOrder->approved_by !== null)
-        {{-- 1. Cek Payment Valid --}}
-        @if(in_array($salesOrder->payment_method, ['transfer', 'split']) && !$paymentValid)
-            <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
-                <i class="bi bi-exclamation-triangle-fill text-yellow-600 mt-1"></i>
-                <div>
-                    <h4 class="font-bold">Bukti Pembayaran Belum Lengkap</h4>
-                    <p class="text-sm">Anda memilih pembayaran Transfer/Split, namun belum ada bukti transfer atau nomor referensi yang valid pada riwayat pembayaran. Harap lengkapi salah satu agar tombol proses muncul.</p>
-                </div>
-            </div>
-        @endif
 
-        {{-- 2. Cek PO Existence untuk Jahit Sendiri --}}
-        @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && !$salesOrder->add_to_purchase)
-            <div class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
-                <i class="bi bi-file-earmark-x-fill text-red-600 mt-1"></i>
-                <div>
-                    <h4 class="font-bold">Purchase Order (PO) Tidak Ditemukan</h4>
-                    <p class="text-sm">Order ini bertipe 'Jahit Sendiri' namun tidak memiliki PO Kain terkait. Tombol proses produksi tidak akan muncul. Anda hanya dapat menyelesaikan secara langsung jika pembayaran lunas.</p>
-                </div>
-            </div>
-        @elseif($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && $salesOrder->add_to_purchase)
-            <div class="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded mb-4 flex items-start gap-3 mt-4">
-                <i class="bi bi-info-circle-fill text-blue-600 mt-1"></i>
-                <div>
-                    <h4 class="font-bold">Info: Penyiapan PO Kain</h4>
-                    <p class="text-sm">Order ini memerlukan PO Kain namun belum terbuat secara otomatis. Menekan tombol "Mulai Proses" di bawah akan mencoba membuat PO secara otomatis sebelum memindahkan status.</p>
-                </div>
-            </div>
-        @endif
-    @endif
-
-    <!-- ✅ WORKFLOW BARU: Tombol sesuai role dan status -->
-    
-    <!-- pending → request_kain (untuk SO dengan PO) - Owner, Kepala Toko, Finance -->
-    @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase || $salesOrder->order_type === 'jahit_sendiri') && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain)
+    <!-- 🔘 ACTION BUTTONS: Inline & Consistent Sizing -->
+    <!-- pending → request_kain -->
+    @if($salesOrder->status === 'pending' && ($hasPO || $salesOrder->add_to_purchase || $salesOrder->order_type === 'jahit_sendiri') && $salesOrder->approved_by !== null && $salesOrder->paid_total > 0 && $paymentValid && $canPendingToRequestKain && $activeShift)
         <form action="{{ route('kepala-toko.sales.move-to-request-kain', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-play-circle"></i> Mulai Proses (Request Kain)
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
+                <i class="bi bi-play-circle-fill"></i> Request Kain
             </button>
         </form>
     @endif
 
-    <!-- pending → selesai (untuk SO tanpa PO) - Setelah approved dan pembayaran lunas -->
-    @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->order_type !== 'jahit_sendiri' && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']))
+    <!-- pending → selesai (Tanpa PO) -->
+    @if($salesOrder->status === 'pending' && !$hasPO && !$salesOrder->add_to_purchase && $salesOrder->order_type !== 'jahit_sendiri' && $salesOrder->approved_by !== null && $salesOrder->remaining_amount == 0 && in_array($userType, ['admin', 'owner', 'finance', 'kepala_toko']) && $activeShift)
         <form action="{{ route('kepala-toko.sales.complete-without-po', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-check2-all"></i> Selesaikan (Tanpa PO)
+            <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
+                <i class="bi bi-check2-all"></i> Selesai (No PO)
             </button>
         </form>
     @endif
 
-    <!-- request_kain → payment - Hanya Finance -->
-    @if($salesOrder->status === 'request_kain' && $canRequestKainToPayment)
+    <!-- request_kain → payment -->
+    @if($salesOrder->status === 'request_kain' && $canRequestKainToPayment && $activeShift)
         <form action="{{ route('kepala-toko.sales.move-to-payment', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-credit-card"></i> Ubah ke Payment
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
+                <i class="bi bi-credit-card-2-front-fill"></i> Ubah ke Payment
             </button>
         </form>
     @endif
 
-    <!-- payment → proses_jahit (untuk jahit_sendiri) - Admin, Finance, Kepala Toko -->
-    @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $canPaymentToProsesJahit)
+    <!-- payment → proses_jahit -->
+    @if($salesOrder->status === 'payment' && $salesOrder->order_type === 'jahit_sendiri' && $canPaymentToProsesJahit && $activeShift)
         <form action="{{ route('kepala-toko.sales.process-jahit', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
                 <i class="bi bi-scissors"></i> Proses Jahit
             </button>
         </form>
     @endif
 
-    <!-- proses_jahit → printing - Admin, Finance, Kepala Toko -->
-    @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $canProsesJahitToPrinting)
+    <!-- proses_jahit → printing -->
+    @if($salesOrder->status === 'proses_jahit' && $salesOrder->order_type === 'jahit_sendiri' && $canProsesJahitToPrinting && $activeShift)
         <form action="{{ route('kepala-toko.sales.mark-as-jadi', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-check-circle"></i> Tandai Printing
+            <button type="submit" class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
+                <i class="bi bi-printer-fill"></i> Tandai Printing
             </button>
         </form>
     @endif
 
-    <!-- printing → diterima_toko (jahit_sendiri) atau payment → diterima_toko (beli_jadi) - Admin, Finance, Kepala Toko -->
-    @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $canPrintingToDiterimaToko)
+    <!-- printing → diterima_toko -->
+    @if((($salesOrder->order_type === 'jahit_sendiri' && $salesOrder->status === 'printing') || ($salesOrder->order_type === 'beli_jadi' && $salesOrder->status === 'payment')) && $canPrintingToDiterimaToko && $activeShift)
         <form action="{{ route('kepala-toko.sales.mark-as-diterima-toko', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
+            <button type="submit" class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
                 <i class="bi bi-shop"></i> Diterima Toko
             </button>
         </form>
     @endif
 
-    <!-- diterima_toko → selesai - Admin, Finance, Kepala Toko -->
-    @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $canDiterimaTokoToSelesai)
+    <!-- diterima_toko → selesai -->
+    @if($salesOrder->status === 'diterima_toko' && $salesOrder->remaining_amount == 0 && $canDiterimaTokoToSelesai && $activeShift)
         <form action="{{ route('kepala-toko.sales.complete', $salesOrder) }}" method="POST">
             @csrf
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow">
-                <i class="bi bi-check2-all"></i> Selesaikan
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow flex items-center gap-2">
+                <i class="bi bi-check-all"></i> Selesaikan
             </button>
         </form>
     @endif
-                    </div>
+    
+    </div> <!-- End flex space-x-2 -->
+    </div> <!-- End flex justify-between -->
+    </div> <!-- End Header Card -->
+    
+    <!-- ℹ️ Alerts Info Production (Moved below header) -->
+    @if($salesOrder->status === 'pending' && $salesOrder->approved_by !== null)
+        @if(in_array($salesOrder->payment_method, ['transfer', 'split']) && !$paymentValid)
+            <div class="mt-6 flex items-start gap-2 text-amber-700 bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg text-sm">
+                <i class="bi bi-exclamation-triangle-fill mt-0.5 text-lg"></i>
+                <div>
+                    <strong class="font-semibold block mb-0.5">Menunggu Bukti Transfer</strong>
+                    Lengkapi bukti pembayaran atau nomor referensi agar tombol proses muncul.
                 </div>
             </div>
+        @endif
+
+        @if($salesOrder->order_type === 'jahit_sendiri' && !$hasPO && !$salesOrder->add_to_purchase)
+            <div class="mt-6 flex items-start gap-2 text-rose-700 bg-rose-50 border border-rose-200 px-4 py-3 rounded-lg text-sm">
+                <i class="bi bi-info-circle-fill mt-0.5 text-lg"></i>
+                <div>
+                    <strong class="font-semibold block mb-0.5">Alur Produksi (Tanpa PO)</strong>
+                    Pesanan ini tidak terhubung ke PO. Anda menggunakan alur produksi manual.
+                </div>
+            </div>
+        @endif
+    @endif
+
+    <!-- ✅ WORKFLOW CENTER: Compact & Clean UI (For Status Only) -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 mt-4">
+        <!-- Header & Status -->
+        <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-lg">
+            <h3 class="font-semibold text-gray-700 text-sm flex items-center">
+                <i class="bi bi-gear-wide-connected mr-2 text-indigo-500"></i>
+                Update Alur Kerja
+            </h3>
+            <span class="px-2.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded uppercase tracking-wide">
+                {{ str_replace('_', ' ', $salesOrder->status) }}
+            </span>
+        </div>
+    </div>
 
             <!-- Tambah di bagian atas show view: -->
 @if(session('success'))
@@ -220,18 +223,17 @@
     </div>
 @endif
 
-<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-    <div class="flex items-center">
-        <i class="bi bi-credit-card text-blue-600 text-xl mr-3"></i>
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6 flex items-center shadow-sm">
+        <div class="bg-blue-600 p-2.5 rounded-lg mr-4">
+            <i class="bi bi-cash-stack text-white text-xl"></i>
+        </div>
         <div>
-            <h3 class="font-semibold text-blue-800">Info Pembayaran</h3>
-            <p class="text-sm text-blue-700 mt-1">
-                <strong>Pembayaran hanya bisa ditambah melalui section "Tambah Pembayaran" di bawah.</strong><br>
-                Edit sales order hanya untuk mengubah data order, tidak untuk pembayaran.
+            <h3 class="font-bold text-blue-900 leading-tight">Manajemen Pembayaran</h3>
+            <p class="text-xs text-blue-700 mt-1 font-medium italic">
+                Pembayaran baru wajib ditambahkan melalui tombol <span class="uppercase tracking-wider font-bold underline">Tambah Pembayaran</span> di bagian bawah halaman ini.
             </p>
         </div>
     </div>
-</div>
 
             @if(!$activeShift)
                 <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">

@@ -260,34 +260,34 @@
 <tbody class="divide-y divide-gray-200">
     @forelse ($salesOrders as $so)
         <tr class="hover:bg-gray-50 smooth-transition group" data-id="{{ $so->id }}">
-            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm font-medium text-gray-900">{{ $so->so_number }}</div>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm text-gray-900">{{ \Carbon\Carbon::parse($so->order_date)->format('d/m/Y') }}</div>
                 <div class="text-xs text-gray-500">{{ $so->created_at->format('H:i') }}</div>
             </td>
-            <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm text-gray-900 truncate max-w-[150px]">{{ $so->customer ? $so->customer->name : 'Umum' }}</div>
                 <div class="text-xs text-gray-500">{{ $so->order_type === 'jahit_sendiri' ? 'Jahit' : 'Beli Jadi' }}</div>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <span class="status-badge inline-block">
                     {{ ucfirst(str_replace('_', ' ', $so->status)) }}
                 </span>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm font-medium text-gray-900">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm font-medium text-green-600">Rp {{ number_format($so->paid_total, 0, ',', '.') }}</div>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm font-medium @if($so->remaining_amount > 0) text-red-600 @else text-green-600 @endif">
                     Rp {{ number_format($so->remaining_amount, 0, ',', '.') }}
                 </div>
             </td>
-            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <span class="status-badge inline-block">
                     {{ ucfirst($so->payment_status) }}
                 </span>
@@ -323,7 +323,7 @@
                     <div class="md:hidden">
                         @forelse ($salesOrders as $so)
                             <div class="border-b border-gray-200 p-4 hover:bg-gray-50 smooth-transition cursor-pointer"
-                                onclick="window.location='{{ route('owner.sales.show', $so) }}'">
+                                onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                                 <div class="flex justify-between items-start mb-2">
                                     <div>
                                         <div class="font-medium text-gray-900">{{ $so->so_number }}</div>
@@ -423,7 +423,8 @@
                 row.addEventListener('click', function (e) {
                     if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON' && !e.target.closest('a, button')) {
                         const salesOrderId = this.getAttribute('data-id');
-                        window.location = `/owner/sales/${salesOrderId}`;
+                        const currentQuery = window.location.search;
+                        window.location = `/owner/sales/${salesOrderId}${currentQuery}`;
                     }
                 });
             });
