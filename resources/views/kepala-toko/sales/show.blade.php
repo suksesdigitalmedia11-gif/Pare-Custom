@@ -418,6 +418,83 @@
                 </div>
             @endif
 
+            <!-- Modal Koreksi Pembayaran -->
+            <div id="editPaymentMethodModal"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl">
+                    <h3 class="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Koreksi Data Pembayaran</h3>
+
+                    <form id="editPaymentMethodForm" method="POST">
+                        @csrf
+                        @method('PUT')
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block font-medium mb-1 text-sm text-gray-700">Metode Pembayaran</label>
+                                <select name="method" id="edit_payment_method" required
+                                    class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                    <option value="cash">Cash</option>
+                                    <option value="transfer">Transfer</option>
+                                    <option value="split">Split</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-medium mb-1 text-sm text-gray-700">Nominal Pembayaran (Total)</label>
+                                <input type="number" name="amount" id="edit_amount" required
+                                    class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold text-blue-700 bg-blue-50"
+                                    step="0.01" min="0">
+                            </div>
+
+                            <div id="edit_split_fields" class="hidden space-y-4 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                <div>
+                                    <label class="block font-medium mb-1 text-xs text-gray-500 uppercase">Input Cash</label>
+                                    <input type="number" name="cash_amount" id="edit_cash_amount"
+                                        class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm" step="0.01"
+                                        min="0" value="0">
+                                </div>
+                                <div>
+                                    <label class="block font-medium mb-1 text-xs text-gray-500 uppercase">Input Transfer</label>
+                                    <input type="number" name="transfer_amount" id="edit_transfer_amount"
+                                        class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm" step="0.01"
+                                        min="0" value="0">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block font-medium mb-1 text-sm text-gray-700">Tanggal & Waktu Pembayaran</label>
+                                <input type="datetime-local" name="paid_at" id="edit_paid_at" required
+                                    class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+
+                            <div>
+                                <label class="block font-medium mb-1 text-sm text-gray-700">No Referensi / Kode Unik</label>
+                                <input type="text" name="reference_number" id="edit_reference_number"
+                                    class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                    placeholder="Contoh: TRF-99120...">
+                            </div>
+
+                            <div>
+                                <label class="block font-medium mb-1 text-sm text-gray-700">Alasan Koreksi / Catatan</label>
+                                <textarea name="note" id="edit_note" rows="2"
+                                    class="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                    placeholder="Tuliskan alasan perubahan data ini..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
+                            <button type="button" onclick="closeEditPaymentMethodModal()"
+                                class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded transition">
+                                Batal
+                            </button>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-semibold shadow-md transition">
+                                Simpan Koreksi
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
     <h2 class="text-lg font-semibold mb-4 text-gray-800">Riwayat Pembayaran</h2>
     <div class="overflow-x-auto">
@@ -513,6 +590,23 @@
             <a href="{{ route('kepala-toko.sales.printNota', $payment) }}" class="text-blue-600 hover:text-blue-800" title="Download PDF">
                 <i class="bi bi-download"></i>
             </a>
+            {{-- TOMBOL EDIT/KOREKSI --}}
+            <button
+                onclick="openEditPaymentMethodModal({{ $payment->id }}, '{{ $payment->method }}', {{ $payment->amount }}, {{ $payment->cash_amount }}, {{ $payment->transfer_amount }}, '{{ $payment->reference_number }}', '{{ \Carbon\Carbon::parse($payment->paid_at)->format('Y-m-d\TH:i') }}', '{{ addslashes($payment->note) }}')"
+                class="text-yellow-600 hover:text-yellow-800" title="Koreksi Pembayaran">
+                <i class="bi bi-pencil-square"></i>
+            </button>
+            {{-- TOMBOL HAPUS --}}
+            <form action="{{ route('kepala-toko.sales.payments.destroy', ['salesOrder' => $salesOrder->id, 'payment' => $payment->id]) }}"
+                method="POST"
+                onsubmit="return confirm('Apakah Anda yakin ingin menghapus pembayaran ini?');"
+                class="inline">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="text-red-600 hover:text-red-800" title="Hapus Pembayaran">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
         </div>
     </td>
 </tr>                @empty
@@ -1786,6 +1880,91 @@ function linkToPO(event) {
         showToast('Terjadi kesalahan saat membuat PO: ' + error.message, 'error');
     });
 }
+// === MODAL EDIT PEMBAYARAN (MEGA-EDIT) ===
+let currentEditingPaymentId = null;
+
+function openEditPaymentMethodModal(paymentId, currentMethod, amount, cashAmount, transferAmount, referenceNumber, paidAt, note) {
+    currentEditingPaymentId = paymentId;
+
+    // Set form values
+    document.getElementById('edit_payment_method').value = currentMethod;
+    document.getElementById('edit_amount').value = amount;
+    document.getElementById('edit_cash_amount').value = cashAmount || 0;
+    document.getElementById('edit_transfer_amount').value = transferAmount || 0;
+    document.getElementById('edit_reference_number').value = referenceNumber || '';
+    document.getElementById('edit_paid_at').value = paidAt;
+    document.getElementById('edit_note').value = note || '';
+
+    // Toggle split fields
+    toggleEditSplitFields(currentMethod);
+
+    // Set form action
+    const form = document.getElementById('editPaymentMethodForm');
+    form.action = `/kepala-toko/sales/{{ $salesOrder->id }}/payments/${paymentId}/update-method`;
+
+    // Show modal
+    document.getElementById('editPaymentMethodModal').classList.remove('hidden');
+}
+
+function closeEditPaymentMethodModal() {
+    document.getElementById('editPaymentMethodModal').classList.add('hidden');
+    currentEditingPaymentId = null;
+}
+
+function toggleEditSplitFields(method) {
+    const splitFields = document.getElementById('edit_split_fields');
+    if (method === 'split') {
+        splitFields.classList.remove('hidden');
+    } else {
+        splitFields.classList.add('hidden');
+    }
+}
+
+// Event listeners for modal edit
+document.getElementById('edit_payment_method')?.addEventListener('change', function () {
+    toggleEditSplitFields(this.value);
+    const amount = parseFloat(document.getElementById('edit_amount').value) || 0;
+    if (this.value === 'cash') {
+        document.getElementById('edit_cash_amount').value = amount;
+        document.getElementById('edit_transfer_amount').value = 0;
+    } else if (this.value === 'transfer') {
+        document.getElementById('edit_cash_amount').value = 0;
+        document.getElementById('edit_transfer_amount').value = amount;
+    }
+});
+
+document.getElementById('edit_amount')?.addEventListener('input', function() {
+    const method = document.getElementById('edit_payment_method').value;
+    const amount = parseFloat(this.value) || 0;
+    if (method === 'cash') {
+        document.getElementById('edit_cash_amount').value = amount;
+    } else if (method === 'transfer') {
+        document.getElementById('edit_transfer_amount').value = amount;
+    }
+});
+
+document.getElementById('editPaymentMethodForm')?.addEventListener('submit', function (e) {
+    const method = document.getElementById('edit_payment_method').value;
+    const amount = parseFloat(document.getElementById('edit_amount').value) || 0;
+    const cashAmount = parseFloat(document.getElementById('edit_cash_amount').value) || 0;
+    const transferAmount = parseFloat(document.getElementById('edit_transfer_amount').value) || 0;
+
+    if (method === 'split') {
+        if (Math.abs((cashAmount + transferAmount) - amount) > 0.01) {
+            e.preventDefault();
+            alert('Jumlah cash + transfer (Rp ' + (cashAmount + transferAmount).toLocaleString() + ') harus sama dengan total nominal (Rp ' + amount.toLocaleString() + ')');
+            return;
+        }
+    }
+});
+
+// Close modal clicking outside
+document.getElementById('editPaymentMethodModal')?.addEventListener('click', function (e) {
+    if (e.target === this) {
+        closeEditPaymentMethodModal();
+    }
+});
+
 // ✅ LOAD RELATED PO SAAT PAGE LOAD
 document.addEventListener('DOMContentLoaded', function() {
     loadRelatedPO();

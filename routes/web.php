@@ -366,6 +366,10 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\Finance\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         // ✅ TAMBAH ROUTE RELATED PO UNTUK FINANCE
         Route::get('/sales/{salesOrder}/related-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
+        
+        // ✅ TAMBAH ROUTE KOREKSI PEMBAYARAN UNTUK FINANCE
+        Route::put('/sales/{salesOrder}/payments/{payment}/update-method', [\App\Http\Controllers\Finance\SalesOrderController::class, 'updatePaymentMethod'])->name('sales.payments.update-method');
+        Route::delete('/sales/{salesOrder}/payments/{payment}', [\App\Http\Controllers\Finance\SalesOrderController::class, 'destroyPayment'])->name('sales.payments.destroy');
     });
 
 });
@@ -512,6 +516,10 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         Route::post('sales/{salesOrder}/link-to-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'linkToPurchaseOrder'])->name('sales.link-to-po');
         Route::post('sales/{salesOrder}/unlink-from-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'unlinkFromPurchaseOrder'])->name('sales.unlink-from-po');
         Route::get('sales/{salesOrder}/related-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
+
+        // ✅ TAMBAH ROUTE KOREKSI PEMBAYARAN UNTUK KEPALA TOKO
+        Route::put('/sales/{salesOrder}/payments/{payment}/update-method', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'updatePaymentMethod'])->name('sales.payments.update-method');
+        Route::delete('/sales/{salesOrder}/payments/{payment}', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'destroyPayment'])->name('sales.payments.destroy');
         // Tambahkan ini di DALAM group owner (sekitar line yang ada route sales)
         Route::get('/sales/payment-proof/{payment}', function (\App\Models\Payment $payment) {
             // Cek apakah user punya akses

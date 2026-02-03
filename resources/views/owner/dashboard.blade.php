@@ -63,9 +63,14 @@
                     <i class="bi bi-exclamation-octagon text-red-500"></i>
                     Deadline Terlewat
                   </h3>
-                  @if(($overdueCount ?? 0) > 0)
-                    <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
-                  @endif
+                  <div class="flex items-center gap-2">
+                    @if(($overdueCount ?? 0) > 0)
+                      <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">{{ $overdueCount }}</span>
+                    @endif
+                    <a href="{{ route('owner.sales.index', ['filter' => 'overdue']) }}" class="text-[10px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
+                      Lihat Semua <i class="bi bi-arrow-right"></i>
+                    </a>
+                  </div>
                 </div>
 
                 @if(($overdueCount ?? 0) > 0)
@@ -100,9 +105,14 @@
                     <i class="bi bi-exclamation-triangle text-orange-500"></i>
                     Deadline Mendekat (≤5 hari)
                   </h3>
-                   @if(($upcomingCount ?? 0) > 0)
-                    <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
-                   @endif
+                  <div class="flex items-center gap-2">
+                    @if(($upcomingCount ?? 0) > 0)
+                      <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold">{{ $upcomingCount }}</span>
+                    @endif
+                    <a href="{{ route('owner.sales.index', ['filter' => 'upcoming']) }}" class="text-[10px] text-orange-600 hover:text-orange-700 font-semibold flex items-center gap-1">
+                      Lihat Semua <i class="bi bi-arrow-right"></i>
+                    </a>
+                  </div>
                 </div>
 
                 @if(($upcomingCount ?? 0) > 0)
@@ -173,7 +183,12 @@
                     <i class="bi bi-clock text-yellow-500"></i>
                     Belum Lunas
                   </h3>
-                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">{{ $pendingPaymentsCount }}</span>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">{{ $pendingPaymentsCount }}</span>
+                    <a href="{{ route('owner.sales.index', ['payment_status' => 'dp']) }}" class="text-[10px] text-yellow-700 hover:text-yellow-800 font-semibold flex items-center gap-1">
+                      Lihat Semua <i class="bi bi-arrow-right"></i>
+                    </a>
+                  </div>
                 </div>
                 <div class="flex justify-between items-center mb-2">
                      <p class="text-xs text-gray-600">Total Piutang:</p>
@@ -518,10 +533,15 @@
 
             <!-- VIP Customers -->
             <div class="bg-white p-4 rounded-xl shadow border-t-4 border-blue-600">
-              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <i class="bi bi-star-fill text-blue-600"></i>
-                Customer VIP (Top Spender)
-              </h3>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                  <i class="bi bi-star-fill text-blue-600"></i>
+                  Customer VIP (Top Spender)
+                </h3>
+                <a href="{{ route('owner.contacts.index') }}" class="text-[10px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
+                  Lihat Semua <i class="bi bi-arrow-right"></i>
+                </a>
+              </div>
               <div class="space-y-2">
                 @if(isset($topCustomers) && $topCustomers->count() > 0)
                   @foreach($topCustomers as $customer)
@@ -628,10 +648,15 @@
 
           <!-- [SECTION 9] TRANSAKSI TERBARU -->
           <div class="bg-white p-4 rounded-xl shadow">
-            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <i class="bi bi-clock-history text-gray-500"></i>
-              Transaksi Terbaru
-            </h3>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <i class="bi bi-clock-history text-gray-500"></i>
+                Transaksi Terbaru
+              </h3>
+              <a href="{{ route('owner.sales.index') }}" class="text-[10px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
+                Lihat Semua Transaksi <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
             <div class="overflow-x-auto">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50">

@@ -24,11 +24,13 @@ use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
+use App\Traits\ManagesPayments;
 use App\Exports\SalesOrderExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SalesOrderController extends Controller
 {
+    use ManagesPayments;
 
     private function logAction(SalesOrder $salesOrder, string $action, string $description): void
     {

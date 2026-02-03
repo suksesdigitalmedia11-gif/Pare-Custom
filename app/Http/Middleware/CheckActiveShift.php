@@ -20,8 +20,8 @@ class CheckActiveShift
     {
         $user = Auth::user();
     
-        // OWNER: boleh akses SEMUA (GET/POST/PUT/DELETE) tanpa shift aktif
-        if ($user->hasRole('owner') || $user->hasRole('kepala_toko')) {
+        // OWNER, KEPALA TOKO, FINANCE: boleh akses SEMUA (GET/POST/PUT/DELETE) tanpa shift aktif
+        if ($user->hasRole('owner') || $user->hasRole('kepala_toko') || $user->hasRole('finance')) {
             return $next($request);
         }
     

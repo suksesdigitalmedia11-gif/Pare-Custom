@@ -26,10 +26,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
 use Illuminate\Support\Facades\Validator;
 use App\Traits\HandlesSalesOrderWorkflow;
+use App\Traits\ManagesPayments;
 
 class SalesOrderController extends Controller
 {
-    use HandlesSalesOrderWorkflow;
+    use HandlesSalesOrderWorkflow, ManagesPayments;
     private function checkActiveShift(): bool|RedirectResponse
     {
         $activeShift = Shift::getActiveShift(); // PAKAI METHOD BARU

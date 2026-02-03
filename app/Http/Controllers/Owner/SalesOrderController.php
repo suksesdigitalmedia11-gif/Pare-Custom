@@ -25,10 +25,11 @@ use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\SalesPurchaseSyncService;
 use App\Traits\HandlesSalesOrderWorkflow;
+use App\Traits\ManagesPayments;
 
 class SalesOrderController extends Controller
 {
-    use HandlesSalesOrderWorkflow;
+    use HandlesSalesOrderWorkflow, ManagesPayments;
 
 
 
@@ -40,6 +41,7 @@ class SalesOrderController extends Controller
         $payment_status = $request->get('payment_status');
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
+        $filter = $request->get('filter');
 
         $salesOrders = SalesOrder::with(['customer', 'creator', 'approver'])
             ->when(
@@ -50,6 +52,15 @@ class SalesOrderController extends Controller
             )
             ->when($status, fn($query) => $query->where('status', $status))
             ->when($payment_status && $payment_status !== 'all', fn($query) => $query->where('payment_status', $payment_status))
+            ->when($filter === 'overdue', function($query) {
+                return $query->where('deadline', '<', now()->startOfDay())
+                    ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft']);
+            })
+            ->when($filter === 'upcoming', function($query) {
+                return $query->where('deadline', '>=', now()->startOfDay())
+                    ->where('deadline', '<=', now()->addDays(5)->endOfDay())
+                    ->whereNotIn('status', ['selesai', 'diterima_toko', 'cancel', 'draft']);
+            })
             // ✅ FILTER TANGGAL ORDER (ORDER_DATE BUKAN CREATED_AT)
             ->when($start_date, fn($query) => $query->whereDate('order_date', '>=', $start_date))
             ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date))
@@ -57,7 +68,7 @@ class SalesOrderController extends Controller
             ->orderByDesc('order_date')
             ->paginate(15);
 
-        return view('owner.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date'));
+        return view('owner.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date', 'filter'));
     }
 
     public function create(): View|RedirectResponse
@@ -953,257 +964,6 @@ class SalesOrderController extends Controller
             return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus sales order: ' . $e->getMessage()]);
         }
     }
-    public function updatePaymentMethod(Request $request, SalesOrder $salesOrder, Payment $payment): RedirectResponse
-    {
-        // Validasi hanya owner yang bisa akses
-        if (!Auth::user()->hasRole('owner')) {
-            \Log::warning('Non-owner attempt to update payment method', [
-                'user_id' => Auth::id(),
-                'payment_id' => $payment->id
-            ]);
-            return back()->withErrors(['error' => 'Hanya owner yang dapat mengubah metode pembayaran.']);
-        }
-
-        // Validasi payment milik sales order
-        if ($payment->sales_order_id !== $salesOrder->id) {
-            \Log::warning('Invalid payment for SO in update method', [
-                'so_number' => $salesOrder->so_number,
-                'payment_id' => $payment->id
-            ]);
-            return back()->withErrors(['error' => 'Pembayaran tidak valid untuk sales order ini.']);
-        }
-
-        $validated = $request->validate([
-            'method' => ['required', 'in:cash,transfer,split'],
-            'cash_amount' => ['nullable', 'required_if:method,split', 'numeric', 'min:0'],
-            'transfer_amount' => ['nullable', 'required_if:method,split', 'numeric', 'min:0'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
-
-        try {
-            DB::transaction(function () use ($salesOrder, $payment, $validated) {
-                $oldMethod = $payment->method;
-                $oldCashAmount = $payment->cash_amount ?? 0;
-                $oldTransferAmount = $payment->transfer_amount ?? 0;
-
-                // Hitung cash amount baru berdasarkan method
-                $newCashAmount = 0;
-                if ($validated['method'] === 'cash') {
-                    $newCashAmount = $payment->amount;
-                } elseif ($validated['method'] === 'split') {
-                    $newCashAmount = $validated['cash_amount'] ?? 0;
-                    // Validate split amounts
-                    if (($newCashAmount + ($validated['transfer_amount'] ?? 0)) != $payment->amount) {
-                        throw new \Exception('Jumlah cash + transfer harus sama dengan total pembayaran.');
-                    }
-                }
-
-                // Hitung selisih cash (berapa yang harus ditambah/dikurangi dari shift)
-                $cashDifference = $newCashAmount - $oldCashAmount;
-
-                // Update payment data
-                $updateData = [
-                    'method' => $validated['method'],
-                    'reference_number' => $validated['reference_number'] ?? $payment->reference_number,
-                ];
-
-                // Handle amount distribution based on method
-                if ($validated['method'] === 'cash') {
-                    $updateData['cash_amount'] = $payment->amount;
-                    $updateData['transfer_amount'] = 0;
-                } elseif ($validated['method'] === 'transfer') {
-                    $updateData['cash_amount'] = 0;
-                    $updateData['transfer_amount'] = $payment->amount;
-                } elseif ($validated['method'] === 'split') {
-                    $updateData['cash_amount'] = $validated['cash_amount'];
-                    $updateData['transfer_amount'] = $validated['transfer_amount'];
-                }
-
-                $payment->update($updateData);
-
-                // === UPDATE SHIFT CASH JIKA ADA PERUBAHAN CASH ===
-                if (abs($cashDifference) > 0.01) {
-                    $this->updateShiftCashForPayment($payment, $cashDifference);
-                }
-
-                // Update sales order payment method if this is the only/latest payment
-                $latestPayment = $salesOrder->payments()->latest('created_at')->first();
-                if ($latestPayment && $latestPayment->id === $payment->id) {
-                    $salesOrder->update(['payment_method' => $validated['method']]);
-                }
-
-                // Log the action
-                $this->logAction(
-                    $salesOrder,
-                    'payment_method_updated',
-                    "Metode pembayaran diubah: {$oldMethod} → {$validated['method']}, " .
-                    "Cash: Rp " . number_format($oldCashAmount, 0, ',', '.') . " → Rp " . number_format($payment->cash_amount ?? 0, 0, ',', '.') . ", " .
-                    "Transfer: Rp " . number_format($oldTransferAmount, 0, ',', '.') . " → Rp " . number_format($payment->transfer_amount ?? 0, 0, ',', '.')
-                );
-
-                \Log::info('Payment method updated successfully', [
-                    'payment_id' => $payment->id,
-                    'old_method' => $oldMethod,
-                    'new_method' => $validated['method'],
-                    'cash_difference' => $cashDifference,
-                    'so_number' => $salesOrder->so_number
-                ]);
-            });
-
-            return back()->with('success', 'Metode pembayaran berhasil diubah dan kas shift telah diperbarui.');
-
-        } catch (\Exception $e) {
-            \Log::error('Error updating payment method: ' . $e->getMessage(), [
-                'payment_id' => $payment->id,
-                'so_number' => $salesOrder->so_number
-            ]);
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat mengubah metode pembayaran: ' . $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Helper method: Update shift cash ketika payment method berubah
-     */
-    private function updateShiftCashForPayment(Payment $payment, float $cashDifference): void
-    {
-        // Cari shift terkait payment berdasarkan created_by dan created_at
-        $shift = Shift::where('user_id', $payment->created_by)
-            ->where('start_time', '<=', $payment->created_at)
-            ->where(function ($query) use ($payment) {
-                $query->where('end_time', '>=', $payment->created_at)
-                    ->orWhereNull('end_time');
-            })
-            ->orderBy('start_time', 'desc')
-            ->first();
-
-        if (!$shift) {
-            \Log::warning('Shift not found for payment', [
-                'payment_id' => $payment->id,
-                'created_by' => $payment->created_by,
-                'created_at' => $payment->created_at
-            ]);
-            return;
-        }
-
-        \Log::info('Updating shift cash for payment method change', [
-            'shift_id' => $shift->id,
-            'payment_id' => $payment->id,
-            'cash_difference' => $cashDifference,
-            'shift_status' => $shift->end_time ? 'closed' : 'open'
-        ]);
-
-        // Update cash_total shift
-        if ($cashDifference > 0) {
-            $shift->increment('cash_total', $cashDifference);
-        } else {
-            $shift->decrement('cash_total', abs($cashDifference));
-        }
-
-        // Jika shift sudah ditutup, perlu recalculate final_cash dan cascade update
-        if ($shift->end_time) {
-            $this->recalculateAndUpdateClosedShift($shift);
-        }
-    }
-
-    /**
-     * Helper method: Recalculate final_cash untuk shift yang sudah ditutup dan cascade update
-     */
-    private function recalculateAndUpdateClosedShift(Shift $shift): void
-    {
-        // Recalculate final_cash dari data real
-        $realCashTotal = $this->calculateRealCashTotalForShift($shift);
-        $totalCashTransfers = \App\Models\CashTransfer::where('shift_id', $shift->id)->sum('amount');
-        $newFinalCash = $shift->initial_cash + $realCashTotal - $shift->expense_total - $totalCashTransfers;
-
-        $oldFinalCash = $shift->final_cash;
-        $finalCashDifference = $newFinalCash - $oldFinalCash;
-
-        \Log::info('Recalculating closed shift final_cash', [
-            'shift_id' => $shift->id,
-            'old_final_cash' => $oldFinalCash,
-            'new_final_cash' => $newFinalCash,
-            'difference' => $finalCashDifference
-        ]);
-
-        // Update final_cash shift
-        $shift->update([
-            'final_cash' => $newFinalCash,
-            'cash_total' => $realCashTotal, // Update cash_total juga untuk konsistensi
-            'discrepancy' => 0, // Reset discrepancy karena kita recalculate dari data real
-        ]);
-
-        // Cascade update: Update initial_cash shift berikutnya jika ada
-        if (abs($finalCashDifference) > 0.01) {
-            $this->cascadeUpdateNextShift($shift, $finalCashDifference);
-        }
-    }
-
-    /**
-     * Helper method: Cascade update initial_cash shift berikutnya
-     */
-    private function cascadeUpdateNextShift(Shift $updatedShift, float $finalCashDifference): void
-    {
-        // Cari shift berikutnya yang langsung setelah shift ini
-        // Shift berikutnya adalah shift yang start_time > end_time shift ini
-        $nextShift = Shift::where('start_time', '>', $updatedShift->end_time)
-            ->orderBy('start_time', 'asc')
-            ->first();
-
-        if (!$nextShift) {
-            \Log::info('No next shift found for cascade update', [
-                'updated_shift_id' => $updatedShift->id
-            ]);
-            return;
-        }
-
-        \Log::info('Cascading update to next shift', [
-            'updated_shift_id' => $updatedShift->id,
-            'next_shift_id' => $nextShift->id,
-            'final_cash_difference' => $finalCashDifference
-        ]);
-
-        // Update initial_cash shift berikutnya
-        $oldInitialCash = $nextShift->initial_cash;
-        $newInitialCash = $oldInitialCash + $finalCashDifference;
-
-        $nextShift->update(['initial_cash' => $newInitialCash]);
-
-        \Log::info('Next shift initial_cash updated', [
-            'next_shift_id' => $nextShift->id,
-            'old_initial_cash' => $oldInitialCash,
-            'new_initial_cash' => $newInitialCash
-        ]);
-
-        // Jika shift berikutnya juga sudah ditutup, perlu recalculate final_cash-nya juga
-        // Karena initial_cash berubah, final_cash juga akan berubah
-        if ($nextShift->end_time) {
-            $this->recalculateAndUpdateClosedShift($nextShift);
-        }
-    }
-
-    /**
-     * Helper method: Calculate real cash total untuk shift dari data payment
-     */
-    private function calculateRealCashTotalForShift(Shift $shift): float
-    {
-        $payments = Payment::where('created_by', $shift->user_id)
-            ->where('created_at', '>=', $shift->start_time)
-            ->where('created_at', '<=', $shift->end_time ?? now())
-            ->get();
-
-        $totalCashFromPayments = 0;
-        foreach ($payments as $payment) {
-            if ($payment->method === 'cash') {
-                $totalCashFromPayments += $payment->amount;
-            } elseif ($payment->method === 'split') {
-                $totalCashFromPayments += $payment->cash_amount ?? 0;
-            }
-        }
-
-        $totalIncome = \App\Models\Income::where('shift_id', $shift->id)->sum('amount');
-
-        return $totalCashFromPayments + $totalIncome;
-    }
 
     // ✅ TAMBAH METHOD GET RELATED PURCHASE ORDER UNTUK OWNER
     public function getRelatedPurchaseOrder(SalesOrder $salesOrder)
@@ -1233,95 +993,4 @@ class SalesOrderController extends Controller
         }
     }
 
-    /**
-     * Menghapus pembayaran secara permanen (tanpa jejak)
-     * Hanya Owner yang bisa mengakses ini.
-     */
-    public function destroyPayment(SalesOrder $salesOrder, Payment $payment): RedirectResponse
-    {
-        // Pastikan payment milik sales order
-        if ($payment->sales_order_id !== $salesOrder->id) {
-            return back()->withErrors(['error' => 'Pembayaran tidak valid untuk sales order ini.']);
-        }
-
-        // Pastikan user adalah owner (meski sudah ada middleware route, double check di controller lebih aman)
-        $user = Auth::user();
-        $isOwner = strtolower($user->usertype ?? $user->role ?? '') === 'owner';
-
-        if (!$isOwner) {
-            return back()->withErrors(['error' => 'Hanya Owner yang berhak menghapus pembayaran secara permanen.']);
-        }
-
-        try {
-            DB::transaction(function () use ($salesOrder, $payment) {
-                // 1. Ambil data penting sebelum dihapus
-                $amount = $payment->amount; // Total nominal
-                $cashAmount = $payment->cash_amount; // Nominal fisik tunai
-                $method = $payment->method;
-                $paymentDate = $payment->created_at; // Kapan pembayaran dibuat (bukan paid_at, tapi record creation untuk shift)
-                $creatorId = $payment->created_by;
-
-                // 2. Hapus bukti file jika ada
-                if ($payment->proof_path && Storage::disk('public')->exists($payment->proof_path)) {
-                    Storage::disk('public')->delete($payment->proof_path);
-                }
-
-                // 3. Hapus record pembayaran
-                $payment->delete();
-
-                // 4. Update status pembayaran di Sales Order
-                // Refresh data pembayaran
-                $remainingPaid = $salesOrder->payments()->sum('amount');
-
-                $newStatus = ($remainingPaid >= $salesOrder->grand_total)
-                    ? 'lunas'
-                    : 'dp';
-
-                $salesOrder->update(['payment_status' => $newStatus]);
-
-                // 5. CRITICAL: Sinkronisasi SHIFT (Laporan Kas)
-                // Hanya jika pembayaran melibatkan uang fisik (CASH atau SPLIT)
-                if ($cashAmount > 0) {
-                    // Cari shift yang menaungi pembayaran ini
-                    $relatedShift = Shift::where('user_id', $creatorId)
-                        ->where('start_time', '<=', $paymentDate)
-                        ->where(function ($q) use ($paymentDate) {
-                            $q->whereNull('end_time')
-                                ->orWhere('end_time', '>=', $paymentDate);
-                        })
-                        ->first();
-
-                    if ($relatedShift) {
-                        // Jika ketemu, kurangi saldo laporan shift agar sinkron
-                        // Kurangi cash_total dan final_cash
-                        $relatedShift->decrement('cash_total', (float) $cashAmount);
-                        $relatedShift->decrement('final_cash', (float) $cashAmount);
-
-                        \Log::info("Shift balance adjusted due to payment deletion", [
-                            'shift_id' => $relatedShift->id,
-                            'decreased_by' => $cashAmount
-                        ]);
-                    } else {
-                        \Log::warning("Payment deleted but NO related shift found to adjust", [
-                            'payment_id' => $payment->id,
-                            'created_at' => $paymentDate,
-                            'cash_amount' => $cashAmount
-                        ]);
-                    }
-                }
-
-                // 6. Catat Log (Audit Trail)
-                $this->logAction(
-                    $salesOrder,
-                    'payment_deleted',
-                    "Pembayaran DIHAPUS oleh Owner: Rp " . number_format((float) $amount, 0, ',', '.') . " ({$method}). Shift adjusted: " . ($cashAmount > 0 ? 'Yes' : 'No')
-                );
-            });
-
-            return back()->with('success', 'Pembayaran berhasil dihapus secara permanen. Laporan kas terkait telah disesuaikan.');
-        } catch (\Exception $e) {
-            \Log::error('Error deleting payment for SO ' . $salesOrder->so_number . ': ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus pembayaran: ' . $e->getMessage()]);
-        }
-    }
 }
