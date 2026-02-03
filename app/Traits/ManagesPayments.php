@@ -95,13 +95,17 @@ trait ManagesPayments
 
                 $payment->update($updateData);
 
+                // Recalculate all categories for this SO to ensure consistency (DP/Pelunasan labels)
+                $this->recalculatePaymentCategories($salesOrder->fresh());
+
                 // 4. Sinkronisasi Shift Cash
                 $cashDifference = $newCashAmount - $oldCashAmount;
                 if (abs($cashDifference) > 0.01) {
                     $this->updateShiftCashForPayment($payment, $cashDifference);
                 }
 
-                // 5. Update Sales Order Payment Status & Method
+                // 5. Update Sales Order Payment Status & Method (re-sync after recalculation)
+                $salesOrder->refresh(); // Ambil data krusial terbaru
                 $totalPaid = $salesOrder->payments()->sum('amount');
                 $newPaymentStatus = ($totalPaid >= $salesOrder->grand_total) ? 'lunas' : 'dp';
                 if ($totalPaid <= 0) $newPaymentStatus = 'belum_bayar';
@@ -168,12 +172,15 @@ trait ManagesPayments
 
                 $payment->delete();
 
-                // 1. Update SO Status
+                // 1. Recalculate all categories for remaining payments
+                $this->recalculatePaymentCategories($salesOrder->fresh());
+
+                // 2. Update SO Status
                 $totalPaid = $salesOrder->payments()->sum('amount');
                 $newStatus = ($totalPaid >= $salesOrder->grand_total) ? 'lunas' : (($totalPaid > 0) ? 'dp' : 'belum_bayar');
                 $salesOrder->update(['payment_status' => $newStatus]);
 
-                // 2. Adjust Shift
+                // 3. Adjust Shift
                 if ($cashAmount > 0) {
                     $this->updateShiftCashForPayment($payment, -$cashAmount);
                 }
@@ -281,5 +288,33 @@ trait ManagesPayments
         $totalIncome = \App\Models\Income::where('shift_id', $shift->id)->sum('amount');
 
         return (float)($totalCashPayments + $totalIncome);
+    }
+
+    /**
+     * Recalculate 'category' for all payments of a SalesOrder to ensure consistency.
+     * This ensures that payments are correctly labeled as 'dp' or 'pelunasan'
+     * based on the current grand total and payment sequence.
+     */
+    public function recalculatePaymentCategories(SalesOrder $salesOrder): void
+    {
+        $cumulative = 0;
+        // Ambil semua pembayaran, urutkan berdasarkan waktu pembayaran
+        $payments = $salesOrder->payments()
+            ->orderBy('paid_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+            
+        $grandTotal = (float) $salesOrder->grand_total;
+        
+        foreach ($payments as $p) {
+            $cumulative += (float) $p->amount;
+            
+            // Menggunakan toleransi kecil untuk perbandingan float
+            $newCategory = ($cumulative >= ($grandTotal - 0.01)) ? 'pelunasan' : 'dp';
+            
+            if ($p->category !== $newCategory) {
+                $p->update(['category' => $newCategory]);
+            }
+        }
     }
 }

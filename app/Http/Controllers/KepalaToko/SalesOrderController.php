@@ -658,6 +658,17 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                 if (!empty($changes)) {
                     $this->logAction($salesOrder, 'updated_details', implode(', ', $changes));
                 }
+
+                // === FINAL RECALCULATION & SYNC ===
+                // Recalculate payment categories (DP/Pelunasan) based on NEW grand_total and NEW/modified payments
+                $this->recalculatePaymentCategories($salesOrder->fresh());
+
+                // Force sync SO payment status based on actual payments vs final grand_total
+                $totalPaid = $salesOrder->payments()->sum('amount');
+                $actualPaymentStatus = ($totalPaid >= $grandTotal - 0.01) ? 'lunas' : (($totalPaid > 0) ? 'dp' : 'belum_bayar');
+                if ($salesOrder->payment_status !== $actualPaymentStatus) {
+                    $salesOrder->update(['payment_status' => $actualPaymentStatus]);
+                }
             });
 
             \Log::info('Sales order updated successfully', ['so_number' => $salesOrder->so_number]);
