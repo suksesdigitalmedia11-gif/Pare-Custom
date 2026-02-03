@@ -296,16 +296,9 @@
                     <div class="form-section">
                         <!-- Items Section -->
                         <div class="form-card p-6 mb-6">
-                            <div class="flex items-center justify-between mb-6">
-                                <div class="flex items-center">
-                                    <div class="w-1 h-8 bg-blue-600 rounded-full mr-4"></div>
-                                    <h2 class="text-xl font-semibold text-gray-900">Item Order</h2>
-                                </div>
-                                <button type="button" id="add-item"
-                                    class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-colors">
-                                    <i class="bi bi-plus-circle"></i>
-                                    <span>Tambah Item</span>
-                                </button>
+                             <div class="flex items-center mb-6">
+                                <div class="w-1 h-8 bg-blue-600 rounded-full mr-4"></div>
+                                <h2 class="text-xl font-semibold text-gray-900">Item Order</h2>
                             </div>
 
                             <div id="items-container" class="space-y-4">
@@ -345,6 +338,13 @@
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="button" id="add-item"
+                                    class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-colors">
+                                    <i class="bi bi-plus-circle"></i>
+                                    <span>Tambah Item</span>
+                                </button>
                             </div>
                         </div>
 

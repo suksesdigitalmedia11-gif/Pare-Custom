@@ -92,9 +92,8 @@
                         </div>
 
                         <div class="mt-6">
-                            <div class="flex items-center justify-between mb-2">
+                            <div class="mb-2">
                                 <div class="font-semibold text-gray-700">Detail Produk</div>
-                                <button type="button" @click="addItem()" class="px-3 py-1 bg-[#005281] text-white rounded">Tambah Baris</button>
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full text-left text-sm">
@@ -144,6 +143,12 @@
                                         </template>
                                     </tbody>
                                 </table>
+                            </div>
+                            <div class="mt-4">
+                                <button type="button" @click="addItem()" class="px-4 py-2 bg-[#005281] text-white rounded-lg shadow hover:bg-[#004066] transition-colors flex items-center">
+                                    <i class="bi bi-plus-circle mr-2"></i>
+                                    Tambah Baris
+                                </button>
                             </div>
                         </div>
 
