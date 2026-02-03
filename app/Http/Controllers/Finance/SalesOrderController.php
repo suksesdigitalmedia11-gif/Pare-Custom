@@ -576,7 +576,10 @@ class SalesOrderController extends Controller
                     'created_by' => Auth::id(),
                 ]);
 
-                $salesOrder->update(['payment_status' => ($newPaidTotal >= $salesOrder->grand_total) ? 'lunas' : 'dp']);
+                $salesOrder->update(['payment_status' => ($newPaidTotal >= $salesOrder->grand_total - 0.01) ? 'lunas' : 'dp']);
+
+                // Recalculate categories for all payments to ensure consistency
+                $this->recalculatePaymentCategories($salesOrder->fresh());
 
                 // ✅ UPDATE SHIFT CASH JIKA ADA CASH AMOUNT
                 $activeShift = Shift::getActiveShift();

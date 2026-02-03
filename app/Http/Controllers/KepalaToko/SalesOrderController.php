@@ -851,7 +851,10 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
                     'created_by' => Auth::id(),
                 ]);
 
-                $salesOrder->update(['payment_status' => ($newPaidTotal >= $salesOrder->grand_total) ? 'lunas' : 'dp']);
+                $salesOrder->update(['payment_status' => ($newPaidTotal >= $salesOrder->grand_total - 0.01) ? 'lunas' : 'dp']);
+
+                // Recalculate categories for all payments to ensure consistency
+                $this->recalculatePaymentCategories($salesOrder->fresh());
 
                 $activeShift = Shift::where('user_id', Auth::id())->whereNull('end_time')->first();
                 if ($activeShift && $cashAmount > 0) {

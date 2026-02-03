@@ -298,8 +298,9 @@ trait ManagesPayments
     public function recalculatePaymentCategories(SalesOrder $salesOrder): void
     {
         $cumulative = 0;
-        // Ambil semua pembayaran, urutkan berdasarkan waktu pembayaran
+        // Gunakan reorder() untuk menghapus order default (DESC) dari relasi di model SalesOrder
         $payments = $salesOrder->payments()
+            ->reorder() 
             ->orderBy('paid_at', 'asc')
             ->orderBy('id', 'asc')
             ->get();
