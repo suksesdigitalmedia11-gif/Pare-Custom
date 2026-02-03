@@ -145,6 +145,59 @@ class DashboardController extends Controller
             ->orderBy('total_terjual', 'desc')
             ->limit(5)
             ->get();
+
+        // === VIP CUSTOMERS (Top Spenders) ===
+        $topCustomers = SalesOrder::selectRaw('
+                customer_id,
+                customers.name as customer_name,
+                customers.phone as customer_phone,
+                SUM(grand_total) as total_spent,
+                COUNT(*) as total_orders
+            ')
+            ->join('customers', 'sales_orders.customer_id', '=', 'customers.id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            ->groupBy('customer_id', 'customers.name', 'customers.phone')
+            ->orderBy('total_spent', 'desc')
+            ->limit(5)
+            ->get();
+
+        // === GROWTH METRICS (Compared to Previous Period) ===
+        $daysDiff = $start->diffInDays($end) + 1;
+        $prevStart = $start->copy()->subDays($daysDiff);
+        $prevEnd = $end->copy()->subDays($daysDiff);
+
+        $prevOmsetSales = SalesOrder::whereBetween('created_at', [$prevStart, $prevEnd])->where('status', '!=', 'draft')->sum('grand_total') ?? 0;
+        $prevOmsetIncome = Income::whereBetween('created_at', [$prevStart, $prevEnd])->sum('amount') ?? 0;
+        $prevOmset = $prevOmsetSales + $prevOmsetIncome;
+
+        $growthOmset = $prevOmset > 0 ? (($omset - $prevOmset) / $prevOmset) * 100 : 0;
+
+        // === CASH FLOW PROJECTION (Expected Income from Piutang) ===
+        // Grouping remaining_amount by deadline
+        $unpaidOrders = SalesOrder::where('payment_status', 'dp')
+            ->where('deadline', '>=', now()->startOfDay())
+            ->where('deadline', '<=', now()->addDays(30)->endOfDay())
+            ->get();
+            
+        $dailyProjection = [];
+        foreach ($unpaidOrders as $order) {
+            $date = $order->deadline->format('Y-m-d');
+            $remaining = $order->remaining_amount;
+            if ($remaining > 0) {
+                $dailyProjection[$date] = ($dailyProjection[$date] ?? 0) + $remaining;
+            }
+        }
+        ksort($dailyProjection);
+        
+        $formattedProjection = [];
+        foreach ($dailyProjection as $date => $total) {
+            $formattedProjection[] = [
+                'date' => Carbon::parse($date)->format('d M Y'),
+                'total' => $total
+            ];
+        }
+        $formattedProjection = array_slice($formattedProjection, 0, 7); // Show next 7 unique days
         
         // Ambil data iklan menggunakan method helper dengan filter bulan
         $advertisementData = $this->getAdvertisementData($selectedMonth);
@@ -152,7 +205,10 @@ class DashboardController extends Controller
         // === ADVERTISEMENT PERFORMANCE DATA (pakai filter tanggal utama) ===
         $advertisementPerformanceData = $this->getAdvertisementPerformanceData($startDate, $endDate);
         
-        return view('owner.dashboard', array_merge($advertisementData, $advertisementPerformanceData, [
+        // === FINANCIAL TREND CHART DATA ===
+        $financialChartData = $this->getFinancialChartData($startDate, $endDate);
+        
+        return view('owner.dashboard', array_merge($advertisementData, $advertisementPerformanceData, $financialChartData, [
             'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
             'selectedMonth' => $selectedMonth,
             'availableMonths' => $this->getAvailableMonths(),
@@ -186,6 +242,9 @@ class DashboardController extends Controller
             // Business Insights
             'recentSales' => $recentSales,
             'bestSellingProducts' => $bestSellingProducts,
+            'topCustomers' => $topCustomers,
+            'growthOmset' => $growthOmset,
+            'cashFlowProjection' => $formattedProjection,
         ]));
     }
 
@@ -499,8 +558,86 @@ class DashboardController extends Controller
             'advertisementChartData' => $formattedChartData,
             'advertisementChartDates' => $dates,
             'advertisementHasActualData' => $hasActualData,
+            'advertisementHasActualData' => $hasActualData,
             'advertisementHasValidatedEmpty' => $hasValidatedEmpty,
             'advertisementHasAnyData' => $hasAnyData,
+        ];
+    }
+
+    /**
+     * Get financial trend data (Omset, HPP, Operasional, Profit) per day
+     */
+    protected function getFinancialChartData($startDate, $endDate)
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+        
+        // 1. Get Daily Sales (SalesOrder)
+        $dailySales = SalesOrder::whereBetween('created_at', [$start, $end])
+            ->where('status', '!=', 'draft')
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(grand_total) as total'))
+            ->groupBy('date')
+            ->pluck('total', 'date')
+            ->toArray();
+            
+        // 2. Get Daily Manual Income
+        $dailyManualIncome = Income::whereBetween('created_at', [$start, $end])
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(amount) as total'))
+            ->groupBy('date')
+            ->pluck('total', 'date')
+            ->toArray();
+            
+        // 3. Get Daily HPP
+        $dailyHpp = SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->select(
+                DB::raw('DATE(sales_orders.created_at) as date'), 
+                DB::raw('SUM(COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty) as total')
+            )
+            ->groupBy('date')
+            ->pluck('total', 'date')
+            ->toArray();
+            
+        // 4. Get Daily Expenses
+        $dailyExpenses = Expense::whereBetween('created_at', [$start, $end])
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(amount) as total'))
+            ->groupBy('date')
+            ->pluck('total', 'date')
+            ->toArray();
+            
+        // 5. Merge and fill gaps
+        $dates = [];
+        $omsetData = [];
+        $hppData = [];
+        $expenseData = [];
+        $profitData = [];
+        
+        $current = $start->copy();
+        while ($current <= $end) {
+            $dateStr = $current->format('Y-m-d');
+            $dates[] = $current->format('d M');
+            
+            $dayOmset = ($dailySales[$dateStr] ?? 0) + ($dailyManualIncome[$dateStr] ?? 0);
+            $dayHpp = $dailyHpp[$dateStr] ?? 0;
+            $dayExpense = $dailyExpenses[$dateStr] ?? 0;
+            $dayProfit = $dayOmset - $dayHpp - $dayExpense;
+            
+            $omsetData[] = (float)$dayOmset;
+            $hppData[] = (float)$dayHpp;
+            $expenseData[] = (float)$dayExpense;
+            $profitData[] = (float)$dayProfit;
+            
+            $current->addDay();
+        }
+        
+        return [
+            'financialChartLabels' => $dates,
+            'financialChartOmset' => $omsetData,
+            'financialChartHpp' => $hppData,
+            'financialChartExpense' => $expenseData,
+            'financialChartProfit' => $profitData,
         ];
     }
 
@@ -531,4 +668,3 @@ class DashboardController extends Controller
         ]);
     }
 }
-

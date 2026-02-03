@@ -209,9 +209,17 @@
           <!-- [SECTION 3] FINANCIAL OVERVIEW (Priority 2: Financial Health) -->
           <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
             <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
-              <p class="text-xs text-gray-500 mb-1">OMSET</p>
+              <div class="flex justify-between items-start">
+                  <p class="text-xs text-gray-500 mb-1">OMSET</p>
+                  @if(isset($growthOmset))
+                    <span class="text-[10px] font-bold {{ $growthOmset >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        <i class="bi bi-graph-{{ $growthOmset >= 0 ? 'up' : 'down' }}"></i>
+                        {{ number_format(abs($growthOmset), 1) }}%
+                    </span>
+                  @endif
+              </div>
               <p class="text-xl font-bold text-green-600">Rp {{ number_format($omset ?? 0, 0, ',', '.') }}</p>
-              <p class="text-xs text-gray-400 mt-1">Penjualan: Rp {{ number_format($totalSales ?? 0, 0, ',', '.') }}</p>
+              <p class="text-xs text-gray-400 mt-1">Penjualan + Pemasukan</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500">
               <p class="text-xs text-gray-500 mb-1">HPP</p>
@@ -237,6 +245,35 @@
               <p class="text-xs text-gray-500 mb-1">CASH TRANSFER</p>
               <p class="text-xl font-bold text-purple-600">Rp {{ number_format($totalCashTransfer ?? 0, 0, ',', '.') }}</p>
               <p class="text-xs text-gray-400 mt-1">Setor/Tukar Tunai</p>
+            </div>
+          </div>
+
+          <!-- [SECTION 3.5] FINANCIAL TREND CHART -->
+          <div class="bg-white p-4 rounded-xl shadow-lg">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <i class="bi bi-graph-up-arrow text-emerald-600"></i>
+              Tren Performa Keuangan
+            </h2>
+            <div class="bg-white p-2 rounded-lg border">
+              <canvas id="financialChart" height="80"></canvas>
+            </div>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <span class="text-xs text-gray-600">Omset</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                    <span class="text-xs text-gray-600">HPP</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <span class="text-xs text-gray-600">Operasional</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+                    <span class="text-xs text-gray-600">Net Profit</span>
+                </div>
             </div>
           </div>
 
@@ -479,35 +516,59 @@
               </div>
             </div>
 
-            <!-- Jenis Transaksi -->
-            <div class="bg-white p-4 rounded-xl shadow">
+            <!-- VIP Customers -->
+            <div class="bg-white p-4 rounded-xl shadow border-t-4 border-blue-600">
               <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <i class="bi bi-pie-chart text-purple-500"></i>
-                Jenis Transaksi
+                <i class="bi bi-star-fill text-blue-600"></i>
+                Customer VIP (Top Spender)
               </h3>
               <div class="space-y-2">
-                <div class="flex justify-between items-center p-2 bg-blue-50 rounded">
-                  <span class="text-xs font-medium text-blue-700">Total</span>
-                  <span class="text-sm font-bold text-blue-800">{{ $salesTypeStats['total'] ?? 0 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <span class="text-xs font-medium text-green-700">Langsung</span>
-                  <span class="text-sm font-bold text-green-800">{{ $salesTypeStats['direct'] ?? 0 }} ({{ $salesTypeStats['direct_percentage'] ?? 0 }}%)</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-purple-50 rounded">
-                  <span class="text-xs font-medium text-purple-700">Pre-Order</span>
-                  <span class="text-sm font-bold text-purple-800">{{ $salesTypeStats['po'] ?? 0 }} ({{ $salesTypeStats['po_percentage'] ?? 0 }}%)</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div class="flex h-2 rounded-full">
-                    <div class="bg-green-500" style="width: {{ $salesTypeStats['direct_percentage'] ?? 0 }}%"></div>
-                    <div class="bg-purple-500" style="width: {{ $salesTypeStats['po_percentage'] ?? 0 }}%"></div>
-                  </div>
-                </div>
+                @if(isset($topCustomers) && $topCustomers->count() > 0)
+                  @foreach($topCustomers as $customer)
+                    <div class="p-2 bg-blue-50 rounded-lg flex justify-between items-center">
+                      <div class="min-w-0">
+                        <p class="text-xs font-bold text-blue-900 truncate">{{ $customer->customer_name }}</p>
+                        <p class="text-[10px] text-blue-600">{{ $customer->total_orders }} Transaksi</p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-xs font-bold text-blue-800">Rp {{ number_format($customer->total_spent, 0, ',', '.') }}</p>
+                      </div>
+                    </div>
+                  @endforeach
+                @else
+                  <p class="text-xs text-gray-400 text-center py-4">Belum ada data periode ini</p>
+                @endif
               </div>
             </div>
 
-            <!-- Produk Terlaris -->
+            <!-- Cash Flow Projection -->
+            <div class="bg-white p-4 rounded-xl shadow border-t-4 border-emerald-600">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <i class="bi bi-calendar-check text-emerald-600"></i>
+                Prediksi Uang Masuk (30 Hari)
+              </h3>
+              <div class="space-y-2">
+                @if(isset($cashFlowProjection) && count($cashFlowProjection) > 0)
+                  @foreach($cashFlowProjection as $projection)
+                    <div class="p-2 bg-emerald-50 rounded-lg flex justify-between items-center">
+                      <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        <p class="text-xs text-emerald-900">{{ $projection['date'] }}</p>
+                      </div>
+                      <p class="text-xs font-bold text-emerald-800">Rp {{ number_format($projection['total'], 0, ',', '.') }}</p>
+                    </div>
+                  @endforeach
+                  <p class="text-[10px] text-gray-400 italic mt-2">* Berdasarkan tanggal deadline pelunasan DP</p>
+                @else
+                  <div class="text-center py-4">
+                    <i class="bi bi-info-circle text-gray-300 text-xl"></i>
+                    <p class="text-xs text-gray-400 mt-1">Tidak ada piutang jatuh tempo</p>
+                  </div>
+                @endif
+              </div>
+            </div>
+
+            <!-- Produk Terlaris (Move here for better 3-col balance) -->
             <div class="bg-white p-4 rounded-xl shadow">
               <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <i class="bi bi-trophy text-yellow-500"></i>
@@ -665,40 +726,40 @@
       @if(isset($advertisementChatCount))
       // Chart.js untuk Grafik Iklan
       @if(isset($advertisementChartData) && isset($advertisementChartDates))
-      const ctx = document.getElementById('advertisementChart').getContext('2d');
-      const chartData = @json($advertisementChartData);
-      const chartDates = @json($advertisementChartDates);
+      const ctxAdv = document.getElementById('advertisementChart').getContext('2d');
+      const advChartData = @json($advertisementChartData);
+      const advChartDates = @json($advertisementChartDates);
       
-      const chatData = chartDates.map(date => chartData[date]?.chat || 0);
-      const followupData = chartDates.map(date => chartData[date]?.followup || 0);
-      const closingData = chartDates.map(date => chartData[date]?.closing || 0);
-      const labels = chartDates.map(date => {
+      const advChatData = advChartDates.map(date => advChartData[date]?.chat || 0);
+      const advFollowupData = advChartDates.map(date => advChartData[date]?.followup || 0);
+      const advClosingData = advChartDates.map(date => advChartData[date]?.closing || 0);
+      const advLabels = advChartDates.map(date => {
         const d = new Date(date);
         return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
       });
 
-      new Chart(ctx, {
+      new Chart(ctxAdv, {
         type: 'line',
         data: {
-          labels: labels,
+          labels: advLabels,
           datasets: [
             {
               label: 'Chat Masuk',
-              data: chatData,
+              data: advChatData,
               borderColor: 'rgb(59, 130, 246)',
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               tension: 0.4
             },
             {
               label: 'Follow Up',
-              data: followupData,
+              data: advFollowupData,
               borderColor: 'rgb(249, 115, 22)',
               backgroundColor: 'rgba(249, 115, 22, 0.1)',
               tension: 0.4
             },
             {
               label: 'Closing',
-              data: closingData,
+              data: advClosingData,
               borderColor: 'rgb(34, 197, 94)',
               backgroundColor: 'rgba(34, 197, 94, 0.1)',
               tension: 0.4
@@ -709,15 +770,82 @@
           responsive: true,
           maintainAspectRatio: true,
           plugins: {
-            legend: {
-              position: 'top',
+            legend: { position: 'top' }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+          }
+        }
+      });
+      @endif
+
+      // --- Financial Trend Chart ---
+      @if(isset($financialChartLabels))
+      const ctxFin = document.getElementById('financialChart').getContext('2d');
+      new Chart(ctxFin, {
+        type: 'line',
+        data: {
+          labels: @json($financialChartLabels),
+          datasets: [
+            {
+              label: 'Omset',
+              data: @json($financialChartOmset),
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'HPP',
+              data: @json($financialChartHpp),
+              borderColor: '#f43f5e',
+              backgroundColor: 'rgba(244, 63, 94, 0.1)',
+              tension: 0.3
+            },
+            {
+              label: 'Operasional',
+              data: @json($financialChartExpense),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              tension: 0.3
+            },
+            {
+              label: 'Net Profit',
+              data: @json($financialChartProfit),
+              borderColor: '#6366f1',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              borderDash: [5, 5],
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed.y !== null) {
+                            label += new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(context.parsed.y);
+                        }
+                        return label;
+                    }
+                }
             }
           },
           scales: {
             y: {
               beginAtZero: true,
               ticks: {
-                stepSize: 1
+                callback: function(value) {
+                    if (value >= 1000000) return 'Rp ' + (value/1000000).toFixed(1) + ' jt';
+                    if (value >= 1000) return 'Rp ' + (value/1000).toFixed(0) + ' rb';
+                    return 'Rp ' + value;
+                }
               }
             }
           }
