@@ -188,7 +188,7 @@ class PurchaseOrderController extends BaseController
 
         $validated = $request->validate([
             'order_date' => ['required', 'date'],
-            'deadline' => ['nullable', 'date'],
+            'deadline' => ['nullable', 'date', 'after_or_equal:order_date'],
             'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'supplier_name' => ['nullable', 'string', 'max:255'],
             'purchase_type' => ['required', 'in:kain,produk_jadi'],
@@ -306,7 +306,7 @@ class PurchaseOrderController extends BaseController
 
         $validated = $request->validate([
             'order_date' => ['required', 'date'],
-            'deadline' => ['nullable', 'date'],
+            'deadline' => ['nullable', 'date', 'after_or_equal:order_date'],
             'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'supplier_name' => ['nullable', 'string', 'max:255'],
             'purchase_type' => ['required', 'in:kain,produk_jadi'],

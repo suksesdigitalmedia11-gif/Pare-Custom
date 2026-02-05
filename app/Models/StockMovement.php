@@ -19,13 +19,12 @@ class StockMovement extends Model
         'moved_at' => 'datetime',
     ];
 
-    // Tipe yang dipakai sekarang (tanpa transfer/adjustment)
+    // Tipe yang dipakai sekarang
     public const INCOMING        = 'INCOMING';
+    public const OUTGOING        = 'OUTGOING'; // Penjualan standar
     public const OPNAME          = 'OPNAME';
     public const POS_SALE        = 'POS_SALE';
     public const POS_CANCEL      = 'POS_CANCEL';
-    public const SALE_RETURN     = 'SALE_RETURN';
-    public const PURCHASE_RETURN = 'PURCHASE_RETURN'; // TAMBAHKAN INI
 
     public function product() { return $this->belongsTo(Product::class); }
     public function user()    { return $this->belongsTo(User::class); }

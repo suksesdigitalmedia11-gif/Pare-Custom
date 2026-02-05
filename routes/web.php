@@ -89,19 +89,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     Route::post('purchases/{purchase}/rollback', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'rollbackCompletion'])
         ->name('purchases.rollback');
 
-    // Purchase Returns
-    Route::prefix('purchase-returns')->name('purchase-returns.')->group(function () {
-        Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
-        Route::get('create/{purchase}', [PurchaseReturnController::class, 'create'])->name('create');
-        Route::post('store/{purchase}', [PurchaseReturnController::class, 'store'])->name('store');
-        Route::get('{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('show');
-        Route::post('{purchaseReturn}/confirm', [PurchaseReturnController::class, 'confirm'])->name('confirm');
-        Route::post('{purchaseReturn}/cancel', [PurchaseReturnController::class, 'cancel'])->name('cancel');
-    });
 
-    // Redirect old purchase returns tab to new route
-    Route::get('purchases/returns', fn() => redirect()->route('owner.purchase-returns.index'))
-        ->name('purchases.returns-redirect');
 
     // Purchases
     Route::get('purchases/import', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'importForm'])->name('purchases.import-form');
@@ -190,7 +178,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
         });
 
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');
-        Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        Route::get('stock-movements/{productId}/details', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
 
         // Stock Adjustments (NEW)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
@@ -297,7 +285,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
             // No create/edit/delete
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
-        Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        Route::get('stock-movements/{productId}/details', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
         // Stock Adjustments (Read Only for Finance)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
@@ -432,7 +420,7 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
             // No create/edit/delete
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
-        Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        Route::get('stock-movements/{productId}/details', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
         // Stock Adjustments (NEW)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Inventory\StockAdjustmentController::class, 'index'])->name('index');
@@ -458,14 +446,7 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         Route::post('{purchase}/update-status', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
         Route::patch('{purchase}/cancel', [App\Http\Controllers\KepalaToko\PurchaseOrderController::class, 'cancel'])->name('cancel');
     });
-    Route::prefix('purchase-returns')->name('purchase-returns.')->group(function () {
-        Route::get('/', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'index'])->name('index');
-        Route::get('create/{purchase}', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'create'])->name('create');
-        Route::post('store/{purchase}', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'store'])->name('store');
-        Route::get('{purchaseReturn}', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'show'])->name('show');
-        Route::post('{purchaseReturn}/confirm', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'confirm'])->name('confirm');
-        Route::post('{purchaseReturn}/cancel', [App\Http\Controllers\KepalaToko\PurchaseReturnController::class, 'cancel'])->name('cancel');
-    });
+
 
     // Shift routes
     Route::get('shift/dashboard', [App\Http\Controllers\KepalaToko\ShiftController::class, 'dashboard'])->name('shift.dashboard');
@@ -596,7 +577,7 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
 
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');
-        Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        Route::get('stock-movements/{productId}/details', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
 
         // Stock Adjustments (NEW)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {
@@ -621,14 +602,7 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
         Route::get('purchases/{purchase}/edit', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'edit'])->name('edit');
         Route::put('purchases/{purchase}', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'update'])->name('update');
     });
-    Route::prefix('purchase-returns')->name('purchase-returns.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\PurchaseReturnController::class, 'index'])->name('index');
-        Route::get('create/{purchase}', [App\Http\Controllers\Admin\PurchaseReturnController::class, 'create'])->name('create');
-        Route::post('store/{purchase}', [App\Http\Controllers\Admin\PurchaseReturnController::class, 'store'])->name('store');
-        Route::get('{purchaseReturn}', [App\Http\Controllers\Admin\PurchaseReturnController::class, 'show'])->name('show');
-        Route::post('{purchaseReturn}/cancel', [App\Http\Controllers\Admin\PurchaseReturnController::class, 'cancel'])->name('cancel');
-        // TIDAK ADA confirm route untuk admin
-    });
+
     // Shift routes
     Route::get('shift/dashboard', [App\Http\Controllers\Admin\ShiftController::class, 'dashboard'])->name('shift.dashboard');
     Route::post('shift/start', [App\Http\Controllers\Admin\ShiftController::class, 'start'])->name('shift.start');
@@ -742,7 +716,7 @@ Route::middleware(['auth', 'editor'])->prefix('editor')->name('editor.')->group(
             // No approve/delete
         });
         Route::get('stock-movements', [\App\Http\Controllers\Owner\StockMovementController::class, 'index'])->name('stock-movements.index');  // Read-only
-        Route::get('stock-movements/{productId}/{date}', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
+        Route::get('stock-movements/{productId}/details', [\App\Http\Controllers\Owner\StockMovementController::class, 'getProductMovements'])->name('stock-movements.details');
 
         // Stock Adjustments (NEW - Editor Access)
         Route::prefix('stock-adjustments')->name('stock-adjustments.')->group(function () {

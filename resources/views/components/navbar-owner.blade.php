@@ -202,10 +202,7 @@
                                 class="block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
                                 Purchase List
                             </a>
-                            <a href="{{ route('owner.purchase-returns.index') }}"
-                                class="block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                Retur Pembelian
-                            </a>
+
                         </div>
                     </div>
                 </div>

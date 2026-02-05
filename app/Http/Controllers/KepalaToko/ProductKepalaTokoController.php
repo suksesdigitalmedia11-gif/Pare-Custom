@@ -135,7 +135,7 @@ class ProductKepalaTokoController extends Controller implements FromArray, WithH
                   ->orWhere('sku', 'like', "%{$query}%")
                   ->orWhere('barcode', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'sku', 'barcode', 'price', 'stock_qty')
+            ->select('id', 'name', 'sku', 'barcode', 'price', 'cost_price', 'stock_qty')
             ->orderBy('name')
             ->limit(10)
             ->get();

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\StockOpname;
 use App\Models\PurchaseOrder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -77,6 +78,8 @@ class DashboardController extends Controller
                 'salesTypeStats' => $salesTypeStats,
                 'startDate' => $startDate,
                 'endDate' => $endDate,
+                'financialChartData' => $this->getFinancialChartData($startDate, $endDate),
+                'bestSellingProducts' => $this->getBestSellingProducts($startDate, $endDate),
             ],
             $shiftData
         );
@@ -214,15 +217,15 @@ class DashboardController extends Controller
     {
         $today = now()->format('Y-m-d');
         
-        $transactions = SalesOrder::whereDate('order_date', $today)
-            ->whereNotIn('status', ['draft'])
+        $transactions = SalesOrder::whereDate('created_at', $today)
+            ->where('status', '!=', 'draft')
             ->count();
             
         $revenue = Payment::whereDate('paid_at', $today)
             ->sum('amount');
             
-        $customers = SalesOrder::whereDate('order_date', $today)
-            ->whereNotIn('status', ['draft'])
+        $customers = SalesOrder::whereDate('created_at', $today)
+            ->where('status', '!=', 'draft')
             ->distinct('customer_id')
             ->count('customer_id');
             
@@ -334,6 +337,98 @@ class DashboardController extends Controller
             'direct_percentage' => $directPercentage,
             'po_percentage' => $poPercentage,
         ];
+    }
+
+    private function getFinancialChartData($startDate, $endDate)
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        // 1. Get Daily Sales (Omset) & Invoice Count
+        $dailySales = SalesOrder::whereBetween('created_at', [$start, $end])
+            ->where('status', '!=', 'draft')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(grand_total) as omset'),
+                DB::raw('COUNT(*) as invoices')
+            )
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // 2. Get Daily HPP
+        $dailyHpp = \App\Models\SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            ->select(
+                DB::raw('DATE(sales_orders.created_at) as date'),
+                DB::raw('SUM(COALESCE(sales_order_items.cost_price, products.cost_price, 0) * sales_order_items.qty) as hpp')
+            )
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // 3. Prepare Chart Data
+        $labels = [];
+        $omsetData = [];
+        $hppData = [];
+        $profitData = [];
+        $invoiceData = [];
+
+        $current = $start->copy();
+        while ($current <= $end) {
+            $dateStr = $current->format('Y-m-d');
+            $labels[] = $current->format('d M');
+
+            $daySales = $dailySales[$dateStr] ?? null;
+            $omset = $daySales->omset ?? 0;
+            $invoices = $daySales->invoices ?? 0;
+            $hpp = $dailyHpp[$dateStr]->hpp ?? 0;
+            $profit = $omset - $hpp;
+
+            $omsetData[] = (float)$omset;
+            $hppData[] = (float)$hpp;
+            $profitData[] = (float)$profit;
+            $invoiceData[] = (int)$invoices;
+
+            $current->addDay();
+        }
+
+        return [
+            'labels' => $labels,
+            'omset' => $omsetData,
+            'hpp' => $hppData,
+            'profit' => $profitData,
+            'invoices' => $invoiceData,
+            'total_omset' => array_sum($omsetData),
+            'total_hpp' => array_sum($hppData),
+            'total_profit' => array_sum($profitData),
+            'total_invoices' => array_sum($invoiceData),
+        ];
+    }
+
+    private function getBestSellingProducts($startDate, $endDate)
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        return \App\Models\SalesOrderItem::join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->select(
+                'sales_order_items.product_name',
+                DB::raw('SUM(sales_order_items.qty) as total_qty')
+            )
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            // Exclude DTF and Spunbound (case insensitive)
+            ->where('sales_order_items.product_name', 'NOT LIKE', '%DTF%')
+            ->where('sales_order_items.product_name', 'NOT LIKE', '%dtf%')
+            ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbound%')
+            ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbound%')
+            ->groupBy('sales_order_items.product_name')
+            ->orderBy('total_qty', 'desc')
+            ->limit(10)
+            ->get();
     }
 }
 

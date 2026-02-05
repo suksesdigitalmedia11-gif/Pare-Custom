@@ -161,7 +161,12 @@
                                 @if($purchase->deadline)
                                     <div>
                                         <div class="text-sm text-gray-500">Deadline</div>
-                                        <div>{{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}</div>
+                                        <div class="font-semibold {{ $purchase->deadline && $purchase->deadline->isPast() && $purchase->status !== 'selesai' && $purchase->status !== 'canceled' ? 'text-red-600 animate-pulse' : '' }}">
+                                            {{ \Carbon\Carbon::parse($purchase->deadline)->format('d M Y') }}
+                                            @if($purchase->deadline && $purchase->deadline->isPast() && $purchase->status !== 'selesai' && $purchase->status !== 'canceled')
+                                                <span class="text-xs ml-1">(Terlewati)</span>
+                                            @endif
+                                        </div>
                                     </div>
                                 @endif
                                 <div>
@@ -190,8 +195,10 @@
                                                     <div class="font-medium text-blue-800">{{ $purchase->customer_name }}
                                                     </div>
                                                     @if($purchase->salesOrder && $purchase->salesOrder->so_number)
-                                                        <div class="text-sm text-blue-600">Dari Sales Order:
-                                                            {{ $purchase->salesOrder->so_number }}</div>
+                                                        <div class="text-sm text-blue-600">Dari Sales Order:</div>
+                                                        <a href="{{ route('owner.sales.show', $purchase->salesOrder->id) }}" class="inline-flex items-center px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 mt-1 transition-colors shadow-sm font-semibold">
+                                                            <i class="bi bi-eye mr-1"></i> {{ $purchase->salesOrder->so_number }}
+                                                        </a>
                                                     @endif
                                                 </div>
                                             </div>
@@ -616,10 +623,7 @@
 
                                 <!-- TOMBOL RETURN -->
                                 @if($purchase->status === 'selesai')
-                                    <a href="{{ route('owner.purchase-returns.create', ['purchase' => $purchase->id]) }}"
-                                        class="w-full inline-flex items-center justify-center px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
-                                        <i class="bi bi-arrow-return-left mr-2"></i>Return Pembelian
-                                    </a>
+
 
                                     <!-- CRITICAL ACTION: ROLLBACK DONE STATUS -->
                                     <form method="POST" action="{{ route('owner.purchases.rollback', $purchase) }}"

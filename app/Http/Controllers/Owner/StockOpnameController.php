@@ -235,44 +235,69 @@ class StockOpnameController extends Controller
         if (!in_array(auth()->user()->usertype, ['finance', 'kepala_toko', 'owner'])) {
             return back()->with('error', 'Akses ditolak.');
         }
+
         $stockOpname = StockOpname::with('items.product')->findOrFail($id);
 
-        DB::transaction(function () use ($stockOpname) {
-            $stockOpname->update([
-                'status' => 'approved',
-                'approved_by' => auth()->id(),
-                'approved_at' => now(),
-            ]);
+        if ($stockOpname->status !== 'draft') {
+            return back()->with('error', 'Stock Opname sudah diproses sebelumnya.');
+        }
 
-            foreach ($stockOpname->items as $item) {
-                $product = $item->product;
+        try {
+            DB::transaction(function () use ($stockOpname) {
+                // Update status first
+                $stockOpname->update([
+                    'status' => 'approved',
+                    'approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                ]);
 
-                if ($product) {
-                    $initialQty = $product->stock_qty;
-                    $finalQty = $item->actual_qty;
+                foreach ($stockOpname->items as $item) {
+                    // Gunakan lockForUpdate untuk mencegah race condition dengan POS/transaksi lain
+                    $product = Product::lockForUpdate()->find($item->product_id);
 
-                    $product->update(['stock_qty' => $finalQty]);
+                    if ($product) {
+                        // METODE ADJUSTMENT: Menghitung selisih dari snapshot saat draft
+                        // Contoh: Saat draft sistem=10, fisik=9. Selisih = -1.
+                        // Saat approve, stok real ternyata sudah 7 (karena ada terjual 3).
+                        // Maka stok baru = 7 + (-1) = 6. (Bukan dipaksa jadi 9).
+                        $difference = (int)$item->actual_qty - (int)$item->system_qty;
+                        
+                        $initialQty = $product->stock_qty;
+                        $finalQty = $initialQty + $difference;
 
-                    $qtyIn = $finalQty > $initialQty ? $finalQty - $initialQty : 0;
-                    $qtyOut = $finalQty < $initialQty ? $initialQty - $finalQty : 0;
+                        // Pastikan stok tidak negatif (opsional, tapi disarankan)
+                        if ($finalQty < 0) $finalQty = 0;
 
-                    StockMovement::record([
-                        'product_id' => $product->id,
-                        'type' => StockMovement::OPNAME,
-                        'ref_code' => $stockOpname->document_number,
-                        'qty_in' => $qtyIn,
-                        'qty_out' => $qtyOut,
-                        'user_id' => auth()->id(),
-                        'notes' => 'Stock opname: ' . $stockOpname->document_number,
-                        'moved_at' => now(),
-                    ]);
+                        $product->update(['stock_qty' => $finalQty]);
+
+                        // Catat Mutasi Stok
+                        $qtyIn = $difference > 0 ? $difference : 0;
+                        $qtyOut = $difference < 0 ? abs($difference) : 0;
+
+                        if ($difference !== 0) {
+                            StockMovement::record([
+                                'product_id' => $product->id,
+                                'type' => StockMovement::OPNAME,
+                                'ref_code' => $stockOpname->document_number,
+                                'qty_in' => $qtyIn,
+                                'qty_out' => $qtyOut,
+                                'user_id' => auth()->id(),
+                                'notes' => 'Stock opname: ' . $stockOpname->document_number . ' (Adjustment: ' . ($difference > 0 ? '+' : '') . $difference . ')',
+                                'moved_at' => now(),
+                            ]);
+                        }
+                    }
                 }
-            }
-        });
+            });
 
-        $route = $this->getRoutePrefix() . '.inventory.stock-opnames.index';
-        return redirect()->route($route)
-            ->with('success', 'Stock Opname berhasil disetujui dan stok produk diperbarui');
+            $route = $this->getRoutePrefix() . '.inventory.stock-opnames.index';
+            return redirect()->route($route)
+                ->with('success', 'Stock Opname berhasil disetujui. Stok telah disesuaikan berdasarkan selisih fisik.');
+
+        } catch (\Exception $e) {
+            \Log::error('Stock Opname Approval Error: ' . $e->getMessage());
+            return back()->with('error', 'Gagal menyetujui Stock Opname: ' . $e->getMessage());
+        }
     }
 
     public function destroy($id)

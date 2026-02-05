@@ -144,7 +144,7 @@ class ProductEditorController extends Controller implements FromArray, WithHeadi
                     ->orWhere('sku', 'like', "%{$query}%")
                     ->orWhere('barcode', 'like', "%{$query}%");
             })
-            ->select('id', 'name', 'sku', 'barcode', 'price', 'stock_qty')
+            ->select('id', 'name', 'sku', 'barcode', 'price', 'cost_price', 'stock_qty')
             ->orderBy('name')
             ->limit(10)
             ->get();

@@ -78,6 +78,28 @@
             </div>
           </div>
 
+          <!-- === DATE RANGE FILTER === -->
+          <div class="bg-white p-4 rounded-xl shadow-lg mb-6">
+            <form method="GET" action="{{ route('kepala-toko.dashboard') }}" class="flex flex-wrap items-end gap-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Mulai</label>
+                    <input type="date" name="start_date" value="{{ $startDate }}" 
+                           class="block w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#005281] focus:border-transparent text-sm">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Selesai</label>
+                    <input type="date" name="end_date" value="{{ $endDate }}" 
+                           class="block w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#005281] focus:border-transparent text-sm">
+                </div>
+                <button type="submit" class="px-6 py-2 bg-[#005281] text-white rounded-lg text-sm font-medium hover:bg-[#005281]/90 transition-all flex items-center gap-2">
+                    <i class="bi bi-filter"></i> Filter
+                </button>
+                <a href="{{ route('kepala-toko.dashboard') }}" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-all">
+                    Reset
+                </a>
+            </form>
+          </div>
+
           <!-- === SHIFT STATUS & TODAY'S PERFORMANCE === -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             
@@ -412,6 +434,78 @@
           </div>
           @endif
 
+          <!-- === FINANCIAL PERFORMANCE CHART === -->
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+              <!-- Summary Cards for Chart -->
+              <div class="lg:col-span-1 space-y-4">
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-600 transition-transform hover:scale-[1.02]">
+                      <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Omset</div>
+                      <div class="text-lg font-bold text-blue-600">Rp {{ number_format($financialChartData['total_omset'], 0, ',', '.') }}</div>
+                  </div>
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-600 transition-transform hover:scale-[1.02]">
+                      <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Total HPP</div>
+                      <div class="text-lg font-bold text-orange-600">Rp {{ number_format($financialChartData['total_hpp'], 0, ',', '.') }}</div>
+                  </div>
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-l-4 border-green-600 transition-transform hover:scale-[1.02]">
+                      <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Profit</div>
+                      <div class="text-lg font-bold text-green-600">Rp {{ number_format($financialChartData['total_profit'], 0, ',', '.') }}</div>
+                  </div>
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-l-4 border-purple-600 transition-transform hover:scale-[1.02]">
+                      <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Invoice</div>
+                      <div class="text-lg font-bold text-purple-600">{{ $financialChartData['total_invoices'] }} <span class="text-xs text-gray-400 font-normal ml-1">Nota</span></div>
+                  </div>
+              </div>
+
+              <!-- Main Chart -->
+              <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg">
+                  <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                      <i class="bi bi-bar-chart-line text-[#005281]"></i>
+                      Grafik Performa Finansial
+                  </h3>
+                  <div class="h-[300px] w-full">
+                      <canvas id="financialChart"></canvas>
+                  </div>
+              </div>
+          </div>
+
+          <!-- === BEST SELLING PRODUCTS === -->
+          <div class="bg-white p-6 rounded-xl shadow-lg mb-6 border-l-4 border-[#005281]">
+              <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <i class="bi bi-star-fill text-yellow-400"></i>
+                  10 Produk Terlaris
+                  <span class="text-xs font-normal text-gray-500">(Kecuali DTF & Spunbound)</span>
+              </h3>
+              <div class="overflow-x-auto">
+                  <table class="w-full text-sm text-left">
+                      <thead class="bg-gray-50 text-gray-600 uppercase text-[10px] font-bold tracking-wider">
+                          <tr>
+                              <th class="px-4 py-3 rounded-l-lg">Nama Produk</th>
+                              <th class="px-4 py-3 text-center rounded-r-lg">Qty Terjual</th>
+                          </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100">
+                          @forelse($bestSellingProducts as $product)
+                          <tr class="hover:bg-gray-50 transition-colors">
+                              <td class="px-4 py-3 font-medium text-gray-800">{{ $product->product_name }}</td>
+                              <td class="px-4 py-3 text-center">
+                                  <span class="px-2 py-1 bg-[#005281]/5 text-[#005281] rounded text-xs font-bold">
+                                      {{ number_format($product->total_qty, 0, ',', '.') }}
+                                  </span>
+                              </td>
+                          </tr>
+                          @empty
+                          <tr>
+                              <td colspan="2" class="px-4 py-12 text-center text-gray-500 italic">
+                                  <i class="bi bi-inbox text-4xl block mb-2 opacity-20"></i>
+                                  Tidak ada data penjualan untuk periode ini.
+                              </td>
+                          </tr>
+                          @endforelse
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+
           <!-- === JENIS TRANSAKSI === -->
           <div class="bg-white p-6 rounded-xl shadow-lg mb-6 border-l-4 border-purple-500">
             <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -493,6 +587,151 @@
         dropdownMenu.classList.toggle('max-h-40');
         chevronIcon.classList.toggle('rotate-180');
       }
+    </script>
+
+    <!-- Chart Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+          const ctx = document.getElementById('financialChart').getContext('2d');
+          new Chart(ctx, {
+              data: {
+                  labels: {!! json_encode($financialChartData['labels']) !!},
+                  datasets: [
+                      {
+                          type: 'line',
+                          label: 'Omset',
+                          data: {!! json_encode($financialChartData['omset']) !!},
+                          borderColor: '#2563eb',
+                          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                          fill: true,
+                          tension: 0.4,
+                          yAxisID: 'y'
+                      },
+                      {
+                          type: 'line',
+                          label: 'HPP',
+                          data: {!! json_encode($financialChartData['hpp']) !!},
+                          borderColor: '#ea580c',
+                          backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                          fill: true,
+                          tension: 0.4,
+                          yAxisID: 'y'
+                      },
+                      {
+                          type: 'line',
+                          label: 'Profit',
+                          data: {!! json_encode($financialChartData['profit']) !!},
+                          borderColor: '#16a34a',
+                          backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                          fill: true,
+                          tension: 0.4,
+                          yAxisID: 'y'
+                      },
+                      {
+                          type: 'bar',
+                          label: 'Invoice',
+                          data: {!! json_encode($financialChartData['invoices']) !!},
+                          backgroundColor: 'rgba(147, 51, 234, 0.2)',
+                          borderColor: '#9333ea',
+                          borderWidth: 1,
+                          yAxisID: 'y1',
+                          barThickness: 'flex'
+                      }
+                  ]
+              },
+              options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: {
+                      mode: 'index',
+                      intersect: false,
+                  },
+                  plugins: {
+                      legend: {
+                          position: 'top',
+                          labels: {
+                              usePointStyle: true,
+                              padding: 20,
+                              font: {
+                                  size: 11
+                              }
+                          }
+                      },
+                      tooltip: {
+                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                          titleColor: '#1f2937',
+                          bodyColor: '#4b5563',
+                          borderColor: '#e5e7eb',
+                          borderWidth: 1,
+                          padding: 12,
+                          displayColors: true,
+                          callbacks: {
+                              label: function(context) {
+                                  let label = context.dataset.label || '';
+                                  if (label) {
+                                      label += ': ';
+                                  }
+                                  if (context.dataset.yAxisID === 'y') {
+                                      label += new Intl.NumberFormat('id-ID', { 
+                                          style: 'currency', 
+                                          currency: 'IDR', 
+                                          maximumFractionDigits: 0 
+                                      }).format(context.parsed.y);
+                                  } else {
+                                      label += context.parsed.y + ' Nota';
+                                  }
+                                  return label;
+                              }
+                          }
+                      }
+                  },
+                  scales: {
+                      y: {
+                          beginAtZero: true,
+                          position: 'left',
+                          ticks: {
+                              font: { size: 10 },
+                              callback: function(value) {
+                                  if (value >= 1000000) return 'Rp ' + (value / 1000000) + 'jt';
+                                  if (value >= 1000) return 'Rp ' + (value / 1000) + 'rb';
+                                  return 'Rp ' + value;
+                              }
+                          },
+                          grid: {
+                              color: 'rgba(0, 0, 0, 0.05)'
+                          }
+                      },
+                      y1: {
+                          beginAtZero: true,
+                          position: 'right',
+                          ticks: {
+                              font: { size: 10 },
+                              stepSize: 1
+                          },
+                          grid: {
+                              drawOnChartArea: false
+                          },
+                          title: {
+                              display: true,
+                              text: 'Jumlah Nota',
+                              font: { size: 10 }
+                          }
+                      },
+                      x: {
+                          ticks: {
+                              font: { size: 10 },
+                              maxRotation: 45,
+                              minRotation: 45
+                          },
+                          grid: {
+                              display: false
+                          }
+                      }
+                  }
+              }
+          });
+      });
     </script>
   </body>
 </html>
