@@ -133,17 +133,25 @@ class DashboardController extends Controller
         
         $bestSellingProducts = \App\Models\SalesOrderItem::selectRaw('
                 product_id,
-                products.name as product_name,
+                sales_order_items.product_name,
                 products.sku as product_sku,
                 SUM(sales_order_items.qty) as total_terjual
             ')
             ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
-            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
             ->whereBetween('sales_orders.created_at', [$start, $end])
-            ->where('sales_orders.status', 'selesai')
-            ->groupBy('product_id', 'products.name', 'products.sku')
+            ->where('sales_orders.status', '!=', 'draft')
+            ->where(function($q) {
+                $q->where('sales_order_items.product_name', 'NOT LIKE', '%DTF%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%dtf%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbond%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbond%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbound%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbound%');
+            })
+            ->groupBy('product_id', 'sales_order_items.product_name', 'products.sku')
             ->orderBy('total_terjual', 'desc')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         // === VIP CUSTOMERS (Top Spenders) ===
@@ -348,14 +356,16 @@ class DashboardController extends Controller
         $previousMonthForSelected = $previousMonth;
         
         // Jumlah nota yang tercetak bulan sebelumnya dari bulan yang dipilih
-        $previousMonthInvoiceCount = \App\Models\Payment::where('paid_at', 'like', "{$previousMonthForSelected}%")
+        $previousMonthInvoiceCount = \App\Models\SalesOrder::where('created_at', 'like', "{$previousMonthForSelected}%")
+            ->where('status', '!=', 'draft')
             ->count();
         
         // Target bulan yang dipilih = jumlah nota bulan sebelumnya + 100% (jadi 200% dari bulan sebelumnya)
         $invoiceTarget = $previousMonthInvoiceCount * 2.0; // 200% = 2.0
         
         // Realisasi invoice bulan yang dipilih
-        $currentMonthInvoiceCount = \App\Models\Payment::where('paid_at', 'like', "{$currentMonth}%")
+        $currentMonthInvoiceCount = \App\Models\SalesOrder::where('created_at', 'like', "{$currentMonth}%")
+            ->where('status', '!=', 'draft')
             ->count();
         
         // Hitung hari untuk bulan yang dipilih
