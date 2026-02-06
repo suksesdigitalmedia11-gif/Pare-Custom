@@ -610,6 +610,7 @@
                       </div>
                       <span class="font-semibold text-yellow-700">{{ number_format($product->total_terjual ?? 0) }} pcs</span>
                     </div>
+
                     @endif
                   @endforeach
                 @else
@@ -617,6 +618,165 @@
                 @endif
               </div>
             </div>
+
+            <!-- Produk Terlaris per Kategori (Grid 5 Sections) -->
+            <!-- We break out of the 3-col grid logic above or create a new row spanning full width if needed? 
+                 Actually, the previous elements were in a 3-col grid. 
+                 To display 5 items comfortably, let's put them in a dedicated grid container spanning full width effectively if we were closing the previous container. 
+                 However, looking at the code, we are inside a container. 
+                 Let's assume we are replacing one "cell" of the grid. 
+                 If we put 5 cards in one cell of a 3-col grid, it will be very tall.
+                 The user wants a nice layout.
+                 I will close the current </div> (if it's the 3-col grid) and start a new full-width section.
+                 Wait, checking line 590: `</div>` closed something? No, it closed "HPP & Target Gross Profit".
+                 The 3-col grid starts at `[SECTION 2]`.
+                 If I close the grid div `</div>` here, I can start a new grid.
+                 Let's try to fit 5 cards. A grid of 5 is awkward (2,2,1 or 3,2).
+                 Let's do a uniform design.
+            -->
+          </div> 
+          <!-- End of Upper Grid -->
+
+          <!-- [SECTION 3] 5 CATEGORY BREAKDOWN -->
+          <div class="mb-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <i class="bi bi-tags text-blue-600"></i> Analisa Per Kategori
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <!-- 1. KAOS POLOS -->
+                  <div class="bg-white p-3 rounded-xl shadow border-t-4 border-blue-500 flex flex-col h-full">
+                      <h4 class="font-semibold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-blue-500 text-[8px]"></i> Kaos Polos
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-60 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <tbody class="divide-y divide-gray-100">
+                                  @forelse($catKaosPolos as $item)
+                                  <tr class="hover:bg-blue-50 transition-colors">
+                                      <td class="py-2 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="py-2 text-right whitespace-nowrap">
+                                          <span class="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 2. KAOS POLO -->
+                  <div class="bg-white p-3 rounded-xl shadow border-t-4 border-indigo-500 flex flex-col h-full">
+                      <h4 class="font-semibold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-indigo-500 text-[8px]"></i> Kaos Polo
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-60 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <tbody class="divide-y divide-gray-100">
+                                  @forelse($catKaosPolo as $item)
+                                  <tr class="hover:bg-indigo-50 transition-colors">
+                                      <td class="py-2 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="py-2 text-right whitespace-nowrap">
+                                          <span class="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 3. JAKET -->
+                  <div class="bg-white p-3 rounded-xl shadow border-t-4 border-red-500 flex flex-col h-full">
+                      <h4 class="font-semibold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-red-500 text-[8px]"></i> Jaket
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-60 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <tbody class="divide-y divide-gray-100">
+                                  @forelse($catJaket as $item)
+                                  <tr class="hover:bg-red-50 transition-colors">
+                                      <td class="py-2 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="py-2 text-right whitespace-nowrap">
+                                          <span class="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 4. JERSEY -->
+                  <div class="bg-white p-3 rounded-xl shadow border-t-4 border-green-500 flex flex-col h-full">
+                      <h4 class="font-semibold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-green-500 text-[8px]"></i> Jersey
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-60 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <tbody class="divide-y divide-gray-100">
+                                  @forelse($catJersey as $item)
+                                  <tr class="hover:bg-green-50 transition-colors">
+                                      <td class="py-2 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="py-2 text-right whitespace-nowrap">
+                                          <span class="font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 5. TOPI -->
+                  <div class="bg-white p-3 rounded-xl shadow border-t-4 border-yellow-500 flex flex-col h-full">
+                      <h4 class="font-semibold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-yellow-500 text-[8px]"></i> Topi
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-60 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <tbody class="divide-y divide-gray-100">
+                                  @forelse($catTopi as $item)
+                                  <tr class="hover:bg-yellow-50 transition-colors">
+                                      <td class="py-2 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="py-2 text-right whitespace-nowrap">
+                                          <span class="font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+          </div> 
+          
+          <!-- Re-open div just in case the layout below relies on previous closure, although I closed the grid above -->
+          <div>
           </div>
 
           <!-- [SECTION 8] RINCIAN OPERASIONAL -->

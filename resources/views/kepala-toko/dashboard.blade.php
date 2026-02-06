@@ -506,6 +506,174 @@
               </div>
           </div>
 
+          <!-- === 5 KATEGORI DETAIL (Full Width Grid) === -->
+          <div class="mb-6">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2 text-lg">
+                  <i class="bi bi-tags text-[#005281]"></i> Analisa Per Kategori
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <!-- 1. KAOS POLOS -->
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-blue-500 flex flex-col h-full">
+                      <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-blue-500 text-[8px]"></i> Kaos Polos
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-64 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                              <thead class="bg-gray-50 text-gray-500 mb-2 block">
+                                  <tr class="flex justify-between px-2 py-1">
+                                    <th>Produk</th>
+                                    <th>Qty</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="space-y-1 block">
+                                  @forelse($catKaosPolos as $item)
+                                  <tr class="flex justify-between items-center p-2 hover:bg-blue-50 bg-white border border-gray-100 rounded transition-colors group">
+                                      <td class="flex-1 min-w-0 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2 leading-tight" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400 mt-0.5">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="text-right whitespace-nowrap">
+                                          <span class="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded text-[10px]">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic text-xs">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 2. KAOS POLO -->
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-indigo-500 flex flex-col h-full">
+                      <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-indigo-500 text-[8px]"></i> Kaos Polo
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-64 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                               <thead class="bg-gray-50 text-gray-500 mb-2 block">
+                                  <tr class="flex justify-between px-2 py-1">
+                                    <th>Produk</th>
+                                    <th>Qty</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="space-y-1 block">
+                                  @forelse($catKaosPolo as $item)
+                                  <tr class="flex justify-between items-center p-2 hover:bg-indigo-50 bg-white border border-gray-100 rounded transition-colors group">
+                                      <td class="flex-1 min-w-0 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2 leading-tight" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400 mt-0.5">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="text-right whitespace-nowrap">
+                                          <span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded text-[10px]">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic text-xs">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 3. JAKET -->
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-red-500 flex flex-col h-full">
+                      <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-red-500 text-[8px]"></i> Jaket
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-64 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                               <thead class="bg-gray-50 text-gray-500 mb-2 block">
+                                  <tr class="flex justify-between px-2 py-1">
+                                    <th>Produk</th>
+                                    <th>Qty</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="space-y-1 block">
+                                  @forelse($catJaket as $item)
+                                  <tr class="flex justify-between items-center p-2 hover:bg-red-50 bg-white border border-gray-100 rounded transition-colors group">
+                                      <td class="flex-1 min-w-0 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2 leading-tight" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400 mt-0.5">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="text-right whitespace-nowrap">
+                                          <span class="font-bold text-red-600 bg-red-100 px-2 py-1 rounded text-[10px]">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic text-xs">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 4. JERSEY -->
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-green-500 flex flex-col h-full">
+                      <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-green-500 text-[8px]"></i> Jersey
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-64 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                               <thead class="bg-gray-50 text-gray-500 mb-2 block">
+                                  <tr class="flex justify-between px-2 py-1">
+                                    <th>Produk</th>
+                                    <th>Qty</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="space-y-1 block">
+                                  @forelse($catJersey as $item)
+                                  <tr class="flex justify-between items-center p-2 hover:bg-green-50 bg-white border border-gray-100 rounded transition-colors group">
+                                      <td class="flex-1 min-w-0 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2 leading-tight" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400 mt-0.5">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="text-right whitespace-nowrap">
+                                          <span class="font-bold text-green-600 bg-green-100 px-2 py-1 rounded text-[10px]">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic text-xs">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <!-- 5. TOPI -->
+                  <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-yellow-500 flex flex-col h-full">
+                      <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                          <i class="bi bi-circle-fill text-yellow-500 text-[8px]"></i> Topi
+                      </h4>
+                      <div class="overflow-y-auto flex-1 max-h-64 pr-1 custom-scrollbar">
+                          <table class="w-full text-xs text-left">
+                               <thead class="bg-gray-50 text-gray-500 mb-2 block">
+                                  <tr class="flex justify-between px-2 py-1">
+                                    <th>Produk</th>
+                                    <th>Qty</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="space-y-1 block">
+                                  @forelse($catTopi as $item)
+                                  <tr class="flex justify-between items-center p-2 hover:bg-yellow-50 bg-white border border-gray-100 rounded transition-colors group">
+                                      <td class="flex-1 min-w-0 pr-2">
+                                          <div class="font-medium text-gray-800 line-clamp-2 leading-tight" title="{{ $item->product_name }}">{{ $item->product_name }}</div>
+                                          <div class="text-[10px] text-gray-400 mt-0.5">{{ $item->product_sku }}</div>
+                                      </td>
+                                      <td class="text-right whitespace-nowrap">
+                                          <span class="font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded text-[10px]">{{ number_format($item->total_terjual) }}</span>
+                                      </td>
+                                  </tr>
+                                  @empty
+                                  <tr><td colspan="2" class="text-center py-8 text-gray-300 italic text-xs">Belum ada data</td></tr>
+                                  @endforelse
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
           <!-- === JENIS TRANSAKSI === -->
           <div class="bg-white p-6 rounded-xl shadow-lg mb-6 border-l-4 border-purple-500">
             <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">

@@ -22,6 +22,7 @@ class DashboardController extends Controller
         // Filter tanggal untuk financial data (default: bulan ini)
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $categoryId = null; // No longer used but kept variable clean for now
         
         // Filter bulan untuk iklan (default: bulan ini)
         $selectedMonth = $request->get('month', now()->format('Y-m'));
@@ -215,6 +216,60 @@ class DashboardController extends Controller
         
         // === FINANCIAL TREND CHART DATA ===
         $financialChartData = $this->getFinancialChartData($startDate, $endDate);
+
+        // === 1. KAOS POLOS (Kaos Polos + 20s/24s/30s) ===
+        $kaosPolos = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
+            $q->where('sales_order_items.product_name', 'LIKE', '%Kaos Polos%')
+              ->where(function($sub) {
+                  $sub->where('sales_order_items.product_name', 'LIKE', '%20s%')
+                      ->orWhere('sales_order_items.product_name', 'LIKE', '%24s%')
+                      ->orWhere('sales_order_items.product_name', 'LIKE', '%30s%');
+              });
+        });
+
+        // === 2. KAOS POLO (Kaos Polo/Lacos/24s - Exclude 'Polos' to avoid overlap) ===
+        $kaosPolo = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
+            $q->where(function($sub) {
+                // Logic: (Kaos Polo AND NOT Kaos Polos) OR Lacos
+                $sub->where(function($k) {
+                    $k->where('sales_order_items.product_name', 'LIKE', '%Kaos Polo%')
+                      ->where('sales_order_items.product_name', 'NOT LIKE', '%Kaos Polos%');
+                })
+                ->orWhere('sales_order_items.product_name', 'LIKE', '%Lacos%');
+                // Removed loose '24s' to prevent Kaos Polos 24s from entering here
+            });
+        });
+
+        // === 3. JAKET (Jaket, Varsity, Hoodie, Zipper, Sweater, Hodpol) ===
+        $jaket = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
+            $q->where(function($sub) {
+                $keywords = ['Jaket', 'Varsity', 'Hoodie', 'Zipper', 'Sweater', 'Hodpol'];
+                foreach ($keywords as $key) {
+                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
+                }
+            });
+        });
+
+        // === 4. JERSEY (Jersey, Milano, Benzema, Bintik, Emboss, Dropnadle, Airwalk, Rabbit, Keramik) ===
+        $jersey = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
+            $q->where(function($sub) {
+                // Added specific keywords from user request + 'Dropneedle' fix just in case
+                $keywords = ['Jersey', 'Milano', 'Benzema', 'Bintik', 'Emboss', 'Dropnadle', 'Dropneedle', 'Airwalk', 'Rabbit', 'Keramik'];
+                foreach ($keywords as $key) {
+                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
+                }
+            });
+        });
+
+        // === 5. TOPI (Topi, Jaring, Kanvas, Baseball) ===
+        $topi = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
+            $q->where(function($sub) {
+                $keywords = ['Topi', 'Jaring', 'Kanvas', 'Baseball'];
+                foreach ($keywords as $key) {
+                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
+                }
+            });
+        });
         
         return view('owner.dashboard', array_merge($advertisementData, $advertisementPerformanceData, $financialChartData, [
             'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
@@ -243,7 +298,12 @@ class DashboardController extends Controller
             'overdueOrders' => $overdueOrders,
             'overdueCount' => $overdueCount,
             'upcomingOrders' => $upcomingOrders,
+            'upcomingOrders' => $upcomingOrders,
             'upcomingCount' => $upcomingCount,
+            // Categories
+            'categories' => $categories,
+            'selectedCategoryId' => $categoryId,
+            'bestSellingByCategory' => $bestSellingByCategory,
             // Performance
             'todayStats' => $todayStats,
             'salesTypeStats' => $salesTypeStats,
@@ -676,5 +736,49 @@ class DashboardController extends Controller
             'operasional' => $operasional,
             'showTotal' => true
         ]);
+    }
+
+    /**
+     * Get best selling products filtered by category
+     */
+    protected function getBestSellingProductsByCategory($startDate, $endDate, $categoryId)
+    {
+        if (!$categoryId) {
+            return collect([]); // Return empty if no category selected
+        }
+
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        return \App\Models\SalesOrderItem::selectRaw('
+                product_id,
+                sales_order_items.product_name,
+                products.sku as product_sku,
+                SUM(sales_order_items.qty) as total_terjual
+            ')
+            ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            ->where('products.category_id', $categoryId)
+            ->where(function($q) {
+                // Apply strict filter for Spunbond/DTF exclusion regardless of category
+                // UNLESS the category itself implies these products?
+                // For safety and consistency with "Clean Code" request, we stick to the rule:
+                // These specific "service" items should not be in best selling lists unless requested.
+                // But if the user selected "DTF" category, they would expect to see it.
+                // Since we don't know the ID of DTF category, we'll keep the exclude filter active 
+                // to prevent "spam" items, assuming "Best Selling" refers to merchandise.
+                $q->where('sales_order_items.product_name', 'NOT LIKE', '%DTF%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%dtf%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbond%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbond%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbound%')
+                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbound%');
+            })
+            ->groupBy('product_id', 'sales_order_items.product_name', 'products.sku')
+            ->orderBy('total_terjual', 'desc')
+            ->limit(10)
+            ->get();
     }
 }

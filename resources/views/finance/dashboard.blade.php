@@ -71,7 +71,7 @@
                             <input type="hidden" name="start_date" id="start_date" value="{{ $startDate }}">
                             <input type="hidden" name="end_date" id="end_date" value="{{ $endDate }}">
                         </div>
-                        <div class="flex gap-2 flex-wrap">
+                        <div class="flex gap-2 flex-wrap items-end">
                             <button type="submit"
                                 class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">
                                 Terapkan Filter
@@ -593,6 +593,129 @@
                             </div>
                         @endif
                     </div>
+                </div>
+                <!-- End of Top Products Row -->
+
+                <!-- [New Row] 5 Kategori Detail -->
+                <div class="mb-6">
+                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="bi bi-tags text-blue-600"></i> Analisa Kategori Spesifik
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                        <!-- 1. KAOS POLOS -->
+                        <div class="bg-white p-3 rounded-xl shadow border-t-4 border-blue-500 h-96 flex flex-col">
+                            <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                                <i class="bi bi-circle-fill text-blue-500 text-[8px]"></i> Kaos Polos
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                                <div class="space-y-2">
+                                    @forelse($catKaosPolos as $item)
+                                    <div class="flex justify-between items-start gap-2 p-2 bg-gray-50 rounded hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-all group">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-xs text-gray-800 line-clamp-2 md:line-clamp-1 group-hover:line-clamp-none group-hover:relative group-hover:z-10 bg-inherit" title="{{ $item->product_name }}">{{ $item->product_name }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item->product_sku }}</p>
+                                        </div>
+                                        <span class="font-bold text-[10px] text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded whitespace-nowrap">{{ number_format($item->total_terjual) }}</span>
+                                    </div>
+                                    @empty
+                                    <div class="text-center py-10 text-gray-300 text-xs italic">Belum ada data</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. KAOS POLO -->
+                        <div class="bg-white p-3 rounded-xl shadow border-t-4 border-indigo-500 h-96 flex flex-col">
+                            <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                                <i class="bi bi-circle-fill text-indigo-500 text-[8px]"></i> Kaos Polo
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                                <div class="space-y-2">
+                                    @forelse($catKaosPolo as $item)
+                                    <div class="flex justify-between items-start gap-2 p-2 bg-gray-50 rounded hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all group">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-xs text-gray-800 line-clamp-2 md:line-clamp-1 group-hover:line-clamp-none group-hover:relative group-hover:z-10 bg-inherit">{{ $item->product_name }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item->product_sku }}</p>
+                                        </div>
+                                        <span class="font-bold text-[10px] text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded whitespace-nowrap">{{ number_format($item->total_terjual) }}</span>
+                                    </div>
+                                    @empty
+                                    <div class="text-center py-10 text-gray-300 text-xs italic">Belum ada data</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. JAKET -->
+                        <div class="bg-white p-3 rounded-xl shadow border-t-4 border-red-500 h-96 flex flex-col">
+                            <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                                <i class="bi bi-circle-fill text-red-500 text-[8px]"></i> Jaket
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                                <div class="space-y-2">
+                                    @forelse($catJaket as $item)
+                                    <div class="flex justify-between items-start gap-2 p-2 bg-gray-50 rounded hover:bg-red-50 border border-transparent hover:border-red-100 transition-all group">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-xs text-gray-800 line-clamp-2 md:line-clamp-1 group-hover:line-clamp-none group-hover:relative group-hover:z-10 bg-inherit">{{ $item->product_name }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item->product_sku }}</p>
+                                        </div>
+                                        <span class="font-bold text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded whitespace-nowrap">{{ number_format($item->total_terjual) }}</span>
+                                    </div>
+                                    @empty
+                                    <div class="text-center py-10 text-gray-300 text-xs italic">Belum ada data</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. JERSEY -->
+                        <div class="bg-white p-3 rounded-xl shadow border-t-4 border-green-500 h-96 flex flex-col">
+                            <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                                <i class="bi bi-circle-fill text-green-500 text-[8px]"></i> Jersey
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                                <div class="space-y-2">
+                                    @forelse($catJersey as $item)
+                                    <div class="flex justify-between items-start gap-2 p-2 bg-gray-50 rounded hover:bg-green-50 border border-transparent hover:border-green-100 transition-all group">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-xs text-gray-800 line-clamp-2 md:line-clamp-1 group-hover:line-clamp-none group-hover:relative group-hover:z-10 bg-inherit">{{ $item->product_name }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item->product_sku }}</p>
+                                        </div>
+                                        <span class="font-bold text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap">{{ number_format($item->total_terjual) }}</span>
+                                    </div>
+                                    @empty
+                                    <div class="text-center py-10 text-gray-300 text-xs italic">Belum ada data</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. TOPI -->
+                        <div class="bg-white p-3 rounded-xl shadow border-t-4 border-yellow-500 h-96 flex flex-col">
+                            <h4 class="font-bold text-gray-700 mb-3 text-xs uppercase flex items-center gap-2">
+                                <i class="bi bi-circle-fill text-yellow-500 text-[8px]"></i> Topi
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                                <div class="space-y-2">
+                                    @forelse($catTopi as $item)
+                                    <div class="flex justify-between items-start gap-2 p-2 bg-gray-50 rounded hover:bg-yellow-50 border border-transparent hover:border-yellow-100 transition-all group">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-xs text-gray-800 line-clamp-2 md:line-clamp-1 group-hover:line-clamp-none group-hover:relative group-hover:z-10 bg-inherit">{{ $item->product_name }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item->product_sku }}</p>
+                                        </div>
+                                        <span class="font-bold text-[10px] text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded whitespace-nowrap">{{ number_format($item->total_terjual) }}</span>
+                                    </div>
+                                    @empty
+                                    <div class="text-center py-10 text-gray-300 text-xs italic">Belum ada data</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spacer to replace previous div close logic from multi-replace context if needed -->
+                <div>
                 </div>
 
                 <!-- === MONITORING IKLAN & TARGET COMPACT === -->
