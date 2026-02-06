@@ -301,9 +301,17 @@ class DashboardController extends Controller
             'upcomingOrders' => $upcomingOrders,
             'upcomingCount' => $upcomingCount,
             // Categories
-            'categories' => $categories,
-            'selectedCategoryId' => $categoryId,
-            'bestSellingByCategory' => $bestSellingByCategory,
+            // Categories
+            // 'categories' => $categories, // Removed
+            // 'selectedCategoryId' => $categoryId, // Removed
+            // 'bestSellingByCategory' => $bestSellingByCategory, // Removed
+            
+            // New Categories
+            'catKaosPolos' => $kaosPolos,
+            'catKaosPolo' => $kaosPolo,
+            'catJaket' => $jaket,
+            'catJersey' => $jersey,
+            'catTopi' => $topi,
             // Performance
             'todayStats' => $todayStats,
             'salesTypeStats' => $salesTypeStats,
@@ -741,12 +749,11 @@ class DashboardController extends Controller
     /**
      * Get best selling products filtered by category
      */
-    protected function getBestSellingProductsByCategory($startDate, $endDate, $categoryId)
+    /**
+     * Helper to get best selling products with custom query callback
+     */
+    protected function getBestSellingByKeywordQuery($startDate, $endDate, callable $callback)
     {
-        if (!$categoryId) {
-            return collect([]); // Return empty if no category selected
-        }
-
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
@@ -760,22 +767,7 @@ class DashboardController extends Controller
             ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
             ->whereBetween('sales_orders.created_at', [$start, $end])
             ->where('sales_orders.status', '!=', 'draft')
-            ->where('products.category_id', $categoryId)
-            ->where(function($q) {
-                // Apply strict filter for Spunbond/DTF exclusion regardless of category
-                // UNLESS the category itself implies these products?
-                // For safety and consistency with "Clean Code" request, we stick to the rule:
-                // These specific "service" items should not be in best selling lists unless requested.
-                // But if the user selected "DTF" category, they would expect to see it.
-                // Since we don't know the ID of DTF category, we'll keep the exclude filter active 
-                // to prevent "spam" items, assuming "Best Selling" refers to merchandise.
-                $q->where('sales_order_items.product_name', 'NOT LIKE', '%DTF%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%dtf%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbond%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbond%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbound%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbound%');
-            })
+            ->where($callback) // Apply the specific logic
             ->groupBy('product_id', 'sales_order_items.product_name', 'products.sku')
             ->orderBy('total_terjual', 'desc')
             ->limit(10)
