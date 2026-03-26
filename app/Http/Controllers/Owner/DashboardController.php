@@ -132,25 +132,25 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
         
-        $bestSellingProducts = \App\Models\SalesOrderItem::selectRaw('
-                product_id,
-                sales_order_items.product_name,
-                products.sku as product_sku,
-                SUM(sales_order_items.qty) as total_terjual
-            ')
+        $bestSellingProducts = \App\Models\SalesOrderItem::query()
             ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
             ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
             ->whereBetween('sales_orders.created_at', [$start, $end])
             ->where('sales_orders.status', '!=', 'draft')
             ->where(function($q) {
-                $q->where('sales_order_items.product_name', 'NOT LIKE', '%DTF%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%dtf%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbond%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbond%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%Spunbound%')
-                  ->where('sales_order_items.product_name', 'NOT LIKE', '%spunbound%');
+                // Gunakan array untuk filter untuk kebersihan kode
+                $excludeKeywords = ['DTF', 'dtf', 'Spunbond', 'spunbond', 'Spunbound', 'spunbound'];
+                foreach ($excludeKeywords as $keyword) {
+                    $q->where('sales_order_items.product_name', 'NOT LIKE', "%$keyword%");
+                }
             })
-            ->groupBy('product_id', 'sales_order_items.product_name', 'products.sku')
+            ->selectRaw('
+                sales_order_items.product_id,
+                sales_order_items.product_name,
+                products.sku as product_sku,
+                SUM(sales_order_items.qty) as total_terjual
+            ')
+            ->groupBy('sales_order_items.product_id', 'sales_order_items.product_name', 'products.sku')
             ->orderBy('total_terjual', 'desc')
             ->limit(10)
             ->get();
@@ -217,59 +217,55 @@ class DashboardController extends Controller
         // === FINANCIAL TREND CHART DATA ===
         $financialChartData = $this->getFinancialChartData($startDate, $endDate);
 
-        // === 1. KAOS POLOS (Kaos Polos + 20s/24s/30s) ===
-        $kaosPolos = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where('sales_order_items.product_name', 'LIKE', '%Kaos Polos%')
-              ->where(function($sub) {
-                  $sub->where('sales_order_items.product_name', 'LIKE', '%20s%')
-                      ->orWhere('sales_order_items.product_name', 'LIKE', '%24s%')
-                      ->orWhere('sales_order_items.product_name', 'LIKE', '%30s%');
-              });
-        });
+        // === CATEGORY BREAKDOWN (Optimasi: Tarik 1x kueri besar, lalu filter di PHP) ===
+        // Tarik top 100 item terjual di periode ini untuk dikategorikan secara manual di PHP
+        // Ini jauh lebih cepat daripada 5x kueri JOIN terpisah
+        $topItemsForCategories = \App\Models\SalesOrderItem::query()
+            ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            ->selectRaw('
+                sales_order_items.product_id,
+                sales_order_items.product_name,
+                products.sku as product_sku,
+                SUM(sales_order_items.qty) as total_terjual
+            ')
+            ->groupBy('sales_order_items.product_id', 'sales_order_items.product_name', 'products.sku')
+            ->orderBy('total_terjual', 'desc')
+            ->limit(100) // Ambil cukup banyak untuk mencakup semua kategori
+            ->get();
 
-        // === 2. KAOS POLO (Kaos Polo/Lacos/24s - Exclude 'Polos' to avoid overlap) ===
-        $kaosPolo = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                // Logic: (Kaos Polo AND NOT Kaos Polos) OR Lacos
-                $sub->where(function($k) {
-                    $k->where('sales_order_items.product_name', 'LIKE', '%Kaos Polo%')
-                      ->where('sales_order_items.product_name', 'NOT LIKE', '%Kaos Polos%');
-                })
-                ->orWhere('sales_order_items.product_name', 'LIKE', '%Lacos%');
-                // Removed loose '24s' to prevent Kaos Polos 24s from entering here
-            });
-        });
-
-        // === 3. JAKET (Jaket, Varsity, Hoodie, Zipper, Sweater, Hodpol) ===
-        $jaket = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                $keywords = ['Jaket', 'Varsity', 'Hoodie', 'Zipper', 'Sweater', 'Hodpol'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
+        // Helper function untuk pencocokan kata kunci di PHP (jauh lebih cepat daripada LIKE di SQL 5x)
+        $filterByKeywords = function($items, $keywords) {
+            return $items->filter(function($item) use ($keywords) {
+                $name = strtolower($item->product_name);
+                if (is_callable($keywords)) return $keywords($name);
+                foreach ($keywords as $kw) {
+                    if (str_contains($name, strtolower($kw))) return true;
                 }
-            });
+                return false;
+            })->take(10)->values();
+        };
+
+        // 1. KAOS POLOS (Kaos Polos + 20s/24s/30s)
+        $catKaosPolos = $filterByKeywords($topItemsForCategories, function($name) {
+            return str_contains($name, 'kaos polos') && (str_contains($name, '20s') || str_contains($name, '24s') || str_contains($name, '30s'));
         });
 
-        // === 4. JERSEY (Jersey, Milano, Benzema, Bintik, Emboss, Dropnadle, Airwalk, Rabbit, Keramik) ===
-        $jersey = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                // Added specific keywords from user request + 'Dropneedle' fix just in case
-                $keywords = ['Jersey', 'Milano', 'Benzema', 'Bintik', 'Emboss', 'Dropnadle', 'Dropneedle', 'Airwalk', 'Rabbit', 'Keramik'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
-                }
-            });
+        // 2. KAOS POLO (Kaos Polo/Lacos - Exclude 'Polos')
+        $catKaosPolo = $filterByKeywords($topItemsForCategories, function($name) {
+            return (str_contains($name, 'kaos polo') && !str_contains($name, 'kaos polos')) || str_contains($name, 'lacos');
         });
 
-        // === 5. TOPI (Topi, Jaring, Kanvas, Baseball) ===
-        $topi = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                $keywords = ['Topi', 'Jaring', 'Kanvas', 'Baseball'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
-                }
-            });
-        });
+        // 3. JAKET (Jaket, Varsity, Hoodie, Zipper, Sweater, Hodpol)
+        $catJaket = $filterByKeywords($topItemsForCategories, ['Jaket', 'Varsity', 'Hoodie', 'Zipper', 'Sweater', 'Hodpol']);
+
+        // 4. JERSEY (Jersey, Milano, Benzema, Bintik, Emboss, Dropnadle, Dropneedle, Airwalk, Rabbit, Keramik)
+        $catJersey = $filterByKeywords($topItemsForCategories, ['Jersey', 'Milano', 'Benzema', 'Bintik', 'Emboss', 'Dropnadle', 'Dropneedle', 'Airwalk', 'Rabbit', 'Keramik']);
+
+        // 5. TOPI (Topi, Jaring, Kanvas, Baseball)
+        $catTopi = $filterByKeywords($topItemsForCategories, ['Topi', 'Jaring', 'Kanvas', 'Baseball']);
         
         return view('owner.dashboard', array_merge($advertisementData, $advertisementPerformanceData, $financialChartData, [
             'grossProfit' => $grossProfit, // ✅ Gross Profit konsisten dengan HPP card
@@ -298,20 +294,14 @@ class DashboardController extends Controller
             'overdueOrders' => $overdueOrders,
             'overdueCount' => $overdueCount,
             'upcomingOrders' => $upcomingOrders,
-            'upcomingOrders' => $upcomingOrders,
             'upcomingCount' => $upcomingCount,
-            // Categories
-            // Categories
-            // 'categories' => $categories, // Removed
-            // 'selectedCategoryId' => $categoryId, // Removed
-            // 'bestSellingByCategory' => $bestSellingByCategory, // Removed
             
-            // New Categories
-            'catKaosPolos' => $kaosPolos,
-            'catKaosPolo' => $kaosPolo,
-            'catJaket' => $jaket,
-            'catJersey' => $jersey,
-            'catTopi' => $topi,
+            // New Categories - HASIL FILTER PHP ✅
+            'catKaosPolos' => $catKaosPolos,
+            'catKaosPolo' => $catKaosPolo,
+            'catJaket' => $catJaket,
+            'catJersey' => $catJersey,
+            'catTopi' => $catTopi,
             // Performance
             'todayStats' => $todayStats,
             'salesTypeStats' => $salesTypeStats,
@@ -510,16 +500,18 @@ class DashboardController extends Controller
      */
     protected function getTodayStats()
     {
-        $today = now()->format('Y-m-d');
+        $today = now();
+        $start = $today->copy()->startOfDay();
+        $end = $today->copy()->endOfDay();
         
-        $transactions = SalesOrder::whereDate('order_date', $today)
+        $transactions = SalesOrder::whereBetween('order_date', [$start, $end])
             ->whereNotIn('status', ['draft'])
             ->count();
             
-        $revenue = Payment::whereDate('paid_at', $today)
+        $revenue = Payment::whereBetween('paid_at', [$start, $end])
             ->sum('amount');
             
-        $customers = SalesOrder::whereDate('order_date', $today)
+        $customers = SalesOrder::whereBetween('order_date', [$start, $end])
             ->whereNotIn('status', ['draft'])
             ->distinct('customer_id')
             ->count('customer_id');

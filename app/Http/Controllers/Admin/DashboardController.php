@@ -130,17 +130,16 @@ class DashboardController extends Controller
             $totalDiharapkan = $tunaiDiLaci;
 
             // Calculate statistics
-            $salesOrdersInShift = SalesOrder::whereHas('payments', function($query) use ($shift) {
+            $transactionsQuery = SalesOrder::whereHas('payments', function($query) use ($shift) {
                     $query->where('created_by', Auth::id())
                           ->where('created_at', '>=', $shift->start_time)
                           ->where('created_at', '<=', $shift->end_time ?? now());
-                })
-                ->get();
+                });
 
-            $totalTransactions = $salesOrdersInShift->count();
+            $totalTransactions = $transactionsQuery->count();
             $totalInvoices = $payments->count();
             $totalSales = $payments->sum('amount');
-            $totalCustomers = $salesOrdersInShift->count();
+            $totalCustomers = $transactionsQuery->distinct('customer_id')->count('customer_id');
 
             // Durasi shift
             $start = Carbon::parse($shift->start_time);
@@ -248,16 +247,17 @@ class DashboardController extends Controller
 
     private function getTodayStats()
     {
-        $today = now()->format('Y-m-d');
+        $start = now()->startOfDay();
+        $end = now()->endOfDay();
         
-        $transactions = SalesOrder::whereDate('order_date', $today)
+        $transactions = SalesOrder::whereBetween('order_date', [$start, $end])
             ->whereNotIn('status', ['draft'])
             ->count();
             
-        $revenue = Payment::whereDate('paid_at', $today)
+        $revenue = Payment::whereBetween('paid_at', [$start, $end])
             ->sum('amount');
             
-        $customers = SalesOrder::whereDate('order_date', $today)
+        $customers = SalesOrder::whereBetween('order_date', [$start, $end])
             ->whereNotIn('status', ['draft'])
             ->distinct('customer_id')
             ->count('customer_id');

@@ -163,59 +163,43 @@ class FinanceController extends Controller
             ->get();
         $upcomingCount = $upcomingOrders->count();
 
-        // === 1. KAOS POLOS (Kaos Polos + 20s/24s/30s) ===
-        $kaosPolos = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where('sales_order_items.product_name', 'LIKE', '%Kaos Polos%')
-              ->where(function($sub) {
-                  $sub->where('sales_order_items.product_name', 'LIKE', '%20s%')
-                      ->orWhere('sales_order_items.product_name', 'LIKE', '%24s%')
-                      ->orWhere('sales_order_items.product_name', 'LIKE', '%30s%');
-              });
-        });
+        // === CATEGORY BREAKDOWN (Optimasi: Tarik 1x kueri besar, lalu filter di PHP) ===
+        $topItemsForCategories = \App\Models\SalesOrderItem::query()
+            ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->whereBetween('sales_orders.created_at', [$start, $end])
+            ->where('sales_orders.status', '!=', 'draft')
+            ->selectRaw('
+                sales_order_items.product_id,
+                sales_order_items.product_name,
+                products.sku as product_sku,
+                SUM(sales_order_items.qty) as total_terjual
+            ')
+            ->groupBy('sales_order_items.product_id', 'sales_order_items.product_name', 'products.sku')
+            ->orderBy('total_terjual', 'desc')
+            ->limit(100)
+            ->get();
 
-        // === 2. KAOS POLO (Kaos Polo/Lacos/24s - Exclude 'Polos' to avoid overlap) ===
-        $kaosPolo = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                // Logic: (Kaos Polo AND NOT Kaos Polos) OR Lacos
-                $sub->where(function($k) {
-                    $k->where('sales_order_items.product_name', 'LIKE', '%Kaos Polo%')
-                      ->where('sales_order_items.product_name', 'NOT LIKE', '%Kaos Polos%');
-                })
-                ->orWhere('sales_order_items.product_name', 'LIKE', '%Lacos%');
-                // Removed loose '24s' to prevent Kaos Polos 24s from entering here
-            });
-        });
-
-        // === 3. JAKET (Jaket, Varsity, Hoodie, Zipper, Sweater, Hodpol) ===
-        $jaket = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                $keywords = ['Jaket', 'Varsity', 'Hoodie', 'Zipper', 'Sweater', 'Hodpol'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
+        $filterByKeywords = function($items, $keywords) {
+            return $items->filter(function($item) use ($keywords) {
+                $name = strtolower($item->product_name);
+                if (is_callable($keywords)) return $keywords($name);
+                foreach ($keywords as $kw) {
+                    if (str_contains($name, strtolower($kw))) return true;
                 }
-            });
-        });
+                return false;
+            })->take(10)->values();
+        };
 
-        // === 4. JERSEY (Jersey, Milano, Benzema, Bintik, Emboss, Dropnadle, Airwalk, Rabbit, Keramik) ===
-        $jersey = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                // Added specific keywords from user request + 'Dropneedle' just in case
-                $keywords = ['Jersey', 'Milano', 'Benzema', 'Bintik', 'Emboss', 'Dropnadle', 'Dropneedle', 'Airwalk', 'Rabbit', 'Keramik'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
-                }
-            });
+        $catKaosPolos = $filterByKeywords($topItemsForCategories, function($name) {
+            return str_contains($name, 'kaos polos') && (str_contains($name, '20s') || str_contains($name, '24s') || str_contains($name, '30s'));
         });
-
-        // === 5. TOPI (Topi, Jaring, Kanvas, Baseball) ===
-        $topi = $this->getBestSellingByKeywordQuery($startDate, $endDate, function($q) {
-            $q->where(function($sub) {
-                $keywords = ['Topi', 'Jaring', 'Kanvas', 'Baseball'];
-                foreach ($keywords as $key) {
-                    $sub->orWhere('sales_order_items.product_name', 'LIKE', '%' . $key . '%');
-                }
-            });
+        $catKaosPolo = $filterByKeywords($topItemsForCategories, function($name) {
+            return (str_contains($name, 'kaos polo') && !str_contains($name, 'kaos polos')) || str_contains($name, 'lacos');
         });
+        $catJaket = $filterByKeywords($topItemsForCategories, ['Jaket', 'Varsity', 'Hoodie', 'Zipper', 'Sweater', 'Hodpol']);
+        $catJersey = $filterByKeywords($topItemsForCategories, ['Jersey', 'Milano', 'Benzema', 'Bintik', 'Emboss', 'Dropnadle', 'Dropneedle', 'Airwalk', 'Rabbit', 'Keramik']);
+        $catTopi = $filterByKeywords($topItemsForCategories, ['Topi', 'Jaring', 'Kanvas', 'Baseball']);
 
         // 7. KIRIM SEMUA DATA KE VIEW
         // Pastikan data dasar (omset, hpp, grossProfit) tidak dioverride oleh advertisementData
@@ -250,11 +234,11 @@ class FinanceController extends Controller
                 'categories' => [], // Keep empty or remove if view doesn't break
                 'selectedCategoryId' => null, // Remove logic
                 // New Categories Variables
-                'catKaosPolos' => $kaosPolos,
-                'catKaosPolo' => $kaosPolo,
-                'catJaket' => $jaket,
-                'catJersey' => $jersey,
-                'catTopi' => $topi,
+                'catKaosPolos' => $catKaosPolos,
+                'catKaosPolo' => $catKaosPolo,
+                'catJaket' => $catJaket,
+                'catJersey' => $catJersey,
+                'catTopi' => $catTopi,
                 // Deadline Alerts
                 'overdueOrders' => $overdueOrders,
                 'overdueCount' => $overdueCount,
