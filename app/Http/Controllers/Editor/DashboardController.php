@@ -86,16 +86,20 @@ class DashboardController extends Controller
     private function applyRangeFilter(Builder $query, string $range): string
     {
         $range = in_array($range, ['today', 'week', 'month', 'all'], true) ? $range : 'week';
+        $today = Carbon::today();
 
         return match ($range) {
-            'today' => tap('Hari ini', fn() => $query->whereDate('created_at', Carbon::today())),
+            'today' => tap('Hari ini', fn() => $query->whereBetween('created_at', [
+                $today->startOfDay(),
+                $today->copy()->endOfDay(),
+            ])),
             'week' => tap('7 Hari Terakhir', fn() => $query->whereBetween('created_at', [
-                Carbon::today()->subDays(6),
-                Carbon::today()->endOfDay(),
+                $today->copy()->subDays(6)->startOfDay(),
+                $today->copy()->endOfDay(),
             ])),
             'month' => tap('30 Hari Terakhir', fn() => $query->whereBetween('created_at', [
-                Carbon::today()->subDays(29),
-                Carbon::today()->endOfDay(),
+                $today->copy()->subDays(29)->startOfDay(),
+                $today->copy()->endOfDay(),
             ])),
             default => 'Semua Waktu',
         };
