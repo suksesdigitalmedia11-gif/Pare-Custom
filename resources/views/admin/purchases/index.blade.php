@@ -95,7 +95,7 @@
                 <select name="status" 
                                         class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
                     <option value="">Semua Status</option>
-                    @foreach(['draft','pending','request_kain','payment','proses_jahit','printing','selesai'] as $st)
+                    @foreach(['draft', 'pending', 'approved', 'request_kain', 'received', 'payment', 'proses_jahit', 'printing', 'selesai', 'canceled', 'returned'] as $st)
                     <option value="{{ $st }}" @selected($status==$st)>
                         {{ ucfirst(str_replace('_', ' ', $st)) }}
                     </option>
@@ -156,6 +156,7 @@
                                         @elseif($p->status === 'payment') bg-purple-100 text-purple-800
                                         @elseif($p->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                         @elseif($p->status === 'printing') bg-orange-100 text-orange-800
+                                        @elseif($p->status === 'received') bg-teal-100 text-teal-800
                                         @elseif($p->status === 'selesai') bg-green-100 text-green-800
                                         @elseif($p->status === 'cancelled') bg-red-100 text-red-800
                                         @endif">
@@ -165,7 +166,7 @@
                                     <td class="px-3 lg:px-4 py-3 hidden lg:table-cell">
                                         @if($p->purchase_type === 'kain')
                                             @php
-                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai'];
+                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai', 'received'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp
@@ -177,7 +178,7 @@
                                             </div>
                                         @else
                                             @php
-                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'printing', 'selesai'];
+                                                $steps = ['draft', 'pending', 'request_kain', 'payment', 'printing', 'selesai', 'received'];
                                                 $currentIndex = array_search($p->status, $steps);
                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($steps)) * 100 : 0;
                                             @endphp

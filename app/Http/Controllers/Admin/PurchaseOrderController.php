@@ -56,7 +56,7 @@ class PurchaseOrderController extends BaseController
                     'todo' => $query->whereIn('status', ['draft', 'pending']),
                     'request_kain' => $query->where('status', 'request_kain'),
                     'in_progress' => $query->whereIn('status', ['payment', 'proses_jahit', 'printing']),
-                    'completed' => $query->where('status', 'selesai'),
+                    'completed' => $query->whereIn('status', ['received', 'selesai']),
                     'cancelled' => $query->where('status', 'canceled'),
                     default => $query,
                 };
