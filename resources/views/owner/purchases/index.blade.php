@@ -61,34 +61,6 @@
                                 <i class="bi bi-plus-lg mr-2"></i> <span class="hidden sm:inline">Buat Pembelian</span>
                                 <span class="sm:hidden">Buat</span>
                             </a>
-                            <a href="{{ route('finance.purchases.import-form') }}"
-                                class="bg-green-600 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-green-700 inline-flex items-center text-sm">
-                                <i class="bi bi-file-earmark-spreadsheet mr-2"></i> <span
-                                    class="hidden sm:inline">Import</span>
-                            </a>
-                            <a href="{{ route('finance.purchases.export', request()->query()) }}"
-                                class="bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-blue-700 inline-flex items-center text-sm">
-                                <i class="bi bi-download mr-2"></i> <span class="hidden sm:inline">Export</span>
-                            </a>
-                            <a href="{{ route('finance.purchases.create') }}"
-                                class="bg-[#005281] text-white px-3 lg:px-4 py-2 rounded-md hover:opacity-90 inline-flex items-center text-sm">
-                                <i class="bi bi-plus-lg mr-2"></i> <span class="hidden sm:inline">Buat Pembelian</span>
-                                <span class="sm:hidden">Buat</span>
-                            </a>
-                            <a href="{{ route('kepala_toko.purchases.import-form') }}"
-                                class="bg-green-600 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-green-700 inline-flex items-center text-sm">
-                                <i class="bi bi-file-earmark-spreadsheet mr-2"></i> <span
-                                    class="hidden sm:inline">Import</span>
-                            </a>
-                            <a href="{{ route('kepala_toko.purchases.export', request()->query()) }}"
-                                class="bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-blue-700 inline-flex items-center text-sm">
-                                <i class="bi bi-download mr-2"></i> <span class="hidden sm:inline">Export</span>
-                            </a>
-                            <a href="{{ route('kepala_toko.purchases.create') }}"
-                                class="bg-[#005281] text-white px-3 lg:px-4 py-2 rounded-md hover:opacity-90 inline-flex items-center text-sm">
-                                <i class="bi bi-plus-lg mr-2"></i> <span class="hidden sm:inline">Buat Pembelian</span>
-                                <span class="sm:hidden">Buat</span>
-                            </a>
                         </div>
                     </div>
                 </div>
@@ -140,7 +112,7 @@
                                 <select name="status"
                                     class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#005281] focus:border-transparent min-w-[140px]">
                                     <option value="">Semua Status</option>
-                                    @foreach(['draft', 'pending', 'request_kain', 'payment', 'proses_jahit', 'printing', 'selesai'] as $st)
+                                    @foreach(['draft', 'pending', 'approved', 'request_kain', 'received', 'payment', 'proses_jahit', 'printing', 'selesai', 'canceled'] as $st)
                                         <option value="{{ $st }}" @selected($status == $st)>
                                             {{ ucfirst(str_replace('_', ' ', $st)) }}
                                         </option>
@@ -220,6 +192,7 @@
                                             @elseif($p->status === 'proses_jahit') bg-indigo-100 text-indigo-800
                                             @elseif($p->status === 'printing') bg-orange-100 text-orange-800
                                             @elseif($p->status === 'selesai') bg-green-100 text-green-800
+                                            @elseif($p->status === 'received') bg-teal-100 text-teal-800
                                             @elseif($p->status === 'cancelled') bg-red-100 text-red-800
                                             @endif">
                                                 {{ $p->getStatusLabel() }}

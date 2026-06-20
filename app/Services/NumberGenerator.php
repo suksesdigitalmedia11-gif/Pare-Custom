@@ -25,8 +25,16 @@ class NumberGenerator
 
     public function generatePurchaseOrderNumber(): string
     {
-        $seq = $this->next('po');
-        return 'PO' . now()->format('ymd') . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        $today = now()->format('ymd');
+        $attempts = 0;
+        do {
+            $seq = $this->next('po');
+            $candidate = 'PO' . $today . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+            $exists = \App\Models\PurchaseOrder::where('po_number', $candidate)->exists();
+            $attempts++;
+        } while ($exists && $attempts < 10);
+
+        return $candidate;
     }
 
     /**

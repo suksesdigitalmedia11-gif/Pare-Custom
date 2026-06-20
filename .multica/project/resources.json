@@ -1,0 +1,15 @@
+{
+  "project_id": "336caf29-ec4d-446e-8a3f-6c8ba6db7e77",
+  "project_title": "POS Inventory Management",
+  "resources": [
+    {
+      "id": "a5f42ab6-2328-4782-b740-ccdf7ebe07f8",
+      "resource_type": "local_directory",
+      "resource_ref": {
+        "label": "pos-inventory",
+        "daemon_id": "019e8f0c-50a3-728f-bc80-9663a64d3144",
+        "local_path": "D:\\pos-inventory"
+      }
+    }
+  ]
+}
