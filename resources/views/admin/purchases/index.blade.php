@@ -242,6 +242,17 @@
             </form>
                                                 @php $hasActions = true; @endphp
         @endif
+
+        <!-- Hapus -->
+        @if(!in_array($p->status, ['selesai', 'payment', 'proses_jahit', 'printing']))
+            <form method="POST" action="{{ route('admin.purchases.destroy', $p) }}" class="inline" onsubmit="return confirm('Hapus permanen purchase order ini? Semua data terkait akan dihapus.')">
+                @csrf @method('DELETE')
+                                                    <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors" title="Hapus">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+            </form>
+                                                @php $hasActions = true; @endphp
+        @endif
     </div>
 </td>
                                 </tr>

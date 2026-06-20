@@ -545,6 +545,20 @@ class PurchaseOrderController extends BaseController
         }
     }
 
+
+    /**
+     * Hapus Purchase Order (Finance override).
+     * Hanya finance dan owner yang bisa hapus.
+     */
+    public function destroy(PurchaseOrder $purchase): RedirectResponse
+    {
+        if (!in_array(auth()->user()->usertype, ['finance', 'owner'])) {
+            return back()->withErrors(['status' => 'Unauthorized']);
+        }
+
+        return parent::destroy($purchase);
+    }
+
     public function generatePoNumber(): string
     {
         return app(NumberGenerator::class)->generatePurchaseOrderNumber();

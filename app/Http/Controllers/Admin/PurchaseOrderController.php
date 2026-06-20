@@ -568,6 +568,26 @@ class PurchaseOrderController extends BaseController
 
         return parent::receive($purchase);
     }
+
+    /**
+     * Hapus Purchase Order (Admin).
+     * Admin tidak diizinkan menghapus PO — hanya finance dan owner.
+     */
+    public function destroy(PurchaseOrder $purchase): RedirectResponse
+    {
+        // Admin tidak punya akses hapus PO
+        if (!in_array(auth()->user()->usertype, ['admin', 'owner'])) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk menghapus purchase order.']);
+        }
+
+        // Owner via admin panel: delegasikan ke parent
+        if (strtolower(auth()->user()->usertype) === 'owner') {
+            return parent::destroy($purchase);
+        }
+
+        return back()->withErrors(['error' => 'Admin tidak dapat menghapus purchase order.']);
+    }
+
     public function generatePoNumber(): string
     {
         return app(NumberGenerator::class)->generatePurchaseOrderNumber();

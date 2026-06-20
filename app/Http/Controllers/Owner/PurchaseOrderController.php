@@ -16,6 +16,7 @@ use App\Models\StockInItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use App\Services\NumberGenerator;
 use Illuminate\View\View;
@@ -859,6 +860,65 @@ class PurchaseOrderController extends Controller
 
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+
+    /**
+     * Hapus Purchase Order beserta semua data terkait.
+     * Hanya Finance dan Owner yang bisa menghapus.
+     */
+    public function destroy(PurchaseOrder $purchase): RedirectResponse
+    {
+        $user = Auth::user();
+        $usertype = strtolower($user->usertype ?? $user->role ?? '');
+
+        if (!in_array($usertype, ['owner', 'finance'])) {
+            \Log::warning('Non-owner/finance attempt to delete PO: ' . $purchase->po_number, ['user_id' => Auth::id()]);
+            return back()->withErrors(['error' => 'Hanya owner dan finance yang dapat menghapus purchase order.']);
+        }
+
+        // Tidak bisa hapus PO yang sudah received atau selesai
+        $restrictedStatuses = [PurchaseOrder::STATUS_SELESAI];
+        if (in_array($purchase->status, $restrictedStatuses)) {
+            return back()->withErrors(['error' => 'Tidak bisa menghapus purchase order yang sudah selesai.']);
+        }
+
+        try {
+            DB::transaction(function () use ($purchase) {
+                $poNumber = $purchase->po_number;
+
+                // 1. Hapus file terkait dari storage
+                if ($purchase->invoice_file && Storage::disk('public')->exists($purchase->invoice_file)) {
+                    Storage::disk('public')->delete($purchase->invoice_file);
+                }
+                if ($purchase->payment_proof_file && Storage::disk('public')->exists($purchase->payment_proof_file)) {
+                    Storage::disk('public')->delete($purchase->payment_proof_file);
+                }
+
+                // 2. Hapus data relasi
+                $purchase->items()->delete();   // purchase_order_items
+                $purchase->logs()->delete();    // purchase_order_logs
+
+                // 3. Hapus Purchase Order
+                $purchase->delete();
+
+                \Log::info('Purchase order deleted successfully', [
+                    'po_number' => $poNumber,
+                    'deleted_by' => Auth::id(),
+                ]);
+            });
+
+            return redirect()->route('owner.purchases.index')
+                ->with('success', 'Purchase order berhasil dihapus beserta semua data terkait.');
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting purchase order: ' . $e->getMessage(), [
+                'po_number' => $purchase->po_number,
+                'user_id' => Auth::id(),
+            ]);
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus purchase order: ' . $e->getMessage()]);
         }
     }
 

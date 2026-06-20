@@ -88,6 +88,9 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     // Purchase Order Rollback (Owner Only)
     Route::post('purchases/{purchase}/rollback', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'rollbackCompletion'])
         ->name('purchases.rollback');
+    // Hapus Purchase Order (Owner)
+    Route::delete('purchases/{purchase}', [\App\Http\Controllers\Owner\PurchaseOrderController::class, 'destroy'])
+        ->name('purchases.destroy');
 
 
 
@@ -313,6 +316,7 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::post('{purchase}/update-status', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
         Route::post('{purchase}/rollback-status', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'rollbackStatus'])->name('rollback-status');
         Route::patch('{purchase}/cancel', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'cancel'])->name('cancel');
+        Route::delete('{purchase}', [App\Http\Controllers\Finance\PurchaseOrderController::class, 'destroy'])->name('destroy');
     });
     // Shift Routes - Hanya lihat dan export
     Route::prefix('shift')->name('shift.')->group(function () {
@@ -599,6 +603,7 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
         Route::post('{purchase}/submit', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'submit'])->name('submit');
         Route::post('{purchase}/update-status', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'updateWorkflowStatus'])->name('update-status');
         Route::patch('{purchase}/cancel', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'cancel'])->name('cancel');
+        Route::delete('{purchase}', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'destroy'])->name('destroy');
         Route::get('purchases/{purchase}/edit', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'edit'])->name('edit');
         Route::put('purchases/{purchase}', [App\Http\Controllers\Admin\PurchaseOrderController::class, 'update'])->name('update');
     });
