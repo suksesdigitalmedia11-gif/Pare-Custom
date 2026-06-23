@@ -318,13 +318,15 @@
                                 <thead class="bg-yellow-100 text-yellow-800">
                                     <tr>
                                         <th class="px-2 py-1.5">#</th>
-                                        <th class="px-2 py-1.5">SKU</th>
+                                        <th class="px-2 py-1.5">SKU (Spreadsheet)</th>
                                         <th class="px-2 py-1.5">Produk</th>
+                                        <th class="px-2 py-1.5">SKU Lama</th>
+                                        <th class="px-2 py-1.5">SKU Baru</th>
                                         <th class="px-2 py-1.5">Harga Modal Lama</th>
                                         <th class="px-2 py-1.5">Harga Modal Baru</th>
                                         <th class="px-2 py-1.5">Harga Jual Lama</th>
                                         <th class="px-2 py-1.5">Harga Jual Baru</th>
-                                        <th class="px-2 py-1.5">Aksi</th>
+                                        <th class="px-2 py-1.5">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="previewTableBody" class="divide-y divide-yellow-100"></tbody>
@@ -503,18 +505,25 @@
                 let tbody = '';
                 data.preview.forEach(r => {
                     let actionBadge = '';
-                    if (r.action === 'update') {
-                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Update</span>';
-                    } else if (r.action === 'insert') {
-                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Baru</span>';
+                    let actionType = r.action_type || r.action;
+                    if (actionType === 'update') {
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">✏️ ' + r.action + '</span>';
+                    } else if (actionType === 'insert') {
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">➕ ' + r.action + '</span>';
                     } else {
-                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Tetap</span>';
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">✅ ' + r.action + '</span>';
                     }
+
+                    // SKU display: highlight when new SKU is being added
+                    let oldSku = (r.old_sku ?? '-') || '-';
+                    let newSku = r.new_sku ? '<span class="font-bold text-emerald-700">' + r.new_sku + '</span>' : '-';
 
                     tbody += `<tr class="hover:bg-yellow-50">
                         <td class="px-2 py-1.5">${r.row}</td>
-                        <td class="px-2 py-1.5 font-mono">${r.sku}</td>
+                        <td class="px-2 py-1.5 font-mono text-xs">${r.sku || '-'}</td>
                         <td class="px-2 py-1.5">${r.product_name}</td>
+                        <td class="px-2 py-1.5 font-mono text-xs">${oldSku}</td>
+                        <td class="px-2 py-1.5 font-mono text-xs">${newSku}</td>
                         <td class="px-2 py-1.5 text-right">${r.old_cost_price !== null ? 'Rp ' + r.old_cost_price.toLocaleString('id-ID') : '-'}</td>
                         <td class="px-2 py-1.5 text-right font-bold">${r.new_cost_price !== null ? 'Rp ' + r.new_cost_price.toLocaleString('id-ID') : '-'}</td>
                         <td class="px-2 py-1.5 text-right">${r.old_price !== null ? 'Rp ' + r.old_price.toLocaleString('id-ID') : '-'}</td>

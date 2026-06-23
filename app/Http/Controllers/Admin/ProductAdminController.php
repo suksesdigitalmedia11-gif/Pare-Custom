@@ -263,10 +263,10 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
                 'success' => true,
                 'preview' => $previewRows,
                 'import_token' => $importToken,
-                'total_changes' => count(array_filter($previewRows, fn($r) => $r['action'] !== 'no_change')),
-                'total_inserts' => count(array_filter($previewRows, fn($r) => $r['action'] === 'insert')),
-                'total_updates' => count(array_filter($previewRows, fn($r) => $r['action'] === 'update')),
-                'total_unchanged' => count(array_filter($previewRows, fn($r) => $r['action'] === 'no_change')),
+                'total_changes' => count(array_filter($previewRows, fn($r) => $r['action_type'] !== 'no_change')),
+                'total_inserts' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'insert')),
+                'total_updates' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'update')),
+                'total_unchanged' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'no_change')),
             ]);
         } catch (\Exception $e) {
             \Log::error('Preview import error: ' . $e->getMessage());

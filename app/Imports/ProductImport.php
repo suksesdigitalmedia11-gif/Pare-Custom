@@ -36,7 +36,12 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         if ($costPrice === false) {
             $product = $this->findProduct($row);
             if ($product) {
-                // Produk existing, skip silently (no change intended)
+                // Isi SKU untuk produk yang belum punya SKU (meskipun harga tidak berubah)
+                if (empty($product->sku) && !empty($row['sku'])) {
+                    $product->sku = $row['sku'];
+                    $product->save();
+                    $this->rowCount++;
+                }
                 return null;
             }
             $this->addFailure($rowNumber, 'cost_price', ['Harga modal wajib diisi untuk produk baru'], $row);
@@ -50,6 +55,12 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 // Update hanya cost_price, pertahankan harga jual yang ada
                 $oldCostPrice = $product->cost_price;
                 $product->cost_price = $costPrice;
+
+                // Isi SKU untuk produk yang belum punya SKU
+                if (empty($product->sku) && !empty($row['sku'])) {
+                    $product->sku = $row['sku'];
+                }
+
                 $product->save();
 
                 if (abs($oldCostPrice - $costPrice) > 0.001) {
@@ -78,11 +89,17 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         $product = $this->findProduct($row);
         
         if ($product) {
-            // Update hanya harga modal & harga jual
+            // Update harga modal, harga jual, dan SKU (jika kosong)
             $oldCostPrice = $product->cost_price;
             $oldPrice = $product->price;
             $product->cost_price = $costPrice;
             $product->price = $price;
+
+            // Isi SKU untuk produk yang belum punya SKU
+            if (empty($product->sku) && !empty($row['sku'])) {
+                $product->sku = $row['sku'];
+            }
+
             $product->save();
 
             // Log perubahan cost_price jika berbeda
@@ -314,30 +331,46 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             
             // cost_price atau price kosong = hanya skip kalau KEDUANYA kosong
             // Kalau hanya cost_price yang kosong → produk existing = no_change
-            if ($newCostPrice === false && $newPrice === false) {
+            if ($newCostPrice === false && $newPrice === false && empty($sku)) {
                 continue; // Skip rows with no values at all
             }
             
             // Find existing product
             $product = $import->findProduct($rowData);
             
-            $action = 'insert';
+            $actionType = 'insert';
+            $actionLabel = 'Produk Baru';
             $oldCostPrice = null;
             $oldPrice = null;
+            $oldSku = null;
+            $newSku = null;
             $productName = $name;
             
             if ($product) {
-                $action = 'update';
+                $actionType = 'update';
                 $oldCostPrice = $product->cost_price;
                 $oldPrice = $product->price;
+                $oldSku = $product->sku;
                 $productName = $product->name;
+                
+                // Deteksi perubahan SKU: dari kosong → terisi
+                $skuChanged = (empty($product->sku) || $product->sku === null) && !empty($sku);
+                $newSku = $skuChanged ? $sku : null;
                 
                 // Only count as change if values differ AND new values are valid
                 $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
                 $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
                 
-                if (!$costChanged && !$priceChanged) {
-                    $action = 'no_change';
+                // Build enriched action label
+                $changes = [];
+                if ($skuChanged) $changes[] = 'SKU';
+                if ($costChanged || $priceChanged) $changes[] = 'Harga';
+                
+                if (empty($changes)) {
+                    $actionType = 'no_change';
+                    $actionLabel = 'Tidak berubah';
+                } else {
+                    $actionLabel = 'Update: ' . implode(' + ', $changes);
                 }
             }
             
@@ -351,7 +384,10 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 'row' => $rowNumber,
                 'sku' => $sku ?? '-',
                 'product_name' => $productName,
-                'action' => $action,
+                'action' => $actionLabel,
+                'action_type' => $actionType,
+                'old_sku' => $oldSku,
+                'new_sku' => $newSku,
                 'old_cost_price' => $oldCostPrice,
                 'new_cost_price' => $newCostPrice === false ? null : $newCostPrice,
                 'old_price' => $oldPrice,
