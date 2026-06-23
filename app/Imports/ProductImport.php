@@ -51,9 +51,23 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         
         if ($product) {
             // Update hanya harga modal & harga jual
+            $oldCostPrice = $product->cost_price;
+            $oldPrice = $product->price;
             $product->cost_price = $costPrice;
             $product->price = $price;
             $product->save();
+
+            // Log perubahan cost_price jika berbeda
+            if (abs($oldCostPrice - $costPrice) > 0.001) {
+                \App\Models\ProductPriceLog::create([
+                    'product_id' => $product->id,
+                    'old_cost_price' => $oldCostPrice,
+                    'new_cost_price' => $costPrice,
+                    'changed_by' => auth()->check() ? auth()->id() : null,
+                    'changed_at' => now(),
+                    'source' => 'import',
+                ]);
+            }
         } else {
             // Insert produk baru
             $categoryId = $this->getOrCreateCategory($row['category_name'] ?? null);
@@ -71,6 +85,18 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 'stock_qty' => $stockQty,
                 'is_active' => $isActive,
             ]);
+
+            // Log harga modal awal untuk produk baru
+            if ($costPrice > 0) {
+                \App\Models\ProductPriceLog::create([
+                    'product_id' => $product->id,
+                    'old_cost_price' => null,
+                    'new_cost_price' => $costPrice,
+                    'changed_by' => auth()->check() ? auth()->id() : null,
+                    'changed_at' => now(),
+                    'source' => 'import',
+                ]);
+            }
         }
 
         $this->rowCount++;
@@ -225,6 +251,87 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         $this->onFailure($failure);
     }
 
+    /**
+     * Preview rows from file without saving.
+     * Returns array of preview data: what would change.
+     */
+    public static function getPreview(string $filePath): array
+    {
+        $import = new static();
+        $rows = \Maatwebsite\Excel\Facades\Excel::toCollection($import, $filePath);
+        
+        $previewRows = [];
+        $rowNumber = 2; // Start from row 2 (row 1 = header)
+        
+        foreach ($rows->first() as $row) {
+            if ($row->filter()->isEmpty()) {
+                continue; // Skip empty rows
+            }
+            
+            $rowData = [];
+            foreach ($row as $key => $value) {
+                $normalizedKey = $import->normalizeKey(strval($key));
+                $rowData[$normalizedKey] = $value;
+            }
+            
+            // Skip rows with no name
+            if (empty($rowData['name'])) {
+                continue;
+            }
+            
+            $sku = $rowData['sku'] ?? null;
+            $name = $rowData['name'] ?? null;
+            $newCostPrice = $import->convertToFloat($rowData['cost_price'] ?? null);
+            $newPrice = $import->convertToFloat($rowData['price'] ?? null);
+            
+            if ($newCostPrice === false || $newPrice === false) {
+                continue; // Skip invalid rows
+            }
+            
+            // Find existing product
+            $product = $import->findProduct($rowData);
+            
+            $action = 'insert';
+            $oldCostPrice = null;
+            $oldPrice = null;
+            $productName = $name;
+            
+            if ($product) {
+                $action = 'update';
+                $oldCostPrice = $product->cost_price;
+                $oldPrice = $product->price;
+                $productName = $product->name;
+                
+                // Only count as change if values differ
+                $costChanged = abs($oldCostPrice - $newCostPrice) > 0.001;
+                $priceChanged = abs($oldPrice - $newPrice) > 0.001;
+                
+                if (!$costChanged && !$priceChanged) {
+                    $action = 'no_change';
+                }
+            }
+            
+            $previewRows[] = [
+                'row' => $rowNumber,
+                'sku' => $sku ?? '-',
+                'product_name' => $productName,
+                'action' => $action,
+                'old_cost_price' => $oldCostPrice,
+                'new_cost_price' => $newCostPrice,
+                'old_price' => $oldPrice,
+                'new_price' => $newPrice,
+            ];
+            
+            $rowNumber++;
+            
+            if (count($previewRows) >= 20) {
+                break;
+            }
+        }
+        
+        return $previewRows;
+    }
+
     private function normalizeRow(array $row): array
     {
         $normalized = [];
@@ -253,6 +360,13 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             'kategori_produk' => 'category_name',
             'category' => 'category_name',
             'category name' => 'category_name',
+            // Specific: hanya "Harga Modal Baru" yang dipakai untuk cost_price
+            'harga modal baru' => 'cost_price',
+            'harga_modal_baru' => 'cost_price',
+            // "Harga Modal Lama" diabaikan (hanya referensi)
+            'harga modal lama' => 'old_cost_price_ref',
+            'harga_modal_lama' => 'old_cost_price_ref',
+            // Backward compat
             'harga modal rp' => 'cost_price',
             'harga_modal_rp' => 'cost_price',
             'harga modal' => 'cost_price',

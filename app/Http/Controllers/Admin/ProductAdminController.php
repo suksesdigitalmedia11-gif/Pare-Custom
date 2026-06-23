@@ -14,7 +14,10 @@ use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use App\Imports\ProductImport;
+use App\Exports\ProductExport;
+use App\Exports\ProductPriceUpdateExport;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProductAdminController extends Controller implements FromArray, WithHeadings
 {
@@ -154,13 +157,30 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
 
     public function import(Request $request): RedirectResponse
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
-        ]);
+        // Two-step import: if token provided, use stored file
+        $importToken = $request->get('import_token');
+        $file = null;
+
+        if ($importToken && session('import_file_token') === $importToken) {
+            $ext = session('import_file_ext', 'xlsx');
+            $storedPath = storage_path('app/imports/' . $importToken . '.' . $ext);
+            if (file_exists($storedPath)) {
+                $file = $storedPath;
+                // Clean up session
+                session()->forget(['import_file_token', 'import_file_ext']);
+            }
+        }
+
+        if (!$file) {
+            $request->validate([
+                'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+            ]);
+            $file = $request->file('file');
+        }
 
         try {
             $import = new ProductImport();
-            Excel::import($import, $request->file('file'));
+            Excel::import($import, $file);
 
             $importedCount = $import->getRowCount();
             $skippedCount = count($import->failures());
@@ -213,5 +233,120 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
     public function downloadTemplate()
     {
         return Excel::download($this, 'product_template.xlsx');
+    }
+
+    /**
+     * Preview import — tampilkan data yang akan berubah sebelum commit.
+     */
+    public function previewImport(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $tempPath = $file->store('temp', 'local');
+            $absolutePath = storage_path('app/' . $tempPath);
+
+            $previewRows = ProductImport::getPreview($absolutePath);
+
+            // Clean up temp file
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($tempPath);
+
+            // Store file temporarily for actual import
+            $importToken = bin2hex(random_bytes(16));
+            $file->storeAs('imports', $importToken . '.' . $file->getClientOriginalExtension(), 'local');
+            session(['import_file_token' => $importToken, 'import_file_ext' => $file->getClientOriginalExtension()]);
+
+            return response()->json([
+                'success' => true,
+                'preview' => $previewRows,
+                'import_token' => $importToken,
+                'total_changes' => count(array_filter($previewRows, fn($r) => $r['action'] !== 'no_change')),
+                'total_inserts' => count(array_filter($previewRows, fn($r) => $r['action'] === 'insert')),
+                'total_updates' => count(array_filter($previewRows, fn($r) => $r['action'] === 'update')),
+                'total_unchanged' => count(array_filter($previewRows, fn($r) => $r['action'] === 'no_change')),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Preview import error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membaca file: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Export template ringan untuk update harga.
+     * Hanya berisi: SKU, Nama Produk, Harga Modal Lama, Harga Modal Baru (kosong), Harga Jual.
+     */
+    public function exportPriceUpdate(Request $request): BinaryFileResponse
+    {
+        $q = $request->get('q');
+        $categoryId = $request->get('category_id');
+
+        $products = Product::with('category')
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($subQuery) use ($q) {
+                    $subQuery->where('name', 'like', "%$q%")
+                        ->orWhere('sku', 'like', "%$q%")
+                        ->orWhere('barcode', 'like', "%$q%");
+                });
+            })
+            ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
+            ->orderBy('name')
+            ->get();
+
+        $filename = 'update_harga_' . date('Y-m-d_His') . '.xlsx';
+
+        $export = new ProductPriceUpdateExport($products);
+
+        return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
+    }
+
+    /**
+     * Export produk ke Excel/CSV
+     * Mendukung filter berdasarkan query dan kategori
+     */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $q = $request->get('q');
+        $categoryId = $request->get('category_id');
+        $format = $request->get('format', 'xlsx'); // xlsx, csv
+
+        // Query produk dengan filter yang sama seperti di index
+        $products = Product::with('category')
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($subQuery) use ($q) {
+                    $subQuery->where('name', 'like', "%$q%")
+                        ->orWhere('sku', 'like', "%$q%")
+                        ->orWhere('barcode', 'like', "%$q%");
+                });
+            })
+            ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
+            ->orderByDesc('id')
+            ->get();
+
+        // Generate filename dengan timestamp dan filter info
+        $filename = 'produk_export_' . date('Y-m-d_His');
+        if ($q) {
+            $filename .= '_search-' . substr($q, 0, 10);
+        }
+        if ($categoryId) {
+            $category = \App\Models\Category::find($categoryId);
+            if ($category) {
+                $filename .= '_kategori-' . $category->name;
+            }
+        }
+        $filename .= '.' . $format;
+
+        $export = new ProductExport($products);
+
+        if ($format === 'csv') {
+            return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::CSV);
+        }
+
+        return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
     }
 }

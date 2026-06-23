@@ -52,6 +52,33 @@
                             <p class="text-sm text-gray-500 mt-1">Kelola data produk, harga, dan stok inventaris.</p>
                         </div>
                         <div class="flex space-x-3">
+                            <div class="relative inline-block text-left" id="exportDropdown">
+                                <div>
+                                    <button type="button" onclick="toggleExportMenu()" class="inline-flex items-center px-4 py-2 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition shadow-lg shadow-sky-200">
+                                        <i class="bi bi-download mr-2"></i>
+                                        Export
+                                        <i class="bi bi-chevron-down ml-2 text-xs"></i>
+                                    </button>
+                                </div>
+                                <div id="exportMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10 transition-all origin-top-right transform scale-95 opacity-0">
+                                    <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                                        <a href="{{ route('admin.product.export', array_merge(request()->query(), ['format' => 'xlsx'])) }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                            <i class="bi bi-file-earmark-spreadsheet text-green-600 mr-3"></i> Export Excel (.xlsx)
+                                        </a>
+                                        <a href="{{ route('admin.product.export', array_merge(request()->query(), ['format' => 'csv'])) }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                            <i class="bi bi-filetype-csv text-blue-600 mr-3"></i> Export CSV (.csv)
+                                        </a>
+                                        <div class="border-t border-gray-100 my-1"></div>
+                                        <a href="{{ route('admin.product.export-price-update', request()->query()) }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                            <i class="bi bi-pencil-square text-orange-600 mr-3"></i> Template Update Harga
+                                        </a>
+                                        <a href="{{ route('admin.product.export', ['format' => 'xlsx']) }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                            <i class="bi bi-collection text-purple-600 mr-3"></i> Export Semua Data
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button type="button" onclick="openImportModal()" 
                                     class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200">
                                 <i class="bi bi-file-earmark-spreadsheet mr-2"></i>
@@ -254,7 +281,8 @@
             
             <form action="{{ route('admin.product.import') }}" method="POST" enctype="multipart/form-data" id="importForm" class="p-6">
                 @csrf
-                <div class="space-y-4">
+                <input type="hidden" name="import_token" id="importToken" value="">
+                <div class="space-y-4" id="uploadSection">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload File (Excel/CSV)</label>
                         <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-blue-500 transition-colors cursor-pointer" onclick="document.getElementById('fileInput').click()">
@@ -277,10 +305,42 @@
                     </div>
                 </div>
 
-                <div class="mt-8 flex justify-end gap-3">
+                <!-- Preview Section (hidden by default) -->
+                <div id="previewSection" class="hidden space-y-4">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="bi bi-eye-fill text-yellow-600 text-lg"></i>
+                            <h4 class="font-bold text-yellow-800">Pratinjau Perubahan</h4>
+                        </div>
+                        <p class="text-sm text-yellow-700 mb-3" id="previewSummary"></p>
+                        <div class="max-h-64 overflow-y-auto custom-scrollbar">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-yellow-100 text-yellow-800">
+                                    <tr>
+                                        <th class="px-2 py-1.5">#</th>
+                                        <th class="px-2 py-1.5">SKU</th>
+                                        <th class="px-2 py-1.5">Produk</th>
+                                        <th class="px-2 py-1.5">Harga Modal Lama</th>
+                                        <th class="px-2 py-1.5">Harga Modal Baru</th>
+                                        <th class="px-2 py-1.5">Harga Jual Lama</th>
+                                        <th class="px-2 py-1.5">Harga Jual Baru</th>
+                                        <th class="px-2 py-1.5">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="previewTableBody" class="divide-y divide-yellow-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-end gap-3" id="importButtons">
                     <button type="button" onclick="closeImportModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-xl transition">Batal</button>
-                    <button type="submit" id="importBtn" class="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2">
-                        <span>Mulai Import</span>
+                    <button type="button" id="previewBtn" onclick="previewImport()" class="px-6 py-2 bg-yellow-600 text-white font-bold rounded-xl hover:bg-yellow-700 shadow-lg shadow-yellow-200 transition flex items-center gap-2">
+                        <i class="bi bi-eye"></i>
+                        <span>Pratinjau</span>
+                    </button>
+                    <button type="submit" id="importBtn" class="hidden px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2">
+                        <span>Konfirmasi Import</span>
                     </button>
                 </div>
             </form>
@@ -309,6 +369,30 @@
     </div>
 
     <script>
+        // Export Dropdown Logic
+        function toggleExportMenu() {
+            const menu = document.getElementById('exportMenu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden', 'opacity-0', 'scale-95');
+                menu.classList.add('opacity-100', 'scale-100');
+            } else {
+                menu.classList.remove('opacity-100', 'scale-100');
+                menu.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => menu.classList.add('hidden'), 200);
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('exportDropdown');
+            const menu = document.getElementById('exportMenu');
+            if (dropdown && !dropdown.contains(event.target)) {
+                menu.classList.remove('opacity-100', 'scale-100');
+                menu.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => menu.classList.add('hidden'), 200);
+            }
+        });
+
         function toggleSidebar() {
             const el = document.getElementById('sidebar');
             if(el) el.classList.toggle('-translate-x-full');
@@ -364,6 +448,87 @@
             deleteModal.querySelector('div').classList.remove('scale-100');
             deleteModal.querySelector('div').classList.add('scale-95');
             setTimeout(() => deleteModal.classList.add('hidden'), 300);
+        }
+
+        // Preview Import Logic
+        function previewImport() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert('Pilih file terlebih dahulu.');
+                return;
+            }
+
+            const btn = document.getElementById('previewBtn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></span> Menganalisis...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('_token', document.querySelector('input[name="_token"]').value);
+
+            fetch('{{ route("admin.product.preview-import") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+
+                if (!data.success) {
+                    alert(data.message || 'Gagal membaca file.');
+                    return;
+                }
+
+                // Show preview
+                document.getElementById('uploadSection').classList.add('hidden');
+                document.getElementById('previewSection').classList.remove('hidden');
+                document.getElementById('previewBtn').classList.add('hidden');
+                document.getElementById('importBtn').classList.remove('hidden');
+                document.getElementById('importToken').value = data.import_token;
+
+                // Summary
+                let summary = `Total: ${data.preview.length} baris. `;
+                if (data.total_updates > 0) summary += `Update: ${data.total_updates} produk. `;
+                if (data.total_inserts > 0) summary += `Produk baru: ${data.total_inserts}. `;
+                if (data.total_unchanged > 0) summary += `Tanpa perubahan: ${data.total_unchanged}.`;
+                document.getElementById('previewSummary').textContent = summary;
+
+                // Table body
+                let tbody = '';
+                data.preview.forEach(r => {
+                    let actionBadge = '';
+                    if (r.action === 'update') {
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Update</span>';
+                    } else if (r.action === 'insert') {
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Baru</span>';
+                    } else {
+                        actionBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Tetap</span>';
+                    }
+
+                    tbody += `<tr class="hover:bg-yellow-50">
+                        <td class="px-2 py-1.5">${r.row}</td>
+                        <td class="px-2 py-1.5 font-mono">${r.sku}</td>
+                        <td class="px-2 py-1.5">${r.product_name}</td>
+                        <td class="px-2 py-1.5 text-right">${r.old_cost_price !== null ? 'Rp ' + r.old_cost_price.toLocaleString('id-ID') : '-'}</td>
+                        <td class="px-2 py-1.5 text-right font-bold">${r.new_cost_price !== null ? 'Rp ' + r.new_cost_price.toLocaleString('id-ID') : '-'}</td>
+                        <td class="px-2 py-1.5 text-right">${r.old_price !== null ? 'Rp ' + r.old_price.toLocaleString('id-ID') : '-'}</td>
+                        <td class="px-2 py-1.5 text-right font-bold">${r.new_price !== null ? 'Rp ' + r.new_price.toLocaleString('id-ID') : '-'}</td>
+                        <td class="px-2 py-1.5">${actionBadge}</td>
+                    </tr>`;
+                });
+                document.getElementById('previewTableBody').innerHTML = tbody;
+            })
+            .catch(err => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                alert('Gagal: ' + err.message);
+            });
         }
 
         // Import Form Loading State
