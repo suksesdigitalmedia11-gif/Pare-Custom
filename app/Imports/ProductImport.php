@@ -32,13 +32,41 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         $costPrice = $this->convertToFloat($row['cost_price'] ?? null);
         $price = $this->convertToFloat($row['price'] ?? null);
 
+        // cost_price kosong: cek apakah produk existing
         if ($costPrice === false) {
-            $this->addFailure($rowNumber, 'cost_price', ['Harga modal tidak valid'], $row);
+            $product = $this->findProduct($row);
+            if ($product) {
+                // Produk existing, skip silently (no change intended)
+                return null;
+            }
+            $this->addFailure($rowNumber, 'cost_price', ['Harga modal wajib diisi untuk produk baru'], $row);
             return null;
         }
 
+        // price kosong: jika produk existing, update hanya cost_price; jika baru, error
         if ($price === false) {
-            $this->addFailure($rowNumber, 'price', ['Harga jual tidak valid'], $row);
+            $product = $this->findProduct($row);
+            if ($product) {
+                // Update hanya cost_price, pertahankan harga jual yang ada
+                $oldCostPrice = $product->cost_price;
+                $product->cost_price = $costPrice;
+                $product->save();
+
+                if (abs($oldCostPrice - $costPrice) > 0.001) {
+                    \App\Models\ProductPriceLog::create([
+                        'product_id' => $product->id,
+                        'old_cost_price' => $oldCostPrice,
+                        'new_cost_price' => $costPrice,
+                        'changed_by' => auth()->check() ? auth()->id() : null,
+                        'changed_at' => now(),
+                        'source' => 'import',
+                    ]);
+                }
+
+                $this->rowCount++;
+                return null;
+            }
+            $this->addFailure($rowNumber, 'price', ['Harga jual wajib diisi untuk produk baru'], $row);
             return null;
         }
 
@@ -284,8 +312,10 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             $newCostPrice = $import->convertToFloat($rowData['cost_price'] ?? null);
             $newPrice = $import->convertToFloat($rowData['price'] ?? null);
             
-            if ($newCostPrice === false || $newPrice === false) {
-                continue; // Skip invalid rows
+            // cost_price atau price kosong = hanya skip kalau KEDUANYA kosong
+            // Kalau hanya cost_price yang kosong → produk existing = no_change
+            if ($newCostPrice === false && $newPrice === false) {
+                continue; // Skip rows with no values at all
             }
             
             // Find existing product
@@ -302,13 +332,19 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 $oldPrice = $product->price;
                 $productName = $product->name;
                 
-                // Only count as change if values differ
-                $costChanged = abs($oldCostPrice - $newCostPrice) > 0.001;
-                $priceChanged = abs($oldPrice - $newPrice) > 0.001;
+                // Only count as change if values differ AND new values are valid
+                $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
+                $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
                 
                 if (!$costChanged && !$priceChanged) {
                     $action = 'no_change';
                 }
+            }
+            
+            // Skip new products without cost_price in preview
+            if (!$product && $newCostPrice === false) {
+                $rowNumber++;
+                continue;
             }
             
             $previewRows[] = [
@@ -317,9 +353,9 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 'product_name' => $productName,
                 'action' => $action,
                 'old_cost_price' => $oldCostPrice,
-                'new_cost_price' => $newCostPrice,
+                'new_cost_price' => $newCostPrice === false ? null : $newCostPrice,
                 'old_price' => $oldPrice,
-                'new_price' => $newPrice,
+                'new_price' => $newPrice === false ? null : $newPrice,
             ];
             
             $rowNumber++;
