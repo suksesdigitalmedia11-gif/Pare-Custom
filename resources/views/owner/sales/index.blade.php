@@ -112,7 +112,7 @@
                 </div>
 
                 <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 card-hover">
                         <div class="flex items-center">
                             <div class="p-2 rounded-lg bg-blue-50 text-blue-600 mr-3">
@@ -163,6 +163,20 @@
                                 <p class="text-xl font-bold text-gray-900">
                                     {{ \App\Models\SalesOrder::where('payment_status', 'lunas')->count() }}
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ✅ CARD TOTAL HPP (hasil filter) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 card-hover border-l-4 border-l-red-500">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-lg bg-red-50 text-red-600 mr-3">
+                                <i class="bi bi-box-seam text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total HPP (Filter)</p>
+                                <p class="text-xl font-bold text-red-600">Rp {{ number_format($totalHpp ?? 0, 0, ',', '.') }}</p>
+                                <p class="text-[10px] text-gray-400">Σ harga modal × qty</p>
                             </div>
                         </div>
                     </div>
@@ -233,6 +247,14 @@
                                     class="inline-flex items-center bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium smooth-transition">
                                     <i class="bi bi-arrow-clockwise mr-2"></i> Reset
                                 </a>
+
+                                <!-- ✅ Export Button (termasuk kolom HPP) -->
+                                <div class="flex gap-2 ml-auto">
+                                    <a href="{{ route('owner.sales.export', request()->query()) }}" 
+                                        class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                                        <i class="bi bi-download mr-2"></i> Export
+                                    </a>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -251,6 +273,7 @@
         <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
         <th class="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
         <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">HPP</th>
         <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Dibayar</th>
         <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Sisa</th>
         <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Status Bayar</th>
@@ -280,6 +303,9 @@
                 <div class="text-sm font-medium text-gray-900">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
             </td>
             <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
+                <div class="text-sm font-medium text-red-600">Rp {{ number_format($so->total_hpp, 0, ',', '.') }}</div>
+            </td>
+            <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
                 <div class="text-sm font-medium text-green-600">Rp {{ number_format($so->paid_total, 0, ',', '.') }}</div>
             </td>
             <td class="px-3 py-3 whitespace-nowrap text-right cursor-pointer" onclick="window.location='{{ route('owner.sales.show', array_merge(['salesOrder' => $so->id], request()->query())) }}'">
@@ -305,7 +331,7 @@
         </tr>
     @empty
         <tr>
-            <td colspan="9" class="px-6 py-8 text-center">
+            <td colspan="10" class="px-6 py-8 text-center">
                 <div class="text-gray-500">
                     <i class="bi bi-inbox text-4xl mb-2"></i>
                     <p class="text-lg font-medium">Tidak ada data</p>
@@ -349,13 +375,25 @@
                                         <div class="font-medium">Rp {{ number_format($so->grand_total, 0, ',', '.') }}</div>
                                     </div>
                                     <div>
+                                        <div class="text-gray-500">HPP</div>
+                                        <div class="font-medium text-red-600">Rp {{ number_format($so->total_hpp, 0, ',', '.') }}</div>
+                                    </div>
+                                    <div>
                                         <div class="text-gray-500">Dibayar</div>
                                         <div class="font-medium text-green-600">Rp {{ number_format($so->paid_total, 0, ',', '.') }}</div>
                                     </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-sm mt-2">
                                     <div>
                                         <div class="text-gray-500">Sisa</div>
                                         <div class="font-medium @if($so->remaining_amount > 0) text-red-600 @else text-green-600 @endif">
                                             Rp {{ number_format($so->remaining_amount, 0, ',', '.') }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">Est. Profit</div>
+                                        <div class="font-medium {{ $so->est_profit >= 0 ? 'text-teal-600' : 'text-red-600' }}">
+                                            Rp {{ number_format($so->est_profit, 0, ',', '.') }}
                                         </div>
                                     </div>
                                 </div>

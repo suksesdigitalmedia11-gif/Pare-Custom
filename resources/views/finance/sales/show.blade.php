@@ -811,6 +811,18 @@
         <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">Grand Total:</td>
         <td class="px-4 py-2 border text-right font-semibold text-blue-600">Rp {{ number_format($salesOrder->grand_total, 0, ',', '.') }}</td>
     </tr>
+    <!-- ✅ TOTAL HPP TRANSAKSI -->
+    <tr class="bg-red-50">
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold text-red-700">
+            <i class="bi bi-box-seam mr-1"></i>Total HPP:</td>
+        <td class="px-4 py-2 border text-right font-bold text-red-600">Rp {{ number_format($salesOrder->total_hpp, 0, ',', '.') }}</td>
+    </tr>
+    <!-- ✅ ESTIMASI PROFIT TRANSAKSI -->
+    <tr class="bg-teal-50">
+        <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold text-teal-700">
+            <i class="bi bi-graph-up-arrow mr-1"></i>Est. Profit:</td>
+        <td class="px-4 py-2 border text-right font-bold {{ $salesOrder->est_profit >= 0 ? 'text-teal-600' : 'text-red-600' }}">Rp {{ number_format($salesOrder->est_profit, 0, ',', '.') }}</td>
+    </tr>
 </tfoot>
                     </table>
                 </div>

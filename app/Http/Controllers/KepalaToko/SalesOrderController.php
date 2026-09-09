@@ -27,6 +27,8 @@ use App\Services\SalesPurchaseSyncService;
 use Illuminate\Support\Facades\Validator;
 use App\Traits\HandlesSalesOrderWorkflow;
 use App\Traits\ManagesPayments;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SalesOrderExport;
 
 class SalesOrderController extends Controller
 {
@@ -52,7 +54,45 @@ class SalesOrderController extends Controller
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
 
-        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver'])
+        // Base query dengan semua filter (dipakai untuk list + agregat HPP)
+        $baseQuery = SalesOrder::with(['customer', 'creator', 'approver'])
+            ->when($q, fn($query) =>
+                $query->where('so_number', 'like', "%$q%")
+                    ->orWhereHas('customer', fn($qq) => $qq->where('name', 'like', "%$q%"))
+            )
+            ->when($status, fn($query) => $query->where('status', $status))
+            ->when($payment_status && $payment_status !== 'all', fn($query) => $query->where('payment_status', $payment_status))
+            // ✅ FILTER TANGGAL ORDER (ORDER_DATE BUKAN CREATED_AT)
+            ->when($start_date, fn($query) => $query->whereDate('order_date', '>=', $start_date))
+            ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date));
+
+        $salesOrders = (clone $baseQuery)
+            ->with('items.product') // ✅ Eager load items+product untuk hitung total_hpp per baris
+            // ✅ UBAH SORTING: order_date DESC bukan id
+            ->orderByDesc('order_date')
+            ->paginate(15);
+
+        // ✅ TOTAL HPP dari hasil filter (formula sama dengan dashboard: COALESCE snapshot × qty)
+        $totalHpp = (clone $baseQuery)
+            ->join('sales_order_items as soi', 'soi.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products as p', 'p.id', '=', 'soi.product_id')
+            ->sum(DB::raw('COALESCE(soi.cost_price, p.cost_price, 0) * soi.qty')) ?? 0;
+
+        return view('kepala-toko.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date', 'totalHpp'));
+    }
+
+    /**
+     * ✅ Export sales orders ke Excel (filter sama dengan index, + kolom HPP)
+     */
+    public function export(Request $request)
+    {
+        $q = $request->get('q');
+        $status = $request->get('status');
+        $payment_status = $request->get('payment_status');
+        $start_date = $request->get('start_date');
+        $end_date = $request->get('end_date');
+
+        $salesOrders = SalesOrder::with(['customer', 'items.product', 'creator', 'payments']) // ✅ items.product untuk fallback cost HPP, payments untuk paid_total
             ->when($q, fn($query) =>
                 $query->where('so_number', 'like', "%$q%")
                     ->orWhereHas('customer', fn($qq) => $qq->where('name', 'like', "%$q%"))
@@ -62,11 +102,12 @@ class SalesOrderController extends Controller
             // ✅ FILTER TANGGAL ORDER (ORDER_DATE BUKAN CREATED_AT)
             ->when($start_date, fn($query) => $query->whereDate('order_date', '>=', $start_date))
             ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date))
-            // ✅ UBAH SORTING: order_date DESC bukan id
             ->orderByDesc('order_date')
-            ->paginate(15);
+            ->get();
 
-        return view('kepala-toko.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date'));
+        $filename = 'sales-orders-' . date('Y-m-d-H-i') . '.xlsx';
+
+        return Excel::download(new SalesOrderExport($salesOrders), $filename);
     }
 
     public function create(): View|RedirectResponse

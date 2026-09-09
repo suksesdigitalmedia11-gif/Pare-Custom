@@ -124,6 +124,8 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     });
 
     // Sales
+    // ✅ EXPORT SALES - TANPA SHIFT CHECK (aksi administratif Owner)
+    Route::get('/sales/export', [SalesOrderController::class, 'export'])->name('sales.export');
     Route::middleware(['check.shift'])->group(function () {
         Route::resource('sales', SalesOrderController::class)
             ->parameters(['sales' => 'salesOrder']);
@@ -483,6 +485,9 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         Route::post('/sales/{salesOrder}/move-to-request-kain', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'moveToRequestKain'])->name('sales.move-to-request-kain');
         Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
     });
+
+    // ✅ EXPORT SALES - TANPA SHIFT CHECK (aksi administratif Kepala Toko)
+    Route::get('/sales/export', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'export'])->name('sales.export');
 
     Route::middleware(['auth', 'kepala_toko', 'check.shift'])->group(function () {
         Route::resource('sales', \App\Http\Controllers\KepalaToko\SalesOrderController::class)

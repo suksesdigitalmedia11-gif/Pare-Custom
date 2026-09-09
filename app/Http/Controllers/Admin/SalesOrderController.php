@@ -95,7 +95,7 @@ class SalesOrderController extends Controller
         $status = $request->get('status');
         $payment_status = $request->get('payment_status');
 
-        $salesOrders = SalesOrder::with(['customer', 'items', 'creator'])
+        $salesOrders = SalesOrder::with(['customer', 'items.product', 'creator', 'payments']) // ✅ items.product untuk fallback cost HPP, payments untuk paid_total
             ->when(
                 $q,
                 fn($query) =>

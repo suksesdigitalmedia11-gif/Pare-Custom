@@ -99,6 +99,31 @@ class SalesOrder extends Model
         return $this->grand_total - $this->paid_total;
     }
 
+    /**
+     * Total HPP transaksi ini = Σ (cost_price snapshot × qty).
+     * Konsisten dengan formula dashboard: COALESCE(items.cost_price, products.cost_price, 0) × qty.
+     */
+    public function getTotalHppAttribute(): float
+    {
+        return (float) $this->items->sum(function ($item) {
+            $cost = $item->cost_price;
+            // Fallback ke product cost hanya jika snapshot NULL (sama seperti dashboard)
+            if ($cost === null) {
+                $cost = $item->product ? ($item->product->cost_price ?? 0) : 0;
+            }
+            return (float) ($cost ?? 0) * (int) $item->qty;
+        });
+    }
+
+    /**
+     * Estimasi Gross Profit per transaksi = Grand Total - Total HPP.
+     * Konsisten dengan card Gross Profit dashboard (Omset - HPP).
+     */
+    public function getEstProfitAttribute(): float
+    {
+        return (float) $this->grand_total - $this->total_hpp;
+    }
+
     // === Validasi Status ===
     public static function allowedStatuses(): array
     {

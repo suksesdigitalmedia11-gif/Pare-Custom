@@ -233,16 +233,19 @@ trait ManagesPayments
 
         // Jika shift SUDAH ditutup, jalankan cascade recalculation
         if ($shift->end_time) {
-            $shift->increment('final_cash', $cashDifference); // Tetap update final_cash-nya meski sudah tutup
-            $this->recalculateAndUpdateClosedShift($shift);
+            // Simpan old_final_cash SEBELUM adjustment apapun
+            $oldFinalCashBefore = $shift->final_cash;
+            // Jangan manual increment dulu — recalculateAndUpdateClosedShift akan hitung ulang dari scratch
+            $this->recalculateAndUpdateClosedShift($shift, $oldFinalCashBefore);
         }
     }
 
-    protected function recalculateAndUpdateClosedShift(Shift $shift): void
+    protected function recalculateAndUpdateClosedShift(Shift $shift, ?float $oldFinalCashBefore = null): void
     {
         // Recalculate cash_total from payments + incomes
         $realCash = $this->calculateRealCashTotalForShift($shift);
-        $oldFinalCash = $shift->final_cash;
+        // Jika tidak diberikan, gunakan nilai final_cash saat ini (backward-compatible)
+        $oldFinalCash = $oldFinalCashBefore ?? $shift->final_cash;
         $newFinalCash = $shift->initial_cash + $realCash - $shift->expense_total;
         
         $shift->update([

@@ -101,7 +101,8 @@ class SalesOrderController extends Controller
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
 
-        $salesOrders = SalesOrder::with(['customer', 'creator', 'approver', 'items']) // ✅ Tambah 'items' untuk cek status desain di index
+        // Base query dengan semua filter (dipakai untuk list + agregat HPP)
+        $baseQuery = SalesOrder::with(['customer', 'creator', 'approver', 'items.product']) // ✅ Tambah 'items' untuk cek status desain + HPP di index
             ->when(
                 $q,
                 fn($query) =>
@@ -112,12 +113,20 @@ class SalesOrderController extends Controller
             ->when($payment_status && $payment_status !== 'all', fn($query) => $query->where('payment_status', $payment_status))
             // ✅ FILTER TANGGAL ORDER (ORDER_DATE BUKAN CREATED_AT)
             ->when($start_date, fn($query) => $query->whereDate('order_date', '>=', $start_date))
-            ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date))
+            ->when($end_date, fn($query) => $query->whereDate('order_date', '<=', $end_date));
+
+        $salesOrders = (clone $baseQuery)
             // ✅ UBAH SORTING: order_date DESC bukan id
             ->orderByDesc('order_date')
             ->paginate(15);
 
-        return view('finance.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date'));
+        // ✅ TOTAL HPP dari hasil filter (formula sama dengan dashboard: COALESCE snapshot × qty)
+        $totalHpp = (clone $baseQuery)
+            ->join('sales_order_items as soi', 'soi.sales_order_id', '=', 'sales_orders.id')
+            ->leftJoin('products as p', 'p.id', '=', 'soi.product_id')
+            ->sum(DB::raw('COALESCE(soi.cost_price, p.cost_price, 0) * soi.qty')) ?? 0;
+
+        return view('finance.sales.index', compact('salesOrders', 'q', 'status', 'payment_status', 'start_date', 'end_date', 'totalHpp'));
     }
 
     /**
@@ -131,7 +140,7 @@ class SalesOrderController extends Controller
         $start_date = $request->get('start_date');
         $end_date = $request->get('end_date');
 
-        $salesOrders = SalesOrder::with(['customer', 'items', 'creator'])
+        $salesOrders = SalesOrder::with(['customer', 'items.product', 'creator', 'payments']) // ✅ items.product untuk fallback cost HPP, payments untuk paid_total
             ->when(
                 $q,
                 fn($query) =>

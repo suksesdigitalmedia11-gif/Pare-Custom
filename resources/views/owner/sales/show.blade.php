@@ -394,6 +394,16 @@
                             <div class="flex justify-between"><span class="text-gray-600">Sisa:</span><span
                                     class="@if($salesOrder->remaining_amount > 0) text-red-600 @else text-green-600 @endif font-medium">Rp
                                     {{ number_format($salesOrder->remaining_amount, 0, ',', '.') }}</span></div>
+                            <!-- ✅ TOTAL HPP TRANSAKSI -->
+                            <div class="flex justify-between border-t border-gray-100 pt-3"><span
+                                    class="text-gray-600 font-medium"><i class="bi bi-box-seam mr-1 text-red-500"></i>Total
+                                    HPP:</span><span class="text-red-600 font-semibold">Rp
+                                    {{ number_format($salesOrder->total_hpp, 0, ',', '.') }}</span></div>
+                            <!-- ✅ ESTIMASI PROFIT TRANSAKSI -->
+                            <div class="flex justify-between"><span class="text-gray-600 font-medium"><i
+                                        class="bi bi-graph-up-arrow mr-1 text-teal-500"></i>Est. Profit:</span><span
+                                    class="{{ $salesOrder->est_profit >= 0 ? 'text-teal-600' : 'text-red-600' }} font-semibold">Rp
+                                    {{ number_format($salesOrder->est_profit, 0, ',', '.') }}</span></div>
                         </div>
                     </div>
                 </div>
@@ -680,6 +690,7 @@
                                     <th class="px-4 py-2 border">Produk</th>
                                     <th class="px-4 py-2 border">SKU</th>
                                     <th class="px-4 py-2 border text-right">Harga</th>
+                                    <th class="px-4 py-2 border text-right">Harga Modal</th>
                                     <th class="px-4 py-2 border text-center">Qty</th>
                                     <th class="px-4 py-2 border text-right">Diskon</th>
                                     @php
@@ -710,6 +721,9 @@
                                         <td class="px-4 py-2 border">{{ $item->sku ?? '-' }}</td>
                                         <td class="px-4 py-2 border text-right">Rp
                                             {{ number_format($item->sale_price, 0, ',', '.') }}
+                                        </td>
+                                        <td class="px-4 py-2 border text-right text-red-600">Rp
+                                            {{ number_format($item->cost_price ?? 0, 0, ',', '.') }}
                                         </td>
                                         <td class="px-4 py-2 border text-center">{{ $item->qty }}</td>
                                         <td class="px-4 py-2 border text-right">Rp
@@ -751,7 +765,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50">
                                 @php
-                                    $colspan = $hasDesignItems ? 7 : 6;
+                                    $colspan = $hasDesignItems ? 8 : 7;
                                 @endphp
                                 <tr>
                                     <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold">
@@ -780,6 +794,22 @@
                                         Total:</td>
                                     <td class="px-4 py-2 border text-right font-semibold text-blue-600">Rp
                                         {{ number_format($salesOrder->grand_total, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                                <!-- ✅ TOTAL HPP TRANSAKSI -->
+                                <tr class="bg-red-50">
+                                    <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold text-red-700">
+                                        <i class="bi bi-box-seam mr-1"></i>Total HPP:</td>
+                                    <td class="px-4 py-2 border text-right font-bold text-red-600">Rp
+                                        {{ number_format($salesOrder->total_hpp, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                                <!-- ✅ ESTIMASI PROFIT TRANSAKSI -->
+                                <tr class="bg-teal-50">
+                                    <td colspan="{{ $colspan }}" class="px-4 py-2 border text-right font-semibold text-teal-700">
+                                        <i class="bi bi-graph-up-arrow mr-1"></i>Est. Profit:</td>
+                                    <td class="px-4 py-2 border text-right font-bold {{ $salesOrder->est_profit >= 0 ? 'text-teal-600' : 'text-red-600' }}">Rp
+                                        {{ number_format($salesOrder->est_profit, 0, ',', '.') }}
                                     </td>
                                 </tr>
                             </tfoot>
