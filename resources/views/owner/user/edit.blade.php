@@ -470,6 +470,40 @@
                                                 </div>
                                             @enderror
                                         </div>
+
+                                        @if($user->id !== auth()->id())
+                                            <div class="form-group mt-6">
+                                                <label class="form-label flex items-center">
+                                                    <span>Status Akun & Hak Akses</span>
+                                                    <span class="ml-1 text-red-500">*</span>
+                                                </label>
+                                                <p class="text-xs text-gray-500 mb-3">Jika karyawan telah keluar/resign, ubah status ke Nonaktif untuk mencabut akses tanpa merusak data penjualan atau shift.</p>
+                                                
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <label class="border-2 rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition-all {{ old('is_active', $user->is_active ?? true) ? 'border-green-500 bg-green-50/50' : 'border-gray-200 hover:border-gray-300' }}">
+                                                        <input type="radio" name="is_active" value="1" class="text-green-600 focus:ring-green-500" {{ old('is_active', $user->is_active ?? true) ? 'checked' : '' }}>
+                                                        <div>
+                                                            <div class="font-semibold text-gray-800 flex items-center">
+                                                                <span class="w-2 h-2 mr-2 bg-green-500 rounded-full"></span>
+                                                                Akun Aktif
+                                                            </div>
+                                                            <p class="text-xs text-gray-500 mt-0.5">Karyawan dapat login dan menggunakan sistem sesuai perannya.</p>
+                                                        </div>
+                                                    </label>
+
+                                                    <label class="border-2 rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition-all {{ !old('is_active', $user->is_active ?? true) ? 'border-red-500 bg-red-50/50' : 'border-gray-200 hover:border-gray-300' }}">
+                                                        <input type="radio" name="is_active" value="0" class="text-red-600 focus:ring-red-500" {{ !old('is_active', $user->is_active ?? true) ? 'checked' : '' }}>
+                                                        <div>
+                                                            <div class="font-semibold text-gray-800 flex items-center">
+                                                                <span class="w-2 h-2 mr-2 bg-red-500 rounded-full"></span>
+                                                                Akun Nonaktif (Karyawan Keluar)
+                                                            </div>
+                                                            <p class="text-xs text-gray-500 mt-0.5">Akses login dicabut seketika, namun seluruh riwayat data tetap tersimpan aman.</p>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        @endif
                                         
                                         <div class="border-t border-gray-200 my-6"></div>
                                         

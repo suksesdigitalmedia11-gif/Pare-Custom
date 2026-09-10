@@ -45,29 +45,132 @@
                             <div class="grid grid-cols-2 gap-4 mb-6">
                                 <div>
                                     <h3 class="text-sm font-medium text-gray-500">ID</h3>
-                                    <p class="mt-1 text-lg text-gray-900">{{ $user->id }}</p>
+                                    <p class="mt-1 text-lg font-bold text-gray-900">#{{ $user->id }}</p>
                                 </div>
                                 <div>
-                                    <h3 class="text-sm font-medium text-gray-500">Nama</h3>
-                                    <p class="mt-1 text-lg text-gray-900">{{ $user->name }}</p>
+                                    <h3 class="text-sm font-medium text-gray-500">Nama Lengkap</h3>
+                                    <p class="mt-1 text-lg font-semibold text-gray-900">{{ $user->name }}</p>
                                 </div>
                                 <div>
                                     <h3 class="text-sm font-medium text-gray-500">Email</h3>
-                                    <p class="mt-1 text-lg text-gray-900">{{ $user->email }}</p>
+                                    <p class="mt-1 text-base text-gray-900">{{ $user->email }}</p>
                                 </div>
                                 <div>
                                     <h3 class="text-sm font-medium text-gray-500">Tipe Pengguna</h3>
-                                    <p class="mt-1 text-lg text-gray-900">{{ $user->usertype }}</p>
+                                    <p class="mt-1 text-base font-medium text-indigo-600 uppercase">{{ str_replace('_', ' ', $user->usertype) }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-medium text-gray-500">Status Akun</h3>
+                                    <div class="mt-1">
+                                        @if($user->is_active ?? true)
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                                <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full"></span>
+                                                Aktif (Memiliki Akses Sistem)
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                                                <span class="w-2 h-2 mr-1.5 bg-red-500 rounded-full"></span>
+                                                Nonaktif (Akses Dicabut)
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-medium text-gray-500">Status Proteksi Data</h3>
+                                    <div class="mt-1">
+                                        @if($user->has_history)
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                                                <i class="bi bi-shield-lock-fill mr-1.5 text-blue-600"></i>
+                                                Terproteksi (Ada Riwayat Data)
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                                                <i class="bi bi-info-circle mr-1.5 text-gray-500"></i>
+                                                Belum Ada Riwayat
+                                            </span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex justify-end space-x-2">
-                                <a href="{{ route('owner.user.index') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">Kembali</a>
-                                <a href="{{ route('owner.user.edit', $user) }}" class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600">Edit</a>
-                                <form action="{{ route('owner.user.destroy', $user) }}" method="POST" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600" onclick="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?')">Hapus</button>
-                                </form>
+
+                            <!-- Historical Records Breakdown -->
+                            <div class="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center">
+                                    <i class="bi bi-clock-history mr-1.5 text-indigo-500"></i>
+                                    Ringkasan Riwayat Kerja & Operasional Pengguna
+                                </h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                        <div class="text-xs text-gray-500">Shift Kasir</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ $user->historical_counts['shifts'] ?? 0 }}</div>
+                                    </div>
+                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                        <div class="text-xs text-gray-500">Transaksi Penjualan</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ $user->historical_counts['sales_orders'] ?? 0 }}</div>
+                                    </div>
+                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                        <div class="text-xs text-gray-500">Pembayaran</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ $user->historical_counts['payments'] ?? 0 }}</div>
+                                    </div>
+                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                        <div class="text-xs text-gray-500">Purchase Order</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ $user->historical_counts['purchase_orders'] ?? 0 }}</div>
+                                    </div>
+                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                        <div class="text-xs text-gray-500">Stock Opname</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ $user->historical_counts['stock_opnames'] ?? 0 }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap justify-end gap-2 pt-4 border-t border-gray-200">
+                                <a href="{{ route('owner.user.index') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm font-medium transition">
+                                    <i class="bi bi-arrow-left mr-1"></i>
+                                    Kembali
+                                </a>
+
+                                <a href="{{ route('owner.user.edit', $user) }}" class="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 text-sm font-medium transition">
+                                    <i class="bi bi-pencil mr-1"></i>
+                                    Edit
+                                </a>
+
+                                @if($user->id !== auth()->id())
+                                    <form action="{{ route('owner.user.toggle-status', $user) }}" method="POST" class="inline"
+                                          onsubmit="return confirm('{{ ($user->is_active ?? true) ? 'Nonaktifkan akun ' . $user->name . '?' : 'Aktifkan kembali akun ' . $user->name . '?' }}')">
+                                        @csrf
+                                        @method('PATCH')
+                                        @if($user->is_active ?? true)
+                                            <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 text-sm font-medium transition">
+                                                <i class="bi bi-slash-circle mr-1"></i>
+                                                Nonaktifkan Akun
+                                            </button>
+                                        @else
+                                            <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium transition">
+                                                <i class="bi bi-check-circle mr-1"></i>
+                                                Aktifkan Akun
+                                            </button>
+                                        @endif
+                                    </form>
+
+                                    @if($user->has_history)
+                                        <button type="button" 
+                                                class="bg-gray-200 text-gray-400 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed"
+                                                onclick="alert('Pengguna ini memiliki riwayat operasional toko dan dilindungi dari penghapusan permanen agar data tidak rusak. Silakan gunakan opsi Nonaktifkan Akun!')">
+                                            <i class="bi bi-lock-fill mr-1"></i>
+                                            Hapus Terkunci
+                                        </button>
+                                    @else
+                                        <form action="{{ route('owner.user.destroy', $user) }}" method="POST" class="inline"
+                                              onsubmit="return confirm('Pengguna ini belum memiliki riwayat kerja. Yakin ingin menghapus permanen?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-sm font-medium transition">
+                                                <i class="bi bi-trash mr-1"></i>
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endif
                             </div>
                         </div>
                     </div>

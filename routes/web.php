@@ -83,6 +83,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     Route::get('category/download-template', [CategoryController::class, 'downloadTemplate'])->name('category.download-template');
 
     // User management
+    Route::patch('user/{user}/toggle-status', [UserOwnerController::class, 'toggleStatus'])->name('user.toggle-status');
     Route::resource('user', UserOwnerController::class);
 
     // Purchase Order Rollback (Owner Only)

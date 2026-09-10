@@ -51,8 +51,19 @@ class LoginRequest extends FormRequest
             ]);
         }
         
-        // Setelah authenticate berhasil, cek blocking HANYA untuk admin dan kepala_toko
         $user = Auth::user();
+
+        // Cek status aktif akun
+        if (! $user->is_active) {
+            Auth::logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun Anda telah dinonaktifkan oleh Owner. Silakan hubungi administrator.',
+            ]);
+        }
+
+        // Setelah authenticate berhasil, cek blocking HANYA untuk admin dan kepala_toko
         if (in_array($user->usertype, ['admin', 'kepala_toko'])) {
             $this->checkShiftBlocking();
         }

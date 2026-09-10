@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [
+            \App\Http\Middleware\CheckUserActive::class,
+        ]);
         $middleware->alias([
             'owner' => \App\Http\Middleware\Owner::class,
             'finance' => \App\Http\Middleware\Finance::class,
@@ -25,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'editor' => \App\Http\Middleware\Editor::class,
             'check.shift' => CheckActiveShift::class,
             'check.shift.blocking' => CheckShiftBlocking::class,
+            'check.user.active' => \App\Http\Middleware\CheckUserActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

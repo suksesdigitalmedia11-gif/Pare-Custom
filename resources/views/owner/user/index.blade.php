@@ -87,8 +87,15 @@
                             <!-- Alert Messages -->
                             @if(session('success'))
                                 <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 m-6" role="alert">
-                                    <p class="font-medium">Sukses!</p>
-                                    <p>{{ session('success') }}</p>
+                                    <p class="font-medium flex items-center"><i class="bi bi-check-circle-fill mr-2"></i>Sukses!</p>
+                                    <p class="mt-1">{{ session('success') }}</p>
+                                </div>
+                            @endif
+
+                            @if(session('error'))
+                                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-6" role="alert">
+                                    <p class="font-medium flex items-center"><i class="bi bi-exclamation-triangle-fill mr-2"></i>Perhatian Proteksi Sistem!</p>
+                                    <p class="mt-1">{{ session('error') }}</p>
                                 </div>
                             @endif
 
@@ -121,46 +128,116 @@
                                                     <i class="bi bi-chevron-expand"></i>
                                                 </div>
                                             </th>
+                                            <th onclick="sortTable(4)" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition duration-150">
+                                                <div class="flex items-center space-x-1">
+                                                    <span>Status</span>
+                                                    <i class="bi bi-chevron-expand"></i>
+                                                </div>
+                                            </th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200" id="tableBody">
                                         @foreach($users as $user)
-                                            <tr class="hover:bg-gray-50 transition duration-150 table-row">
-                                                <td class="px-6 py-4 whitespace-nowrap">{{ $user->id }}</td>
-                                                <td class="px-6 py-4 whitespace-nowrap">{{ $user->name }}</td>
-                                                <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
+                                            <tr class="hover:bg-gray-50 transition duration-150 table-row {{ !($user->is_active ?? true) ? 'bg-gray-50/60 opacity-80' : '' }}">
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">#{{ $user->id }}</td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="px-2 py-1 text-sm rounded-full
-                                                        {{ $user->usertype === 'admin' ? 'bg-purple-100 text-purple-800' : 
-                                                           ($user->usertype === 'owner' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                                                        {{ $user->usertype }}
+                                                    <div class="font-medium text-gray-900">{{ $user->name }}</div>
+                                                    @if($user->has_history)
+                                                        <div class="text-[11px] text-gray-400">
+                                                            {{ $user->historical_counts['shifts'] > 0 ? $user->historical_counts['shifts'] . ' shift' : '' }}
+                                                            {{ $user->historical_counts['sales_orders'] > 0 ? ' • ' . $user->historical_counts['sales_orders'] . ' penjualan' : '' }}
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ $user->email }}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="px-2.5 py-1 text-xs font-medium rounded-full
+                                                        {{ $user->usertype === 'admin' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 
+                                                           ($user->usertype === 'owner' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
+                                                           ($user->usertype === 'finance' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                                           ($user->usertype === 'kepala_toko' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-gray-100 text-gray-800 border border-gray-200'))) }}">
+                                                        {{ strtoupper(str_replace('_', ' ', $user->usertype)) }}
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="flex space-x-2">
+                                                    @if($user->is_active ?? true)
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                                            <span class="w-1.5 h-1.5 mr-1.5 bg-green-500 rounded-full"></span>
+                                                            Aktif
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                                                            <span class="w-1.5 h-1.5 mr-1.5 bg-red-500 rounded-full"></span>
+                                                            Nonaktif
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center space-x-1.5">
                                                         <a href="{{ route('owner.user.show', $user) }}" 
-                                                           class="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition duration-150">
+                                                           class="inline-flex items-center px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md shadow-sm transition duration-150"
+                                                           title="Lihat Detail">
                                                             <i class="bi bi-eye mr-1"></i>
                                                             Lihat
                                                         </a>
                                                         <a href="{{ route('owner.user.edit', $user) }}" 
-                                                           class="inline-flex items-center px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-md transition duration-150">
+                                                           class="inline-flex items-center px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-md shadow-sm transition duration-150"
+                                                           title="Edit Data">
                                                             <i class="bi bi-pencil mr-1"></i>
                                                             Edit
                                                         </a>
-                                                        <form action="{{ route('owner.user.destroy', $user) }}" 
-                                                              method="POST" 
-                                                              class="inline-block"
-                                                              onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" 
-                                                                    class="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-md transition duration-150">
-                                                                <i class="bi bi-trash mr-1"></i>
-                                                                Hapus
-                                                            </button>
-                                                        </form>
+
+                                                        @if($user->id !== auth()->id())
+                                                            <!-- Toggle Status Button -->
+                                                            <form action="{{ route('owner.user.toggle-status', $user) }}" method="POST" class="inline-block"
+                                                                  onsubmit="return confirm('{{ ($user->is_active ?? true) ? 'Apakah Anda yakin ingin MENONAKTIFKAN akun ' . $user->name . '? Karyawan ini tidak akan bisa login lagi ke sistem.' : 'Aktifkan kembali akun ' . $user->name . '?' }}')">
+                                                                @csrf
+                                                                @method('PATCH')
+                                                                @if($user->is_active ?? true)
+                                                                    <button type="submit" 
+                                                                            class="inline-flex items-center px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-md shadow-sm transition duration-150"
+                                                                            title="Nonaktifkan Akses Karyawan Keluar">
+                                                                        <i class="bi bi-slash-circle mr-1"></i>
+                                                                        Nonaktifkan
+                                                                    </button>
+                                                                @else
+                                                                    <button type="submit" 
+                                                                            class="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md shadow-sm transition duration-150"
+                                                                            title="Aktifkan Kembali Akses">
+                                                                        <i class="bi bi-check-circle mr-1"></i>
+                                                                        Aktifkan
+                                                                    </button>
+                                                                @endif
+                                                            </form>
+
+                                                            <!-- Delete Button with Safety Lock -->
+                                                            @if($user->has_history)
+                                                                <button type="button" 
+                                                                        class="inline-flex items-center px-2.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-500 text-xs font-medium rounded-md transition duration-150 cursor-pointer"
+                                                                        title="Data Terkunci: Pengguna ini memiliki riwayat transaksi/shift kerja. Klik untuk info."
+                                                                        onclick="alert('Pengguna \'{{ $user->name }}\' memiliki riwayat transaksi/shift kerja yang dilindungi sistem agar pembukuan tidak rusak. Untuk mencabut akses karyawan ini, silakan gunakan tombol \'Nonaktifkan\'!')">
+                                                                    <i class="bi bi-lock-fill mr-1 text-gray-500"></i>
+                                                                    Terkunci
+                                                                </button>
+                                                            @else
+                                                                <form action="{{ route('owner.user.destroy', $user) }}" 
+                                                                      method="POST" 
+                                                                      class="inline-block"
+                                                                      onsubmit="return confirm('Pengguna ini belum memiliki riwayat kerja apa pun. Apakah Anda yakin ingin menghapusnya secara permanen?')">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    <button type="submit" 
+                                                                            class="inline-flex items-center px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-md shadow-sm transition duration-150"
+                                                                            title="Hapus Akun Kosong">
+                                                                        <i class="bi bi-trash mr-1"></i>
+                                                                        Hapus
+                                                                    </button>
+                                                                </form>
+                                                            @endif
+                                                        @else
+                                                            <span class="text-xs text-gray-400 italic px-1">Akun Utama</span>
+                                                        @endif
                                                     </div>
                                                 </td>
                                             </tr>
