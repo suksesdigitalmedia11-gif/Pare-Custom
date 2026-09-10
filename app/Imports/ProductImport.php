@@ -56,8 +56,14 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             $priceChanged = false;
             $skuChanged = false;
 
-            // Isi SKU jika produk belum punya SKU dan di Excel ada SKU valid (bukan '-')
-            if (empty($product->sku) && $rawSku) {
+            // Update/koreksi SKU jika ada SKU di Excel dan berbeda dari SKU saat ini
+            $oldSku = $product->sku;
+            if ($rawSku && $oldSku !== $rawSku) {
+                $skuInUse = Product::where('sku', $rawSku)->where('id', '!=', $product->id)->exists();
+                if ($skuInUse) {
+                    $this->addFailure($rowNumber, 'sku', ["SKU '{$rawSku}' sudah digunakan oleh produk lain."], $row);
+                    return null;
+                }
                 $product->sku = $rawSku;
                 $skuChanged = true;
             }
@@ -71,7 +77,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                     $this->updatedProducts[] = [
                         'name' => $product->name,
                         'sku' => $product->sku ?? '-',
-                        'change' => "SKU diperbarui: {$rawSku}"
+                        'change' => $oldSku ? "SKU diperbarui: {$oldSku} -> {$rawSku}" : "SKU diperbarui: {$rawSku}"
                     ];
                 } else {
                     $this->unchangedCount++;
@@ -124,7 +130,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 }
 
                 $descChanges = [];
-                if ($skuChanged) $descChanges[] = "SKU: {$rawSku}";
+                if ($skuChanged) $descChanges[] = $oldSku ? "SKU: {$oldSku} -> {$rawSku}" : "SKU: {$rawSku}";
                 if ($costChanged) $descChanges[] = "Modal: Rp " . number_format($oldCostPrice, 0, ',', '.') . " -> Rp " . number_format($costPrice, 0, ',', '.');
                 if ($priceChanged) $descChanges[] = "Jual: Rp " . number_format($oldPrice, 0, ',', '.') . " -> Rp " . number_format($price, 0, ',', '.');
 
@@ -422,34 +428,50 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 $oldSku = $product->sku;
                 $productName = $product->name;
                 
-                $skuChanged = empty($product->sku) && !empty($rawSku);
-                $newSku = $skuChanged ? $rawSku : null;
-                
-                $targetCost = ($newCostPrice !== false) ? $newCostPrice : $oldCostPrice;
-                $targetPrice = ($newPrice !== false) ? $newPrice : $oldPrice;
-
-                // Cek error jika jual < modal
-                if (($newCostPrice !== false || $newPrice !== false) && $targetPrice < $targetCost) {
-                    $actionType = 'error';
-                    $errorMessage = 'Harga jual (' . number_format($targetPrice, 0, ',', '.') . ') < modal (' . number_format($targetCost, 0, ',', '.') . ')';
-                    $actionLabel = 'Error: Jual < Modal';
-                    $totalErrors++;
-                } else {
-                    $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
-                    $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
-                    
-                    $changes = [];
-                    if ($skuChanged) $changes[] = 'SKU';
-                    if ($costChanged) $changes[] = 'Modal';
-                    if ($priceChanged) $changes[] = 'Jual';
-                    
-                    if (empty($changes)) {
-                        $actionType = 'no_change';
-                        $actionLabel = 'Tidak berubah';
-                        $totalUnchanged++;
+                $skuChanged = false;
+                $newSku = null;
+                $skuError = false;
+                if (!empty($rawSku) && $oldSku !== $rawSku) {
+                    $skuInUse = Product::where('sku', $rawSku)->where('id', '!=', $product->id)->exists();
+                    if ($skuInUse) {
+                        $actionType = 'error';
+                        $errorMessage = "SKU '{$rawSku}' sudah digunakan oleh produk lain";
+                        $actionLabel = 'Error: SKU Duplikat';
+                        $totalErrors++;
+                        $skuError = true;
                     } else {
-                        $actionLabel = 'Update: ' . implode(' + ', $changes);
-                        $totalUpdates++;
+                        $skuChanged = true;
+                        $newSku = $rawSku;
+                    }
+                }
+
+                if (!$skuError) {
+                    $targetCost = ($newCostPrice !== false) ? $newCostPrice : $oldCostPrice;
+                    $targetPrice = ($newPrice !== false) ? $newPrice : $oldPrice;
+
+                    // Cek error jika jual < modal
+                    if (($newCostPrice !== false || $newPrice !== false) && $targetPrice < $targetCost) {
+                        $actionType = 'error';
+                        $errorMessage = 'Harga jual (' . number_format($targetPrice, 0, ',', '.') . ') < modal (' . number_format($targetCost, 0, ',', '.') . ')';
+                        $actionLabel = 'Error: Jual < Modal';
+                        $totalErrors++;
+                    } else {
+                        $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
+                        $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
+                        
+                        $changes = [];
+                        if ($skuChanged) $changes[] = $oldSku ? "SKU ({$oldSku}->{$rawSku})" : "SKU ({$rawSku})";
+                        if ($costChanged) $changes[] = 'Modal';
+                        if ($priceChanged) $changes[] = 'Jual';
+                        
+                        if (empty($changes)) {
+                            $actionType = 'no_change';
+                            $actionLabel = 'Tidak berubah';
+                            $totalUnchanged++;
+                        } else {
+                            $actionLabel = 'Update: ' . implode(' + ', $changes);
+                            $totalUpdates++;
+                        }
                     }
                 }
             } else {

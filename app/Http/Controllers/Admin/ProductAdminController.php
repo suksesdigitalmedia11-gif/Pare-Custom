@@ -80,7 +80,18 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
         }
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? true);
-        Product::create($validated);
+        $product = Product::create($validated);
+
+        if (!empty($validated['cost_price']) && (float) $validated['cost_price'] > 0) {
+            \App\Models\ProductPriceLog::create([
+                'product_id' => $product->id,
+                'old_cost_price' => null,
+                'new_cost_price' => (float) $validated['cost_price'],
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+                'source' => 'manual',
+            ]);
+        }
 
         return redirect()->route('admin.product.index')->with('success', 'Produk berhasil ditambahkan');
     }
@@ -121,8 +132,22 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
             $validated['image_path'] = $request->file('image')->store('products', 'public');
         }
 
+        $oldCost = (float) ($product->cost_price ?? 0);
+        $newCost = $validated['cost_price'] !== null ? (float) $validated['cost_price'] : null;
+
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
         $product->update($validated);
+
+        if ($newCost !== null && abs($oldCost - $newCost) > 0.001) {
+            \App\Models\ProductPriceLog::create([
+                'product_id' => $product->id,
+                'old_cost_price' => $oldCost > 0 ? $oldCost : null,
+                'new_cost_price' => $newCost,
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+                'source' => 'manual',
+            ]);
+        }
 
         return redirect()->route('admin.product.index')->with('success', 'Produk berhasil diperbarui');
     }
