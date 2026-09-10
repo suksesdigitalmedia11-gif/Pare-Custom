@@ -16,14 +16,19 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
 
     private $rowCount = 0;
     private $processedRows = 0;
+    private $updatedCount = 0;
+    private $insertedCount = 0;
+    private $unchangedCount = 0;
+    private $updatedProducts = [];
+    private $insertedProducts = [];
 
     public function model(array $row)
     {
         $row = $this->normalizeRow($row);
         $this->processedRows++;
-        $rowNumber = $this->processedRows + 1; // +1 karena heading
+        $rowNumber = $this->processedRows + 1; // +1 karena heading row
 
-        // Validasi minimal: name, cost_price, price harus ada
+        // Validasi minimal: nama produk wajib ada
         if (empty($row['name'])) {
             $this->addFailure($rowNumber, 'name', ['Nama produk wajib diisi'], $row);
             return null;
@@ -32,38 +37,82 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         $costPrice = $this->convertToFloat($row['cost_price'] ?? null);
         $price = $this->convertToFloat($row['price'] ?? null);
 
-        // cost_price kosong: cek apakah produk existing
-        if ($costPrice === false) {
-            $product = $this->findProduct($row);
-            if ($product) {
-                // Isi SKU untuk produk yang belum punya SKU (meskipun harga tidak berubah)
-                if (empty($product->sku) && !empty($row['sku'])) {
-                    $product->sku = $row['sku'];
+        $rawSku = $row['sku'] ?? null;
+        if ($rawSku !== null) {
+            $rawSku = trim(strval($rawSku));
+            if ($rawSku === '-' || $rawSku === '') {
+                $rawSku = null;
+            }
+        }
+
+        $product = $this->findProduct($row);
+
+        if ($product) {
+            // === PRODUK EXISTING ===
+            $oldCostPrice = (float) ($product->cost_price ?? 0);
+            $oldPrice = (float) ($product->price ?? 0);
+
+            $costChanged = false;
+            $priceChanged = false;
+            $skuChanged = false;
+
+            // Isi SKU jika produk belum punya SKU dan di Excel ada SKU valid (bukan '-')
+            if (empty($product->sku) && $rawSku) {
+                $product->sku = $rawSku;
+                $skuChanged = true;
+            }
+
+            // Jika KEDUANYA (harga modal baru dan harga jual baru) kosong
+            if ($costPrice === false && $price === false) {
+                if ($skuChanged) {
                     $product->save();
                     $this->rowCount++;
+                    $this->updatedCount++;
+                    $this->updatedProducts[] = [
+                        'name' => $product->name,
+                        'sku' => $product->sku ?? '-',
+                        'change' => "SKU diperbarui: {$rawSku}"
+                    ];
+                } else {
+                    $this->unchangedCount++;
                 }
                 return null;
             }
-            $this->addFailure($rowNumber, 'cost_price', ['Harga modal wajib diisi untuk produk baru'], $row);
-            return null;
-        }
 
-        // price kosong: jika produk existing, update hanya cost_price; jika baru, error
-        if ($price === false) {
-            $product = $this->findProduct($row);
-            if ($product) {
-                // Update hanya cost_price, pertahankan harga jual yang ada
-                $oldCostPrice = $product->cost_price;
+            // Tentukan target harga setelah update
+            $targetCostPrice = ($costPrice !== false) ? $costPrice : $oldCostPrice;
+            $targetPrice = ($price !== false) ? $price : $oldPrice;
+
+            // Validasi: harga jual tidak boleh lebih kecil dari harga modal
+            if ($targetPrice < $targetCostPrice) {
+                $costFormatted = 'Rp ' . number_format($targetCostPrice, 0, ',', '.');
+                $priceFormatted = 'Rp ' . number_format($targetPrice, 0, ',', '.');
+                $this->addFailure(
+                    $rowNumber,
+                    'price',
+                    ["Harga jual ({$priceFormatted}) tidak boleh lebih kecil dari harga modal ({$costFormatted}) untuk produk '{$product->name}'."],
+                    $row
+                );
+                return null;
+            }
+
+            if ($costPrice !== false && abs($oldCostPrice - $costPrice) > 0.001) {
                 $product->cost_price = $costPrice;
+                $costChanged = true;
+            }
 
-                // Isi SKU untuk produk yang belum punya SKU
-                if (empty($product->sku) && !empty($row['sku'])) {
-                    $product->sku = $row['sku'];
-                }
+            if ($price !== false && abs($oldPrice - $price) > 0.001) {
+                $product->price = $price;
+                $priceChanged = true;
+            }
 
+            if ($costChanged || $priceChanged || $skuChanged) {
                 $product->save();
+                $this->rowCount++;
+                $this->updatedCount++;
 
-                if (abs($oldCostPrice - $costPrice) > 0.001) {
+                // Log audit trail perubahan harga modal
+                if ($costChanged) {
                     \App\Models\ProductPriceLog::create([
                         'product_id' => $product->id,
                         'old_cost_price' => $oldCostPrice,
@@ -74,56 +123,49 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                     ]);
                 }
 
-                $this->rowCount++;
+                $descChanges = [];
+                if ($skuChanged) $descChanges[] = "SKU: {$rawSku}";
+                if ($costChanged) $descChanges[] = "Modal: Rp " . number_format($oldCostPrice, 0, ',', '.') . " -> Rp " . number_format($costPrice, 0, ',', '.');
+                if ($priceChanged) $descChanges[] = "Jual: Rp " . number_format($oldPrice, 0, ',', '.') . " -> Rp " . number_format($price, 0, ',', '.');
+
+                $this->updatedProducts[] = [
+                    'name' => $product->name,
+                    'sku' => $product->sku ?? '-',
+                    'change' => implode(', ', $descChanges)
+                ];
+            } else {
+                $this->unchangedCount++;
+            }
+
+            return null;
+
+        } else {
+            // === PRODUK BARU ===
+            if ($costPrice === false) {
+                $this->addFailure($rowNumber, 'cost_price', ["Harga modal wajib diisi untuk produk baru '{$row['name']}'"], $row);
                 return null;
             }
-            $this->addFailure($rowNumber, 'price', ['Harga jual wajib diisi untuk produk baru'], $row);
-            return null;
-        }
 
-        if ($price < $costPrice) {
-            $this->addFailure($rowNumber, 'price', ['Harga jual tidak boleh lebih kecil dari harga modal'], $row);
-            return null;
-        }
-
-        $product = $this->findProduct($row);
-        
-        if ($product) {
-            // Update harga modal, harga jual, dan SKU (jika kosong)
-            $oldCostPrice = $product->cost_price;
-            $oldPrice = $product->price;
-            $product->cost_price = $costPrice;
-            $product->price = $price;
-
-            // Isi SKU untuk produk yang belum punya SKU
-            if (empty($product->sku) && !empty($row['sku'])) {
-                $product->sku = $row['sku'];
+            if ($price === false) {
+                $this->addFailure($rowNumber, 'price', ["Harga jual wajib diisi untuk produk baru '{$row['name']}'"], $row);
+                return null;
             }
 
-            $product->save();
-
-            // Log perubahan cost_price jika berbeda
-            if (abs($oldCostPrice - $costPrice) > 0.001) {
-                \App\Models\ProductPriceLog::create([
-                    'product_id' => $product->id,
-                    'old_cost_price' => $oldCostPrice,
-                    'new_cost_price' => $costPrice,
-                    'changed_by' => auth()->check() ? auth()->id() : null,
-                    'changed_at' => now(),
-                    'source' => 'import',
-                ]);
+            if ($price < $costPrice) {
+                $costFormatted = 'Rp ' . number_format($costPrice, 0, ',', '.');
+                $priceFormatted = 'Rp ' . number_format($price, 0, ',', '.');
+                $this->addFailure($rowNumber, 'price', ["Harga jual ({$priceFormatted}) tidak boleh lebih kecil dari harga modal ({$costFormatted})"], $row);
+                return null;
             }
-        } else {
-            // Insert produk baru
+
             $categoryId = $this->getOrCreateCategory($row['category_name'] ?? null);
-            
             $stockQty = $this->convertToInt($row['stock_qty'] ?? 0);
             $isActive = $this->convertToBoolean($row['is_active'] ?? 'Aktif');
-            
+
             $product = Product::create([
-                'sku' => $row['sku'] ?? null,
+                'sku' => $rawSku,
                 'barcode' => $row['barcode'] ?? null,
-                'name' => $row['name'],
+                'name' => trim($row['name']),
                 'category_id' => $categoryId,
                 'cost_price' => $costPrice,
                 'price' => $price,
@@ -131,7 +173,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 'is_active' => $isActive,
             ]);
 
-            // Log harga modal awal untuk produk baru
+            // Log harga modal awal
             if ($costPrice > 0) {
                 \App\Models\ProductPriceLog::create([
                     'product_id' => $product->id,
@@ -142,34 +184,39 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                     'source' => 'import',
                 ]);
             }
-        }
 
-        $this->rowCount++;
-        return null; // Tidak membuat entitas baru via ToModel
+            $this->rowCount++;
+            $this->insertedCount++;
+            $this->insertedProducts[] = [
+                'name' => $product->name,
+                'sku' => $rawSku ?? '-',
+                'cost' => $costPrice,
+                'price' => $price
+            ];
+
+            return $product;
+        }
     }
 
     /**
-     * 🔧 FIX: Konversi format Indonesia ke float
-     * Contoh: 
-     * - "61998,77" → 61998.77
-     * - "17.000" → 17000.00
-     * - "17.000,77" → 17000.77
-     * - "1.234,56" → 1234.56
-     * - "30,000" → 30000 (koma sebagai thousand separator jika diikuti 3 digit)
-     * - "30,000.00" → 30000.00
+     * Konversi berbagai format angka/mata uang Indonesia dan standar ke float
      */
-    private function convertToFloat($value)
+    public function convertToFloat($value)
     {
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
-
-        $value = trim(strval($value));
-        if ($value === '' || $value === '-' || $value === null) {
+        if ($value === null || $value === '' || $value === '-') {
             return false;
         }
 
-        // Hapus karakter non digit/koma/titik
+        if (is_int($value) || is_float($value)) {
+            return $value < 0 ? false : (float) $value;
+        }
+
+        $value = trim(strval($value));
+        if ($value === '' || $value === '-') {
+            return false;
+        }
+
+        // Hapus karakter non digit, koma, titik
         $cleaned = preg_replace('/[^\d,\.]/', '', $value);
         if (!preg_match('/\d/', $cleaned)) {
             return false;
@@ -180,31 +227,35 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
 
         // Deteksi pola ribuan-koma & desimal-titik: 30,000.00
         if ($hasComma && $hasDot && preg_match('/^\d{1,3}(,\d{3})+(\.\d+)?$/', $cleaned)) {
-            $cleaned = str_replace(',', '', $cleaned); // buang separator ribuan
-            // titik sudah desimal
+            $cleaned = str_replace(',', '', $cleaned);
         }
         // Deteksi pola ribuan-titik & desimal-koma: 30.000,00
         elseif ($hasComma && $hasDot && preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $cleaned)) {
             $cleaned = str_replace('.', '', $cleaned);
             $cleaned = str_replace(',', '.', $cleaned);
         }
-        // Hanya koma: cek apakah thousand separator (diikuti 3 digit) atau decimal separator
+        // Hanya koma
         elseif ($hasComma && !$hasDot) {
-            // Cek pola: koma diikuti tepat 3 digit = thousand separator (30,000)
+            // Jika koma diikuti kelipatan 3 digit (misal: 30,000 atau 1,500,000)
             if (preg_match('/^\d{1,3}(,\d{3})+$/', $cleaned)) {
-                $cleaned = str_replace(',', '', $cleaned); // thousand separator
+                $cleaned = str_replace(',', '', $cleaned);
             } else {
-                // Koma sebagai decimal separator (1234,56)
+                // Koma desimal: 1234,50
                 $cleaned = str_replace(',', '.', $cleaned);
             }
         }
-        // Hanya titik: bisa ribuan atau desimal. Jika lebih dari 1 titik, buang semua (17.000)
+        // Hanya titik
         elseif ($hasDot && !$hasComma) {
-            $parts = explode('.', $cleaned);
-            if (count($parts) > 2) {
+            // Format ribuan Indonesia: 50.000 atau 150.000 atau 1.500.000 (titik diikuti 3 digit)
+            if (preg_match('/^\d{1,3}(\.\d{3})+$/', $cleaned)) {
                 $cleaned = str_replace('.', '', $cleaned);
+            } else {
+                $parts = explode('.', $cleaned);
+                if (count($parts) > 2) {
+                    $cleaned = str_replace('.', '', $cleaned);
+                }
+                // Jika satu titik bukan kelipatan 3 digit (misal 12.5), biarkan desimal
             }
-            // jika satu titik, biarkan sebagai decimal separator
         }
 
         $result = (float) $cleaned;
@@ -222,7 +273,6 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             return 0;
         }
 
-        // Hapus karakter non digit
         $cleaned = preg_replace('/[^\d]/', '', $value);
         return $cleaned === '' ? 0 : (int) $cleaned;
     }
@@ -234,8 +284,6 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         }
 
         $value = trim(strtolower(strval($value)));
-        
-        // Handle berbagai format: "aktif", "1", "true", "yes", "ya"
         if (in_array($value, ['aktif', '1', 'true', 'yes', 'ya', 'y'])) {
             return true;
         }
@@ -254,7 +302,6 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             return $category->id;
         }
 
-        // Buat kategori baru
         $slug = Category::generateUniqueSlug($categoryName);
         $category = Category::create([
             'name' => $categoryName,
@@ -266,16 +313,30 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         return $category->id;
     }
 
-    public function getRowCount(): int
-    {
-        return $this->rowCount;
-    }
+    public function getRowCount(): int { return $this->rowCount; }
+    public function getProcessedRows(): int { return $this->processedRows; }
+    public function getUpdatedCount(): int { return $this->updatedCount; }
+    public function getInsertedCount(): int { return $this->insertedCount; }
+    public function getUnchangedCount(): int { return $this->unchangedCount; }
+    public function getUpdatedProducts(): array { return $this->updatedProducts; }
+    public function getInsertedProducts(): array { return $this->insertedProducts; }
 
-    private function findProduct(array $row): ?Product
+    public function findProduct(array $row): ?Product
     {
         $sku = $row['sku'] ?? null;
-        $name = $row['name'] ?? null;
+        if ($sku !== null) {
+            $sku = trim(strval($sku));
+            if ($sku === '-' || $sku === '') {
+                $sku = null;
+            }
+        }
 
+        $name = $row['name'] ?? null;
+        if ($name !== null) {
+            $name = trim(strval($name));
+        }
+
+        // Cari berdasarkan SKU terlebih dahulu (hanya jika SKU bukan kosong / '-')
         if ($sku) {
             $product = Product::where('sku', $sku)->first();
             if ($product) {
@@ -283,6 +344,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             }
         }
 
+        // Cari berdasarkan Nama Produk
         if ($name) {
             return Product::where('name', $name)->first();
         }
@@ -298,7 +360,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
 
     /**
      * Preview rows from file without saving.
-     * Returns array of preview data: what would change.
+     * Returns array of preview data and full-file summary statistics.
      */
     public static function getPreview(string $filePath): array
     {
@@ -306,9 +368,15 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         $rows = \Maatwebsite\Excel\Facades\Excel::toCollection($import, $filePath);
         
         $previewRows = [];
-        $rowNumber = 2; // Start from row 2 (row 1 = header)
+        $rowNumber = 2; // Row 1 = header
+        $totalInserts = 0;
+        $totalUpdates = 0;
+        $totalUnchanged = 0;
+        $totalErrors = 0;
         
-        foreach ($rows->first() as $row) {
+        $sheetRows = $rows->first() ?? collect();
+
+        foreach ($sheetRows as $row) {
             if ($row->filter()->isEmpty()) {
                 continue; // Skip empty rows
             }
@@ -319,23 +387,23 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 $rowData[$normalizedKey] = $value;
             }
             
-            // Skip rows with no name
+            // Skip baris tanpa nama produk
             if (empty($rowData['name'])) {
                 continue;
             }
             
-            $sku = $rowData['sku'] ?? null;
-            $name = $rowData['name'] ?? null;
+            $rawSku = $rowData['sku'] ?? null;
+            if ($rawSku !== null) {
+                $rawSku = trim(strval($rawSku));
+                if ($rawSku === '-' || $rawSku === '') {
+                    $rawSku = null;
+                }
+            }
+
+            $name = trim(strval($rowData['name']));
             $newCostPrice = $import->convertToFloat($rowData['cost_price'] ?? null);
             $newPrice = $import->convertToFloat($rowData['price'] ?? null);
             
-            // cost_price atau price kosong = hanya skip kalau KEDUANYA kosong
-            // Kalau hanya cost_price yang kosong → produk existing = no_change
-            if ($newCostPrice === false && $newPrice === false && empty($sku)) {
-                continue; // Skip rows with no values at all
-            }
-            
-            // Find existing product
             $product = $import->findProduct($rowData);
             
             $actionType = 'insert';
@@ -345,63 +413,93 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             $oldSku = null;
             $newSku = null;
             $productName = $name;
-            
+            $errorMessage = null;
+
             if ($product) {
                 $actionType = 'update';
-                $oldCostPrice = $product->cost_price;
-                $oldPrice = $product->price;
+                $oldCostPrice = (float) ($product->cost_price ?? 0);
+                $oldPrice = (float) ($product->price ?? 0);
                 $oldSku = $product->sku;
                 $productName = $product->name;
                 
-                // Deteksi perubahan SKU: dari kosong → terisi
-                $skuChanged = (empty($product->sku) || $product->sku === null) && !empty($sku);
-                $newSku = $skuChanged ? $sku : null;
+                $skuChanged = empty($product->sku) && !empty($rawSku);
+                $newSku = $skuChanged ? $rawSku : null;
                 
-                // Only count as change if values differ AND new values are valid
-                $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
-                $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
-                
-                // Build enriched action label
-                $changes = [];
-                if ($skuChanged) $changes[] = 'SKU';
-                if ($costChanged || $priceChanged) $changes[] = 'Harga';
-                
-                if (empty($changes)) {
-                    $actionType = 'no_change';
-                    $actionLabel = 'Tidak berubah';
+                $targetCost = ($newCostPrice !== false) ? $newCostPrice : $oldCostPrice;
+                $targetPrice = ($newPrice !== false) ? $newPrice : $oldPrice;
+
+                // Cek error jika jual < modal
+                if (($newCostPrice !== false || $newPrice !== false) && $targetPrice < $targetCost) {
+                    $actionType = 'error';
+                    $errorMessage = 'Harga jual (' . number_format($targetPrice, 0, ',', '.') . ') < modal (' . number_format($targetCost, 0, ',', '.') . ')';
+                    $actionLabel = 'Error: Jual < Modal';
+                    $totalErrors++;
                 } else {
-                    $actionLabel = 'Update: ' . implode(' + ', $changes);
+                    $costChanged = $newCostPrice !== false && abs($oldCostPrice - $newCostPrice) > 0.001;
+                    $priceChanged = $newPrice !== false && abs($oldPrice - $newPrice) > 0.001;
+                    
+                    $changes = [];
+                    if ($skuChanged) $changes[] = 'SKU';
+                    if ($costChanged) $changes[] = 'Modal';
+                    if ($priceChanged) $changes[] = 'Jual';
+                    
+                    if (empty($changes)) {
+                        $actionType = 'no_change';
+                        $actionLabel = 'Tidak berubah';
+                        $totalUnchanged++;
+                    } else {
+                        $actionLabel = 'Update: ' . implode(' + ', $changes);
+                        $totalUpdates++;
+                    }
+                }
+            } else {
+                if ($newCostPrice === false || $newPrice === false) {
+                    $actionType = 'error';
+                    $errorMessage = 'Modal & jual wajib diisi untuk produk baru';
+                    $actionLabel = 'Error: Belum Lengkap';
+                    $totalErrors++;
+                } elseif ($newPrice < $newCostPrice) {
+                    $actionType = 'error';
+                    $errorMessage = 'Harga jual < modal';
+                    $actionLabel = 'Error: Jual < Modal';
+                    $totalErrors++;
+                } else {
+                    $totalInserts++;
                 }
             }
             
-            // Skip new products without cost_price in preview
-            if (!$product && $newCostPrice === false) {
-                $rowNumber++;
-                continue;
+            // Simpan sample rows hingga 100 baris untuk preview tabel di UI
+            if (count($previewRows) < 100) {
+                $previewRows[] = [
+                    'row' => $rowNumber,
+                    'sku' => $rawSku ?? '-',
+                    'product_name' => $productName,
+                    'action' => $actionLabel,
+                    'action_type' => $actionType,
+                    'error_message' => $errorMessage,
+                    'old_sku' => $oldSku,
+                    'new_sku' => $newSku,
+                    'old_cost_price' => $oldCostPrice,
+                    'new_cost_price' => $newCostPrice === false ? null : $newCostPrice,
+                    'old_price' => $oldPrice,
+                    'new_price' => $newPrice === false ? null : $newPrice,
+                ];
             }
-            
-            $previewRows[] = [
-                'row' => $rowNumber,
-                'sku' => $sku ?? '-',
-                'product_name' => $productName,
-                'action' => $actionLabel,
-                'action_type' => $actionType,
-                'old_sku' => $oldSku,
-                'new_sku' => $newSku,
-                'old_cost_price' => $oldCostPrice,
-                'new_cost_price' => $newCostPrice === false ? null : $newCostPrice,
-                'old_price' => $oldPrice,
-                'new_price' => $newPrice === false ? null : $newPrice,
-            ];
             
             $rowNumber++;
-            
-            if (count($previewRows) >= 20) {
-                break;
-            }
         }
         
-        return $previewRows;
+        return [
+            'rows' => $previewRows,
+            'summary' => [
+                'total_rows' => $rowNumber - 2,
+                'total_inserts' => $totalInserts,
+                'total_updates' => $totalUpdates,
+                'total_unchanged' => $totalUnchanged,
+                'total_errors' => $totalErrors,
+                'total_changes' => $totalInserts + $totalUpdates,
+            ]
+        ];
     }
 
     private function normalizeRow(array $row): array
@@ -413,7 +511,7 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
         return $normalized;
     }
 
-    private function normalizeKey(string $key): string
+    public function normalizeKey(string $key): string
     {
         $k = strtolower($key);
         $k = str_replace(['(', ')', '.', ','], ' ', $k);
@@ -432,21 +530,46 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
             'kategori_produk' => 'category_name',
             'category' => 'category_name',
             'category name' => 'category_name',
-            // Specific: hanya "Harga Modal Baru" yang dipakai untuk cost_price
+
+            // Harga Modal Baru (diambil untuk update cost_price)
             'harga modal baru' => 'cost_price',
             'harga_modal_baru' => 'cost_price',
-            // "Harga Modal Lama" diabaikan (hanya referensi)
+            'harga modal baru rp' => 'cost_price',
+            'harga modal baru idr' => 'cost_price',
+            'modal baru' => 'cost_price',
+
+            // Harga Modal Lama (hanya referensi)
             'harga modal lama' => 'old_cost_price_ref',
             'harga_modal_lama' => 'old_cost_price_ref',
-            // Backward compat
+            'harga modal lama rp' => 'old_cost_price_ref',
+            'modal lama' => 'old_cost_price_ref',
+
+            // Harga Modal Standar / Template Lama
             'harga modal rp' => 'cost_price',
             'harga_modal_rp' => 'cost_price',
             'harga modal' => 'cost_price',
             'cost price' => 'cost_price',
+            'cost_price' => 'cost_price',
+
+            // Harga Jual Baru (diambil untuk update price)
+            'harga jual baru' => 'price',
+            'harga_jual_baru' => 'price',
+            'harga jual baru rp' => 'price',
+            'harga jual baru idr' => 'price',
+            'jual baru' => 'price',
+
+            // Harga Jual Lama (hanya referensi)
+            'harga jual lama' => 'old_price_ref',
+            'harga_jual_lama' => 'old_price_ref',
+            'harga jual lama rp' => 'old_price_ref',
+            'jual lama' => 'old_price_ref',
+
+            // Harga Jual Standar / Template Lama
             'harga jual rp' => 'price',
             'harga_jual_rp' => 'price',
             'harga jual' => 'price',
             'price' => 'price',
+
             'stok' => 'stock_qty',
             'stock' => 'stock_qty',
             'stock qty' => 'stock_qty',

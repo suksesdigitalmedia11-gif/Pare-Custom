@@ -38,6 +38,7 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
             $product->cost_price ?? 0,
             '', // Harga Modal Baru — kosong untuk diisi user
             $product->price ?? 0,
+            '', // Harga Jual Baru — kosong untuk diisi user
         ];
     }
 
@@ -48,7 +49,8 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
             'Nama Produk',
             'Harga Modal Lama',
             'Harga Modal Baru',
-            'Harga Jual',
+            'Harga Jual Lama',
+            'Harga Jual Baru',
         ];
     }
 
@@ -60,30 +62,28 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
     public function columnWidths(): array
     {
         return [
-            'A' => 15,  // SKU
-            'B' => 35,  // Nama Produk
+            'A' => 18,  // SKU
+            'B' => 40,  // Nama Produk
             'C' => 20,  // Harga Modal Lama
-            'D' => 20,  // Harga Modal Baru
-            'E' => 20,  // Harga Jual
+            'D' => 22,  // Harga Modal Baru (Input)
+            'E' => 20,  // Harga Jual Lama
+            'F' => 22,  // Harga Jual Baru (Input)
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        // Style untuk header
-        $sheet->getStyle('A1:E1')->applyFromArray([
+        // Style umum untuk header baris 1
+        $sheet->getStyle('A1:F1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
-                'size' => 12,
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '4472C4'],
+                'size' => 11,
             ],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_CENTER,
                 'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
             ],
             'borders' => [
                 'allBorders' => [
@@ -93,17 +93,47 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
             ],
         ]);
 
+        // Warna header kolom informasi (A-C & E)
+        $sheet->getStyle('A1:C1')->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2C3E50'],
+            ],
+        ]);
+        $sheet->getStyle('E1')->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2C3E50'],
+            ],
+        ]);
+
+        // Warna header kolom input Harga Modal Baru (D1) -> Orange / Amber
+        $sheet->getStyle('D1')->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'D97706'], // Amber-600
+            ],
+        ]);
+
+        // Warna header kolom input Harga Jual Baru (F1) -> Emerald Green
+        $sheet->getStyle('F1')->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '059669'], // Emerald-600
+            ],
+        ]);
+
         // Set tinggi baris header
-        $sheet->getRowDimension(1)->setRowHeight(25);
+        $sheet->getRowDimension(1)->setRowHeight(28);
 
         // Style untuk data rows
         $lastRow = $sheet->getHighestRow();
         if ($lastRow > 1) {
-            $sheet->getStyle('A2:E' . $lastRow)->applyFromArray([
+            $sheet->getStyle('A2:F' . $lastRow)->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
-                        'color' => ['rgb' => 'CCCCCC'],
+                        'color' => ['rgb' => 'E2E8F0'],
                     ],
                 ],
                 'alignment' => [
@@ -111,20 +141,26 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
                 ],
             ]);
 
-            // Alternating row colors
+            // Alternating row colors untuk data referensi
             for ($row = 2; $row <= $lastRow; $row++) {
                 if ($row % 2 == 0) {
-                    $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray([
+                    $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray([
                         'fill' => [
                             'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'F2F2F2'],
+                            'startColor' => ['rgb' => 'F8FAFC'],
+                        ],
+                    ]);
+                    $sheet->getStyle('E' . $row)->applyFromArray([
+                        'fill' => [
+                            'fillType' => Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => 'F8FAFC'],
                         ],
                     ]);
                 }
             }
 
             // Align numeric columns and format numbers
-            $sheet->getStyle('C2:E' . $lastRow)->applyFromArray([
+            $sheet->getStyle('C2:F' . $lastRow)->applyFromArray([
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_RIGHT,
                 ],
@@ -133,11 +169,20 @@ class ProductPriceUpdateExport implements FromCollection, WithHeadings, WithMapp
                 ],
             ]);
 
-            // Highlight kolom Harga Modal Baru (kolom D) dengan warna kuning
+            // Highlight kolom input:
+            // Kolom D (Harga Modal Baru) -> Soft Yellow
             $sheet->getStyle('D2:D' . $lastRow)->applyFromArray([
                 'fill' => [
                     'fillType' => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'FFFDE7'],
+                    'startColor' => ['rgb' => 'FEF9C3'], // Yellow-100
+                ],
+            ]);
+
+            // Kolom F (Harga Jual Baru) -> Soft Green
+            $sheet->getStyle('F2:F' . $lastRow)->applyFromArray([
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'DCFCE7'], // Green-100
                 ],
             ]);
         }

@@ -14,6 +14,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use App\Imports\ProductImport;
+use App\Exports\ProductPriceUpdateExport;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Support\Arr;
 
 class ProductKepalaTokoController extends Controller implements FromArray, WithHeadings
@@ -145,15 +147,39 @@ class ProductKepalaTokoController extends Controller implements FromArray, WithH
 
     public function import(Request $request): RedirectResponse
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
-        ]);
+        // Alur import 2 langkah: jika import_token tersedia, gunakan file dari storage
+        $importToken = $request->get('import_token');
+        $file = null;
+
+        if ($importToken && session('import_file_token') === $importToken) {
+            $ext = session('import_file_ext', 'xlsx');
+            $storedPath = storage_path('app/imports/' . $importToken . '.' . $ext);
+            if (file_exists($storedPath)) {
+                $file = $storedPath;
+                session()->forget(['import_file_token', 'import_file_ext']);
+            }
+        }
+
+        if (!$file) {
+            $request->validate([
+                'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+            ]);
+            $file = $request->file('file');
+        }
 
         try {
             $import = new ProductImport();
-            Excel::import($import, $request->file('file'));
+            Excel::import($import, $file);
+
+            // Bersihkan file temporary jika berupa path tersimpan
+            if (is_string($file) && file_exists($file)) {
+                @unlink($file);
+            }
 
             $importedCount = $import->getRowCount();
+            $updatedCount = $import->getUpdatedCount();
+            $insertedCount = $import->getInsertedCount();
+            $unchangedCount = $import->getUnchangedCount();
             $skippedCount = count($import->failures());
             $errors = [];
 
@@ -161,13 +187,20 @@ class ProductKepalaTokoController extends Controller implements FromArray, WithH
                 $errors[] = "Baris " . $failure->row() . ": " . implode(', ', $failure->errors());
             }
 
-            $message = "Import selesai! {$importedCount} produk berhasil diimport.";
+            $message = "Import selesai! {$importedCount} produk diproses ({$updatedCount} berhasil diupdate, {$insertedCount} produk baru).";
+            if ($unchangedCount > 0) {
+                $message .= " {$unchangedCount} produk tidak ada perubahan.";
+            }
             if ($skippedCount > 0) {
                 $message .= " {$skippedCount} produk dilewati karena error.";
             }
 
             if (!empty($errors)) {
                 session()->flash('import_errors', $errors);
+            }
+
+            if (!empty($import->getUpdatedProducts())) {
+                session()->flash('import_updated_products', $import->getUpdatedProducts());
             }
 
             return redirect()->route('kepala-toko.product.index')->with('success', $message);
@@ -180,9 +213,82 @@ class ProductKepalaTokoController extends Controller implements FromArray, WithH
             }
             return redirect()->back()->withErrors(['file' => $errors]);
         } catch (\Exception $e) {
-            \Log::error('Import error: ' . $e->getMessage());
+            \Log::error('Import error (Kepala Toko): ' . $e->getMessage());
             return redirect()->back()->withErrors(['file' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Preview import — tampilkan data yang akan berubah sebelum commit (Kepala Toko).
+     */
+    public function previewImport(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $tempPath = $file->store('temp', 'local');
+            $absolutePath = storage_path('app/' . $tempPath);
+
+            $previewData = ProductImport::getPreview($absolutePath);
+
+            // Clean up temp file
+            Storage::disk('local')->delete($tempPath);
+
+            // Store file temporarily for actual import
+            $importToken = bin2hex(random_bytes(16));
+            $file->storeAs('imports', $importToken . '.' . $file->getClientOriginalExtension(), 'local');
+            session([
+                'import_file_token' => $importToken,
+                'import_file_ext' => $file->getClientOriginalExtension()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'preview' => $previewData['rows'] ?? [],
+                'import_token' => $importToken,
+                'summary' => $previewData['summary'] ?? [],
+                'total_changes' => $previewData['summary']['total_changes'] ?? 0,
+                'total_inserts' => $previewData['summary']['total_inserts'] ?? 0,
+                'total_updates' => $previewData['summary']['total_updates'] ?? 0,
+                'total_unchanged' => $previewData['summary']['total_unchanged'] ?? 0,
+                'total_errors' => $previewData['summary']['total_errors'] ?? 0,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Preview import error (Kepala Toko): ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membaca file: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Export template ringan untuk update harga modal dan harga jual (Kepala Toko).
+     */
+    public function exportPriceUpdate(Request $request): BinaryFileResponse
+    {
+        $q = $request->get('q');
+        $categoryId = $request->get('category_id');
+
+        $products = Product::with('category')
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($subQuery) use ($q) {
+                    $subQuery->where('name', 'like', "%$q%")
+                        ->orWhere('sku', 'like', "%$q%")
+                        ->orWhere('barcode', 'like', "%$q%");
+                });
+            })
+            ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
+            ->orderBy('name')
+            ->get();
+
+        $filename = 'update_harga_' . date('Y-m-d_His') . '.xlsx';
+        $export = new ProductPriceUpdateExport($products);
+
+        return Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
     }
 
     public function headings(): array

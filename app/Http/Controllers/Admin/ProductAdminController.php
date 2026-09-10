@@ -183,6 +183,9 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
             Excel::import($import, $file);
 
             $importedCount = $import->getRowCount();
+            $updatedCount = $import->getUpdatedCount();
+            $insertedCount = $import->getInsertedCount();
+            $unchangedCount = $import->getUnchangedCount();
             $skippedCount = count($import->failures());
             $errors = [];
 
@@ -190,13 +193,20 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
                 $errors[] = "Baris " . $failure->row() . ": " . implode(', ', $failure->errors());
             }
 
-            $message = "Import selesai! {$importedCount} produk berhasil diimport.";
+            $message = "Import selesai! {$importedCount} produk diproses ({$updatedCount} berhasil diupdate, {$insertedCount} produk baru).";
+            if ($unchangedCount > 0) {
+                $message .= " {$unchangedCount} produk tidak ada perubahan.";
+            }
             if ($skippedCount > 0) {
                 $message .= " {$skippedCount} produk dilewati karena error.";
             }
 
             if (!empty($errors)) {
                 session()->flash('import_errors', $errors);
+            }
+
+            if (!empty($import->getUpdatedProducts())) {
+                session()->flash('import_updated_products', $import->getUpdatedProducts());
             }
 
             return redirect()->route('admin.product.index')->with('success', $message);
@@ -249,7 +259,7 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
             $tempPath = $file->store('temp', 'local');
             $absolutePath = storage_path('app/' . $tempPath);
 
-            $previewRows = ProductImport::getPreview($absolutePath);
+            $previewData = ProductImport::getPreview($absolutePath);
 
             // Clean up temp file
             \Illuminate\Support\Facades\Storage::disk('local')->delete($tempPath);
@@ -261,12 +271,14 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
 
             return response()->json([
                 'success' => true,
-                'preview' => $previewRows,
+                'preview' => $previewData['rows'] ?? [],
                 'import_token' => $importToken,
-                'total_changes' => count(array_filter($previewRows, fn($r) => $r['action_type'] !== 'no_change')),
-                'total_inserts' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'insert')),
-                'total_updates' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'update')),
-                'total_unchanged' => count(array_filter($previewRows, fn($r) => $r['action_type'] === 'no_change')),
+                'summary' => $previewData['summary'] ?? [],
+                'total_changes' => $previewData['summary']['total_changes'] ?? 0,
+                'total_inserts' => $previewData['summary']['total_inserts'] ?? 0,
+                'total_updates' => $previewData['summary']['total_updates'] ?? 0,
+                'total_unchanged' => $previewData['summary']['total_unchanged'] ?? 0,
+                'total_errors' => $previewData['summary']['total_errors'] ?? 0,
             ]);
         } catch (\Exception $e) {
             \Log::error('Preview import error: ' . $e->getMessage());

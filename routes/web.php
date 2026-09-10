@@ -389,6 +389,8 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
     Route::get('catalog/products/search', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('catalog.products.search');
     Route::post('kepala-toko/product/import', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'import'])->name('product.import');
     Route::get('kepala-toko/product/download-template', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'downloadTemplate'])->name('product.download-template');
+    Route::get('kepala-toko/product/export-price-update', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'exportPriceUpdate'])->name('product.export-price-update');
+    Route::post('kepala-toko/product/preview-import', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'previewImport'])->name('product.preview-import');
     Route::get('/products/search', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('products.search');
 
 

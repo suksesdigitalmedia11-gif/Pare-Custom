@@ -100,6 +100,39 @@
                         </div>
                     @endif
 
+                    @if(session('import_updated_products') && count(session('import_updated_products')) > 0)
+                        <div class="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i class="bi bi-info-circle-fill text-xl text-blue-600"></i>
+                                    <h4 class="font-bold">Rincian Produk yang Berhasil Diperbarui ({{ count(session('import_updated_products')) }} Produk)</h4>
+                                </div>
+                            </div>
+                            <div class="max-h-60 overflow-y-auto mt-2 border border-blue-100 rounded-lg bg-white p-2">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-blue-100 text-blue-800">
+                                        <tr>
+                                            <th class="p-1.5">#</th>
+                                            <th class="p-1.5">SKU</th>
+                                            <th class="p-1.5">Nama Produk</th>
+                                            <th class="p-1.5">Perubahan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-blue-50">
+                                        @foreach(session('import_updated_products') as $idx => $p)
+                                            <tr>
+                                                <td class="p-1.5">{{ $idx + 1 }}</td>
+                                                <td class="p-1.5 font-mono">{{ $p['sku'] ?? '-' }}</td>
+                                                <td class="p-1.5 font-semibold">{{ $p['name'] }}</td>
+                                                <td class="p-1.5"><span class="px-2 py-0.5 bg-green-100 text-green-800 rounded font-medium">{{ $p['change'] }}</span></td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
                     @if(session('import_errors'))
                         <div class="mb-6 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800">
                             <div class="flex items-center gap-3 mb-2">
