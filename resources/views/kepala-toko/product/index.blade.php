@@ -59,6 +59,9 @@
                                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
                                     <i class="bi bi-upload me-1"></i>Import Excel
                                 </button>
+                                <a href="{{ route('kepala-toko.product.logs') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-clock-history me-1"></i>Riwayat Log Produk
+                                </a>
                                 <a href="{{ route('kepala-toko.product.create') }}" class="btn btn-primary">
                                     <i class="bi bi-plus-circle me-1"></i>Tambah Produk
                                 </a>
@@ -208,6 +211,10 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm">
+                                                            <a href="{{ route('kepala-toko.product.logs', ['product_id' => $product->id]) }}" 
+                                                               class="btn btn-outline-secondary" title="Riwayat Log Perubahan">
+                                                                <i class="bi bi-clock-history"></i>
+                                                            </a>
                                                             <a href="{{ route('kepala-toko.product.show', $product) }}" 
                                                                class="btn btn-outline-info" title="Analisis">
                                                                 <i class="bi bi-eye"></i>

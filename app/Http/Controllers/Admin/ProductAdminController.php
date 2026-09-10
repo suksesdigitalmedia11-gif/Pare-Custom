@@ -82,16 +82,17 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
         $validated['is_active'] = (bool) ($validated['is_active'] ?? true);
         $product = Product::create($validated);
 
-        if (!empty($validated['cost_price']) && (float) $validated['cost_price'] > 0) {
-            \App\Models\ProductPriceLog::create([
-                'product_id' => $product->id,
-                'old_cost_price' => null,
-                'new_cost_price' => (float) $validated['cost_price'],
-                'changed_by' => auth()->id(),
-                'changed_at' => now(),
-                'source' => 'manual',
-            ]);
-        }
+        \App\Models\ProductPriceLog::create([
+            'product_id' => $product->id,
+            'old_cost_price' => null,
+            'new_cost_price' => (float) ($validated['cost_price'] ?? 0),
+            'old_price' => null,
+            'new_price' => (float) $validated['price'],
+            'changed_by' => auth()->id(),
+            'changed_at' => now(),
+            'source' => 'manual',
+            'notes' => 'Produk baru dibuat manual via form web (SKU: ' . ($product->sku ?? '-') . ')',
+        ]);
 
         return redirect()->route('admin.product.index')->with('success', 'Produk berhasil ditambahkan');
     }
@@ -134,22 +135,76 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
 
         $oldCost = (float) ($product->cost_price ?? 0);
         $newCost = $validated['cost_price'] !== null ? (float) $validated['cost_price'] : null;
+        $oldPrice = (float) ($product->price ?? 0);
+        $newPrice = (float) $validated['price'];
+        $oldSku = $product->sku;
+        $newSku = $validated['sku'] ?? null;
+        $oldName = $product->name;
+        $newName = $validated['name'];
+
+        $costChanged = ($newCost !== null && abs($oldCost - $newCost) > 0.001);
+        $priceChanged = abs($oldPrice - $newPrice) > 0.001;
+        $skuChanged = ($oldSku !== $newSku);
+        $nameChanged = ($oldName !== $newName);
+
+        $changes = [];
+        if ($nameChanged) $changes[] = "Nama: '{$oldName}' -> '{$newName}'";
+        if ($skuChanged) $changes[] = "SKU: '{$oldSku}' -> '{$newSku}'";
+        if ($costChanged) $changes[] = "Modal: Rp " . number_format($oldCost, 0, ',', '.') . " -> Rp " . number_format($newCost, 0, ',', '.');
+        if ($priceChanged) $changes[] = "Jual: Rp " . number_format($oldPrice, 0, ',', '.') . " -> Rp " . number_format($newPrice, 0, ',', '.');
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
         $product->update($validated);
 
-        if ($newCost !== null && abs($oldCost - $newCost) > 0.001) {
+        if (!empty($changes)) {
             \App\Models\ProductPriceLog::create([
                 'product_id' => $product->id,
                 'old_cost_price' => $oldCost > 0 ? $oldCost : null,
-                'new_cost_price' => $newCost,
+                'new_cost_price' => $newCost ?? $oldCost,
+                'old_price' => $oldPrice > 0 ? $oldPrice : null,
+                'new_price' => $newPrice,
                 'changed_by' => auth()->id(),
                 'changed_at' => now(),
                 'source' => 'manual',
+                'notes' => implode(', ', $changes),
             ]);
         }
 
         return redirect()->route('admin.product.index')->with('success', 'Produk berhasil diperbarui');
+    }
+
+    public function logs(Request $request): View
+    {
+        $q = $request->get('q');
+        $source = $request->get('source');
+        $productId = $request->get('product_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $selectedProduct = $productId ? Product::find($productId) : null;
+
+        $logs = \App\Models\ProductPriceLog::with(['product', 'changer'])
+            ->when($productId, fn($query) => $query->where('product_id', $productId))
+            ->when($source, fn($query) => $query->where('source', $source))
+            ->when($dateFrom, fn($query) => $query->whereDate('changed_at', '>=', $dateFrom))
+            ->when($dateTo, fn($query) => $query->whereDate('changed_at', '<=', $dateTo))
+            ->when($q, function($query) use ($q) {
+                $query->where(function($sub) use ($q) {
+                    $sub->whereHas('product', function($p) use ($q) {
+                        $p->where('name', 'like', "%{$q}%")
+                          ->orWhere('sku', 'like', "%{$q}%");
+                    })
+                    ->orWhereHas('changer', function($u) use ($q) {
+                        $u->where('name', 'like', "%{$q}%");
+                    })
+                    ->orWhere('notes', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.product.logs', compact('logs', 'q', 'source', 'productId', 'selectedProduct', 'dateFrom', 'dateTo'));
     }
 
     public function destroy(Product $product): RedirectResponse

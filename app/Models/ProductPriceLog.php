@@ -11,9 +11,12 @@ class ProductPriceLog extends Model
         'product_id',
         'old_cost_price',
         'new_cost_price',
+        'old_price',
+        'new_price',
         'changed_by',
         'changed_at',
         'source',
+        'notes',
     ];
 
     public $timestamps = false;
@@ -22,6 +25,8 @@ class ProductPriceLog extends Model
         'changed_at' => 'datetime',
         'old_cost_price' => 'decimal:2',
         'new_cost_price' => 'decimal:2',
+        'old_price' => 'decimal:2',
+        'new_price' => 'decimal:2',
     ];
 
     public function product(): BelongsTo

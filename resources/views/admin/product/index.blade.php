@@ -84,6 +84,11 @@
                                 <i class="bi bi-file-earmark-spreadsheet mr-2"></i>
                                 Import Excel
                             </button>
+                            <a href="{{ route('admin.product.logs') }}" 
+                               class="inline-flex items-center px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 transition shadow-sm font-medium">
+                                <i class="bi bi-clock-history mr-2"></i>
+                                Riwayat Log
+                            </a>
                             <a href="{{ route('admin.product.create') }}" 
                                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200">
                                 <i class="bi bi-plus-lg mr-2"></i>
@@ -260,6 +265,9 @@
                                             </td>
                                             <td class="px-6 py-4 text-center">
                                                 <div class="flex items-center justify-center gap-2">
+                                                    <a href="{{ route('admin.product.logs', ['product_id' => $product->id]) }}" class="p-2 rounded-lg text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors" title="Riwayat Log Perubahan">
+                                                        <i class="bi bi-clock-history"></i>
+                                                    </a>
                                                     <a href="{{ route('admin.product.show', $product) }}" class="p-2 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors" title="Detail">
                                                         <i class="bi bi-eye"></i>
                                                     </a>

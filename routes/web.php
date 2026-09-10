@@ -391,6 +391,7 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
     Route::get('kepala-toko/product/download-template', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'downloadTemplate'])->name('product.download-template');
     Route::get('kepala-toko/product/export-price-update', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'exportPriceUpdate'])->name('product.export-price-update');
     Route::post('kepala-toko/product/preview-import', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'previewImport'])->name('product.preview-import');
+    Route::get('kepala-toko/product/logs', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'logs'])->name('product.logs');
     Route::get('/products/search', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('products.search');
 
 
@@ -546,6 +547,7 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
     Route::get('admin/product/export', [\App\Http\Controllers\Admin\ProductAdminController::class, 'export'])->name('product.export');
     Route::get('admin/product/export-price-update', [\App\Http\Controllers\Admin\ProductAdminController::class, 'exportPriceUpdate'])->name('product.export-price-update');
     Route::post('admin/product/preview-import', [\App\Http\Controllers\Admin\ProductAdminController::class, 'previewImport'])->name('product.preview-import');
+    Route::get('admin/product/logs', [\App\Http\Controllers\Admin\ProductAdminController::class, 'logs'])->name('product.logs');
     Route::get('/products/search', [\App\Http\Controllers\Admin\ProductAdminController::class, 'search'])->name('products.search');
 
     // Categories

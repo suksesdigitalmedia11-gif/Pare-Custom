@@ -74,10 +74,24 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                     $product->save();
                     $this->rowCount++;
                     $this->updatedCount++;
+                    $skuChangeText = $oldSku ? "SKU diperbarui: {$oldSku} -> {$rawSku}" : "SKU diperbarui: {$rawSku}";
+
+                    \App\Models\ProductPriceLog::create([
+                        'product_id' => $product->id,
+                        'old_cost_price' => $oldCostPrice > 0 ? $oldCostPrice : null,
+                        'new_cost_price' => $oldCostPrice,
+                        'old_price' => $oldPrice > 0 ? $oldPrice : null,
+                        'new_price' => $oldPrice,
+                        'changed_by' => auth()->check() ? auth()->id() : null,
+                        'changed_at' => now(),
+                        'source' => 'import',
+                        'notes' => $skuChangeText,
+                    ]);
+
                     $this->updatedProducts[] = [
                         'name' => $product->name,
                         'sku' => $product->sku ?? '-',
-                        'change' => $oldSku ? "SKU diperbarui: {$oldSku} -> {$rawSku}" : "SKU diperbarui: {$rawSku}"
+                        'change' => $skuChangeText
                     ];
                 } else {
                     $this->unchangedCount++;
@@ -117,27 +131,29 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 $this->rowCount++;
                 $this->updatedCount++;
 
-                // Log audit trail perubahan harga modal
-                if ($costChanged) {
-                    \App\Models\ProductPriceLog::create([
-                        'product_id' => $product->id,
-                        'old_cost_price' => $oldCostPrice,
-                        'new_cost_price' => $costPrice,
-                        'changed_by' => auth()->check() ? auth()->id() : null,
-                        'changed_at' => now(),
-                        'source' => 'import',
-                    ]);
-                }
-
                 $descChanges = [];
                 if ($skuChanged) $descChanges[] = $oldSku ? "SKU: {$oldSku} -> {$rawSku}" : "SKU: {$rawSku}";
                 if ($costChanged) $descChanges[] = "Modal: Rp " . number_format($oldCostPrice, 0, ',', '.') . " -> Rp " . number_format($costPrice, 0, ',', '.');
                 if ($priceChanged) $descChanges[] = "Jual: Rp " . number_format($oldPrice, 0, ',', '.') . " -> Rp " . number_format($price, 0, ',', '.');
+                $changeText = implode(', ', $descChanges);
+
+                // Log audit trail perubahan harga & atribut produk
+                \App\Models\ProductPriceLog::create([
+                    'product_id' => $product->id,
+                    'old_cost_price' => $costChanged ? $oldCostPrice : ($oldCostPrice > 0 ? $oldCostPrice : null),
+                    'new_cost_price' => (float) ($product->cost_price ?? 0),
+                    'old_price' => $priceChanged ? $oldPrice : ($oldPrice > 0 ? $oldPrice : null),
+                    'new_price' => (float) ($product->price ?? 0),
+                    'changed_by' => auth()->check() ? auth()->id() : null,
+                    'changed_at' => now(),
+                    'source' => 'import',
+                    'notes' => $changeText,
+                ]);
 
                 $this->updatedProducts[] = [
                     'name' => $product->name,
                     'sku' => $product->sku ?? '-',
-                    'change' => implode(', ', $descChanges)
+                    'change' => $changeText
                 ];
             } else {
                 $this->unchangedCount++;
@@ -179,17 +195,18 @@ class ProductImport implements ToModel, WithHeadingRow, SkipsOnFailure
                 'is_active' => $isActive,
             ]);
 
-            // Log harga modal awal
-            if ($costPrice > 0) {
-                \App\Models\ProductPriceLog::create([
-                    'product_id' => $product->id,
-                    'old_cost_price' => null,
-                    'new_cost_price' => $costPrice,
-                    'changed_by' => auth()->check() ? auth()->id() : null,
-                    'changed_at' => now(),
-                    'source' => 'import',
-                ]);
-            }
+            // Log produk baru
+            \App\Models\ProductPriceLog::create([
+                'product_id' => $product->id,
+                'old_cost_price' => null,
+                'new_cost_price' => $costPrice,
+                'old_price' => null,
+                'new_price' => $price,
+                'changed_by' => auth()->check() ? auth()->id() : null,
+                'changed_at' => now(),
+                'source' => 'import',
+                'notes' => 'Produk baru dibuat via Import Excel (SKU: ' . ($rawSku ?? '-') . ')',
+            ]);
 
             $this->rowCount++;
             $this->insertedCount++;
