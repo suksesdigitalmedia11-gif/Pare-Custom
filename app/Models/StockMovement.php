@@ -26,7 +26,7 @@ class StockMovement extends Model
     public const POS_SALE        = 'POS_SALE';
     public const POS_CANCEL      = 'POS_CANCEL';
 
-    public function product() { return $this->belongsTo(Product::class); }
+    public function product() { return $this->belongsTo(Product::class)->withTrashed(); }
     public function user()    { return $this->belongsTo(User::class); }
 
     /* ===== Helper untuk ledger ===== */

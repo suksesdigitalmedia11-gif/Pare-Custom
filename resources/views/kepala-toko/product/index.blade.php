@@ -165,10 +165,35 @@
                                     </div>
                                 </form>
 
+                                <!-- Bulk Action Toolbar -->
+                                <div id="bulkActionBar" class="alert alert-danger d-none align-items-center justify-content-between p-3 mb-3 shadow-sm rounded-3 border-danger">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-check2-square fs-5 text-danger"></i>
+                                        <span class="fw-bold text-dark" id="selectedCountText">0 produk dipilih</span>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">
+                                            <i class="bi bi-x-lg me-1"></i>Batal Pilih
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger px-3 shadow-sm fw-bold" id="deleteSelectedBtn" onclick="confirmBulkDelete()">
+                                            <i class="bi bi-trash-fill me-1"></i>Hapus Produk Terpilih
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden Bulk Delete Form -->
+                                <form id="bulkDeleteForm" action="{{ route('kepala-toko.product.bulk-destroy') }}" method="POST" class="d-none">
+                                    @csrf
+                                    <div id="bulkDeleteInputs"></div>
+                                </form>
+
                                 <div class="table-responsive">
                                     <table class="table table-hover align-middle">
                                         <thead class="table-light">
                                             <tr>
+                                                <th style="width: 40px;" class="text-center">
+                                                    <input type="checkbox" id="selectAllProducts" class="form-check-input cursor-pointer" title="Pilih Semua Produk di Halaman Ini">
+                                                </th>
                                                 <th>Gambar</th>
                                                 <th>Nama</th>
                                                 <th>SKU</th>
@@ -184,6 +209,9 @@
                                         <tbody>
                                             @forelse($products as $product)
                                                 <tr>
+                                                    <td class="text-center">
+                                                        <input type="checkbox" class="form-check-input product-checkbox cursor-pointer" value="{{ $product->id }}">
+                                                    </td>
                                                     <td>
                                                         @if($product->image_path)
                                                             <img src="{{ Storage::url($product->image_path) }}" 
@@ -233,7 +261,7 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="10" class="text-center py-4 text-muted">
+                                                    <td colspan="11" class="text-center py-4 text-muted">
                                                         <i class="bi bi-inbox display-4 d-block mb-3"></i>
                                                         @if(request('q') || request('category_id'))
                                                             Tidak ada produk yang sesuai dengan pencarian.
@@ -579,6 +607,74 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Konfirmasi & Simpan Import';
         });
+
+        // Bulk Delete Checkbox Logic
+        const selectAllCheckbox = document.getElementById('selectAllProducts');
+        const productCheckboxes = document.querySelectorAll('.product-checkbox');
+        const bulkActionBar = document.getElementById('bulkActionBar');
+        const selectedCountText = document.getElementById('selectedCountText');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+        const bulkDeleteInputs = document.getElementById('bulkDeleteInputs');
+
+        function updateBulkActionBar() {
+            const selected = document.querySelectorAll('.product-checkbox:checked');
+            const count = selected.length;
+            if (count > 0) {
+                bulkActionBar.classList.remove('d-none');
+                bulkActionBar.classList.add('d-flex');
+                selectedCountText.innerText = count + ' produk dipilih';
+            } else {
+                bulkActionBar.classList.add('d-none');
+                bulkActionBar.classList.remove('d-flex');
+            }
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = (productCheckboxes.length > 0 && selected.length === productCheckboxes.length);
+                selectAllCheckbox.indeterminate = (count > 0 && count < productCheckboxes.length);
+            }
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                productCheckboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+                updateBulkActionBar();
+            });
+        }
+
+        productCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateBulkActionBar);
+        });
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', function() {
+                productCheckboxes.forEach(cb => cb.checked = false);
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                }
+                updateBulkActionBar();
+            });
+        }
+
+        function confirmBulkDelete() {
+            const selected = document.querySelectorAll('.product-checkbox:checked');
+            if (selected.length === 0) {
+                alert('Silakan pilih minimal 1 produk untuk dihapus.');
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin menghapus ${selected.length} produk yang dipilih secara massal?\n\nProduk akan dihapus/diarsipkan dengan aman tanpa merusak riwayat transaksi penjualan yang sudah terjadi.`)) {
+                bulkDeleteInputs.innerHTML = '';
+                selected.forEach(cb => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids[]';
+                    input.value = cb.value;
+                    bulkDeleteInputs.appendChild(input);
+                });
+                bulkDeleteForm.submit();
+            }
+        }
     </script>
 </body>
 </html>

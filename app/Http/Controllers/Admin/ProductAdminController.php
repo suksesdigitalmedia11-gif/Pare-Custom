@@ -213,7 +213,20 @@ class ProductAdminController extends Controller implements FromArray, WithHeadin
             Storage::disk('public')->delete($product->image_path);
         }
         $product->delete();
-        return redirect()->route('admin.product.index')->with('success', 'Produk berhasil dihapus');
+        return redirect()->route('admin.product.index')->with('success', 'Produk berhasil dihapus secara aman');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $ids = $request->input('ids', []);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada produk yang dipilih untuk dihapus.');
+        }
+
+        $count = Product::whereIn('id', $ids)->count();
+        Product::whereIn('id', $ids)->delete();
+
+        return redirect()->route('admin.product.index')->with('success', "{$count} produk berhasil dihapus secara aman.");
     }
 
     public function search(Request $request)

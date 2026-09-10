@@ -61,6 +61,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
     })->name('shift.test-closing-summary');
 
     // Products
+    Route::post('owner/product/bulk-delete', [ProductOwnerController::class, 'bulkDestroy'])->name('product.bulk-destroy');
     Route::resource('product', ProductOwnerController::class);
     Route::get('catalog/products/search', [ProductOwnerController::class, 'search'])->name('catalog.products.search');
     Route::post('owner/product/import', [ProductOwnerController::class, 'import'])->name('product.import');
@@ -386,6 +387,7 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
     Route::get('contacts/customers/template', [KepalaTokoContactController::class, 'downloadCustomerTemplate'])->name('contacts.customers.template');
     Route::get('contacts/suppliers/template', [KepalaTokoContactController::class, 'downloadSupplierTemplate'])->name('contacts.suppliers.template');
 
+    Route::post('kepala-toko/product/bulk-delete', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'bulkDestroy'])->name('product.bulk-destroy');
     Route::resource('product', \App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class);
     Route::get('catalog/products/search', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'search'])->name('catalog.products.search');
     Route::post('kepala-toko/product/import', [\App\Http\Controllers\KepalaToko\ProductKepalaTokoController::class, 'import'])->name('product.import');
@@ -541,6 +543,7 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
     Route::get('/customers/search', [\App\Http\Controllers\Admin\SalesOrderController::class, 'searchCustomers'])->name('customers.search');
     Route::get('/suppliers/search', [\App\Http\Controllers\Admin\SalesOrderController::class, 'searchSuppliers'])->name('suppliers.search');
 
+    Route::post('admin/product/bulk-delete', [\App\Http\Controllers\Admin\ProductAdminController::class, 'bulkDestroy'])->name('product.bulk-destroy');
     Route::resource('product', \App\Http\Controllers\Admin\ProductAdminController::class);
     Route::get('catalog/products/search', [\App\Http\Controllers\Admin\ProductAdminController::class, 'search'])->name('catalog.products.search');
     Route::post('admin/product/import', [\App\Http\Controllers\Admin\ProductAdminController::class, 'import'])->name('product.import');

@@ -27,7 +27,7 @@ class StockOpnameItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class)->withDefault([
+        return $this->belongsTo(Product::class)->withTrashed()->withDefault([
             'name' => 'Produk Dihapus',
             'stock_qty' => 0
         ]);

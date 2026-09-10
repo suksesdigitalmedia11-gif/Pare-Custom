@@ -191,11 +191,36 @@
                             </form>
                         </div>
 
+                        <!-- Bulk Action Toolbar -->
+                        <div id="bulkActionBarAdmin" class="hidden items-center justify-between p-4 mb-4 bg-red-50 border border-red-200 rounded-2xl shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <i class="bi bi-check2-square text-xl text-red-600"></i>
+                                <span class="font-bold text-gray-900" id="selectedCountTextAdmin">0 produk dipilih</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="clearSelectionBtnAdmin" class="px-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition shadow-sm font-medium">
+                                    Batal
+                                </button>
+                                <button type="button" id="deleteSelectedBtnAdmin" onclick="confirmBulkDeleteAdmin()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition shadow-sm font-bold flex items-center gap-1.5">
+                                    <i class="bi bi-trash-fill"></i> Hapus Produk Terpilih
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Hidden Bulk Delete Form -->
+                        <form id="bulkDeleteFormAdmin" action="{{ route('admin.product.bulk-destroy') }}" method="POST" class="hidden">
+                            @csrf
+                            <div id="bulkDeleteInputsAdmin"></div>
+                        </form>
+
                         <!-- Table Section -->
                         <div class="overflow-x-auto custom-scrollbar">
                             <table class="w-full text-left border-collapse">
                                 <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider">
                                     <tr>
+                                        <th class="px-4 py-4 border-b border-gray-100 text-center w-12">
+                                            <input type="checkbox" id="selectAllAdmin" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" title="Pilih Semua Produk di Halaman Ini">
+                                        </th>
                                         <th class="px-6 py-4 border-b border-gray-100">
                                             <a href="{{ route('admin.product.index', array_merge(request()->query(), ['sort_by' => 'name', 'direction' => request('direction') == 'asc' ? 'desc' : 'asc'])) }}" class="group flex items-center gap-1 cursor-pointer hover:text-blue-600">
                                                 Produk
@@ -216,6 +241,9 @@
                                 <tbody class="divide-y divide-gray-100 bg-white text-sm">
                                     @forelse($products as $product)
                                         <tr class="hover:bg-gray-50/80 transition-colors group">
+                                            <td class="px-4 py-4 text-center">
+                                                <input type="checkbox" class="product-checkbox-admin w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" value="{{ $product->id }}">
+                                            </td>
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center gap-4">
                                                     <div class="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex-shrink-0 overflow-hidden">
@@ -283,7 +311,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="px-6 py-12 text-center text-gray-500 text-sm">
+                                            <td colspan="8" class="px-6 py-12 text-center text-gray-500 text-sm">
                                                 <div class="flex flex-col items-center">
                                                     <div class="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                                         <i class="bi bi-box-seam text-2xl text-gray-400"></i>
@@ -588,6 +616,74 @@
             btn.disabled = true;
             btn.classList.add('opacity-75', 'cursor-not-allowed');
         });
+
+        // Bulk Delete Checkbox Logic (Admin)
+        const selectAllAdmin = document.getElementById('selectAllAdmin');
+        const productCheckboxesAdmin = document.querySelectorAll('.product-checkbox-admin');
+        const bulkActionBarAdmin = document.getElementById('bulkActionBarAdmin');
+        const selectedCountTextAdmin = document.getElementById('selectedCountTextAdmin');
+        const clearSelectionBtnAdmin = document.getElementById('clearSelectionBtnAdmin');
+        const bulkDeleteFormAdmin = document.getElementById('bulkDeleteFormAdmin');
+        const bulkDeleteInputsAdmin = document.getElementById('bulkDeleteInputsAdmin');
+
+        function updateBulkActionBarAdmin() {
+            const selected = document.querySelectorAll('.product-checkbox-admin:checked');
+            const count = selected.length;
+            if (count > 0) {
+                bulkActionBarAdmin.classList.remove('hidden');
+                bulkActionBarAdmin.classList.add('flex');
+                selectedCountTextAdmin.innerText = count + ' produk dipilih';
+            } else {
+                bulkActionBarAdmin.classList.add('hidden');
+                bulkActionBarAdmin.classList.remove('flex');
+            }
+            if (selectAllAdmin) {
+                selectAllAdmin.checked = (productCheckboxesAdmin.length > 0 && selected.length === productCheckboxesAdmin.length);
+                selectAllAdmin.indeterminate = (count > 0 && count < productCheckboxesAdmin.length);
+            }
+        }
+
+        if (selectAllAdmin) {
+            selectAllAdmin.addEventListener('change', function() {
+                productCheckboxesAdmin.forEach(cb => cb.checked = selectAllAdmin.checked);
+                updateBulkActionBarAdmin();
+            });
+        }
+
+        productCheckboxesAdmin.forEach(cb => {
+            cb.addEventListener('change', updateBulkActionBarAdmin);
+        });
+
+        if (clearSelectionBtnAdmin) {
+            clearSelectionBtnAdmin.addEventListener('click', function() {
+                productCheckboxesAdmin.forEach(cb => cb.checked = false);
+                if (selectAllAdmin) {
+                    selectAllAdmin.checked = false;
+                    selectAllAdmin.indeterminate = false;
+                }
+                updateBulkActionBarAdmin();
+            });
+        }
+
+        function confirmBulkDeleteAdmin() {
+            const selected = document.querySelectorAll('.product-checkbox-admin:checked');
+            if (selected.length === 0) {
+                alert('Silakan pilih minimal 1 produk untuk dihapus.');
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin menghapus ${selected.length} produk yang dipilih secara massal?\n\nProduk akan dihapus/diarsipkan secara aman tanpa merusak riwayat transaksi penjualan yang sudah terjadi.`)) {
+                bulkDeleteInputsAdmin.innerHTML = '';
+                selected.forEach(cb => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids[]';
+                    input.value = cb.value;
+                    bulkDeleteInputsAdmin.appendChild(input);
+                });
+                bulkDeleteFormAdmin.submit();
+            }
+        }
     </script>
 </body>
 </html>
