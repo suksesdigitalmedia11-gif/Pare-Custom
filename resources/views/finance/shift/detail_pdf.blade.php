@@ -87,7 +87,7 @@
 </head>
 <body>
     <div class="header">
-        <img src="{{ asset('https://parecustom.com/public/assets/logo.png') }}" alt="Pare Custom Logo">
+        <img src="{{ asset('https://kasir.parecustom.com/public/assets/logo.png') }}" alt="Pare Custom Logo">
         <h1>LAPORAN DETAIL SHIFT #{{ $shift->id }}</h1>
         <p>Pare Custom - {{ date('d/m/Y H:i') }}</p>
         <p>Dicetak oleh: {{ Auth::user()->name }}</p>

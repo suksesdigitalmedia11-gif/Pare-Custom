@@ -96,7 +96,7 @@
         class="fixed lg:sticky top-0 left-0 w-80 lg:w-72 bg-white h-screen flex flex-col sidebar-transition transform -translate-x-full lg:translate-x-0 shadow-xl z-40 border-r border-gray-200">
         <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
             <div class="flex items-center space-x-3">
-                <img src="{{ asset('https://parecustom.com/public/assets/logo.png') }}" alt="Pare Custom"
+                <img src="{{ asset('https://kasir.parecustom.com/public/assets/logo.png') }}" alt="Pare Custom"
                     class="w-10 h-10 object-contain">
                 <div>
                     <h1 class="text-xl font-bold text-gray-900">PareCustom</h1>

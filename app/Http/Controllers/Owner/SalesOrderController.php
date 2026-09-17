@@ -955,6 +955,11 @@ class SalesOrderController extends Controller
                             $relatedShift->decrement('cash_total', (float) $cashAmount);
                             $relatedShift->decrement('final_cash', (float) $cashAmount); // Adjust final cash juga
 
+                            // CASCADE: turunkan shift-shift berikutnya supaya rantai kas tetap nyambung.
+                            // Perbaikan bug: sebelumnya hanya shift ini yang turun, shift setelahnya
+                            // tidak ikut turun sehingga muncul selisih di rantai kas.
+                            $this->cascadeShiftDecrement($relatedShift, (float) $cashAmount);
+
                             $cashAdjustedCount++;
                             $totalCashDeducted += $cashAmount;
 
@@ -1026,6 +1031,31 @@ class SalesOrderController extends Controller
             ]);
 
             return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus sales order: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Cascade penurunan kas ke shift-shift berikutnya setelah sebuah shift ditutup.
+     * Dipakai saat hapus SO agar rantai initial_cash/final_cash antar-shift tetap konsisten.
+     */
+    protected function cascadeShiftDecrement(Shift $shift, float $amount): void
+    {
+        if (!$shift->end_time) {
+            return; // shift masih terbuka, tidak ada shift setelahnya
+        }
+
+        $nextShift = Shift::where('start_time', '>', $shift->end_time)
+            ->orderBy('start_time', 'asc')
+            ->first();
+
+        while ($nextShift) {
+            $nextShift->decrement('initial_cash', $amount);
+            if ($nextShift->end_time) {
+                $nextShift->decrement('final_cash', $amount);
+            }
+            $nextShift = Shift::where('start_time', '>', $nextShift->end_time)
+                ->orderBy('start_time', 'asc')
+                ->first();
         }
     }
 

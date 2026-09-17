@@ -74,8 +74,8 @@
         <!-- Sidebar Header -->
         <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
             <div class="flex items-center space-x-3">
-                <img src="{{ asset('https://parecustom.com/public/assets/logo.png') }}" alt="Pare Custom"
-                    class="w-10 h-10 object-contain" onerror="this.src='https://parecustom.com/public/assets/logo.png">
+                <img src="{{ asset('https://kasir.parecustom.com/public/assets/logo.png') }}" alt="Pare Custom"
+                    class="w-10 h-10 object-contain" onerror="this.src='https://kasir.parecustom.com/public/assets/logo.png">
                 <div>
                     <h1 class="text-xl font-bold text-gray-900">PareCustom</h1>
                     <p class="text-xs text-gray-500">Finance Panel</p>
