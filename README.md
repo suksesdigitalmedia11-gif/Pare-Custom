@@ -421,7 +421,7 @@ APP_NAME="Pare Custom"
 APP_ENV=production
 APP_KEY=base64:...
 APP_DEBUG=false
-APP_URL=https://parecustom.com
+APP_URL=https://kasir.parecustom.com
 
 # Pengaturan Basis Data
 DB_CONNECTION=mysql
@@ -451,7 +451,8 @@ Proyek ini telah dikonfigurasi dan berjalan optimal pada shared hosting (Hosting
      ```bash
      ssh -p [PORT] user@host
      ```
-   * Direktori web: `/home/[USER]/domains/parecustom.com/public_html`
+   * Direktori web aplikasi kasir: `/home/[USER]/domains/parecustom.com/public_html/kasir`
+   * (Domain `parecustom.com` sendiri disiapkan untuk website profil perusahaan.)
 2. **Pengaturan Symlink Storage di Hosting:**
    Jika symlink belum aktif, jalankan via SSH di root project:
    ```bash
