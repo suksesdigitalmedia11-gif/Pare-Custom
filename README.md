@@ -505,3 +505,19 @@ php scripts/smoke-test.php owner /tmp/owner.json /path/to/app
 ```
 
 Bandingkan hasil JSON sebelum vs sesudah perubahan; jumlah 200 tidak boleh turun.
+
+## Menjalankan Test
+
+Test memakai **SQLite in-memory** — database produksi tidak akan tersentuh
+(ada pengaman di `tests/TestCase.php` yang memaksa koneksi sqlite).
+
+```bash
+./scripts/run-tests.sh          # semua test
+```
+
+Runner ini otomatis `config:clear` sebelum test dan `config:cache` sesudahnya
+(termasuk bila test gagal), karena config cache membuat nilai `phpunit.xml`
+diabaikan. Jangan jalankan `php artisan test` langsung saat config ter-cache.
+
+Hasil saat ini: **19 test, 43 assertion, semua lulus** — aman dijalankan di
+staging maupun production.
