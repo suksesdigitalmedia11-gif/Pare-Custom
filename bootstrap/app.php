@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
             \App\Http\Middleware\CheckUserActive::class,
+            \Illuminate\Routing\Middleware\ThrottleRequests::class.':pos',
         ]);
         $middleware->alias([
             'owner' => \App\Http\Middleware\Owner::class,
