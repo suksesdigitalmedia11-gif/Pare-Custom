@@ -6,11 +6,24 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
+     * Jalankan SQL ALTER ... MODIFY COLUMN ... ENUM hanya pada MySQL.
+     *
+     * Driver lain (sqlite/postgres) tidak mendukung sintaks ini, sedangkan
+     * pernyataan UPDATE di bawahnya tetap portabel dan harus tetap dijalankan.
+     */
+    private function alterEnum(string $sql): void
+    {
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement($sql);
+        }
+    }
+
+    /**
      * Run the migrations.
      */
     public function up(): void
     {
-        DB::statement("
+        $this->alterEnum("
             ALTER TABLE sales_orders
             MODIFY COLUMN status ENUM(
                 'draft',
@@ -29,7 +42,7 @@ return new class extends Migration
         DB::statement("UPDATE sales_orders SET status = 'payment' WHERE status = 'di proses'");
         DB::statement("UPDATE sales_orders SET status = 'printing' WHERE status = 'jadi'");
 
-        DB::statement("
+        $this->alterEnum("
             ALTER TABLE purchase_orders
             MODIFY COLUMN status ENUM(
                 'draft',
@@ -58,7 +71,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("
+        $this->alterEnum("
             ALTER TABLE sales_orders
             MODIFY COLUMN status ENUM(
                 'pending',
@@ -74,7 +87,7 @@ return new class extends Migration
         DB::statement("UPDATE sales_orders SET status = 'di proses' WHERE status = 'payment'");
         DB::statement("UPDATE sales_orders SET status = 'jadi' WHERE status = 'printing'");
 
-        DB::statement("
+        $this->alterEnum("
             ALTER TABLE purchase_orders
             MODIFY COLUMN status ENUM(
                 'draft',

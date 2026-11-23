@@ -12,7 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Ubah kolom usertype dari varchar menjadi enum dengan 5 role bisnis
+        // MODIFY COLUMN ... ENUM hanya ada di MySQL. Driver lain (sqlite/postgres)
+        // tidak mendukungnya, jadi dilewati agar skema tetap bisa dibangun penuh
+        // (dipakai oleh test suite yang berjalan di SQLite in-memory).
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE users MODIFY COLUMN usertype ENUM('owner', 'finance', 'kepala_toko', 'admin', 'editor') NOT NULL DEFAULT 'editor'");
     }
 
@@ -21,6 +27,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Rollback ke enum lama (hanya jika tidak ada data dengan role baru)
         DB::statement("ALTER TABLE users MODIFY COLUMN usertype ENUM('owner') NOT NULL DEFAULT 'owner'");
     }

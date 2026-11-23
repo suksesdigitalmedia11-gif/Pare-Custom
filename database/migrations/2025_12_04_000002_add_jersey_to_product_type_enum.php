@@ -12,6 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // MODIFY COLUMN ... ENUM hanya ada di MySQL. Driver lain (sqlite/postgres)
+        // dilewati agar skema tetap bisa dibangun penuh (dipakai test suite).
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // MySQL doesn't support ALTER ENUM directly, so we need to use MODIFY
         DB::statement("ALTER TABLE sales_order_items MODIFY COLUMN product_type ENUM('regular', 'dtf', 'jersey') DEFAULT 'regular'");
     }
@@ -21,6 +27,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // MODIFY COLUMN ... ENUM hanya ada di MySQL. Driver lain (sqlite/postgres)
+        // dilewati agar skema tetap bisa dibangun penuh (dipakai test suite).
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Revert back to original enum values
         DB::statement("ALTER TABLE sales_order_items MODIFY COLUMN product_type ENUM('regular', 'dtf') DEFAULT 'regular'");
     }
