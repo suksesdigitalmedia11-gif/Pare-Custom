@@ -36,6 +36,16 @@ Route::get('/api/categories', function (\Illuminate\Http\Request $request) {
     return response()->json($categories);
 })->name('api.categories.search');
 
+// === Public invoice routes - tidak perlu login, URL bisa di-share ke customer ===
+Route::get('/invoice/{salesOrder}/{payment}', function (string $salesOrder, \App\Models\Payment $payment, \App\Services\InvoiceService $invoiceService) {
+    $so = \App\Models\SalesOrder::where('so_number', $salesOrder)->firstOrFail();
+    if ($payment->sales_order_id !== $so->id) {
+        abort(404, 'Invoice tidak ditemukan.');
+    }
+    return $invoiceService->previewPdf($so, $payment, 'Invoice_' . $so->so_number . '.pdf');
+})->name('invoice.public.payment');
+
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -141,6 +151,9 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
         Route::post('/sales/{salesOrder}/complete', [SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
+        Route::get('/payments/{payment}/invoice', [SalesOrderController::class, 'downloadInvoicePdf'])->name('sales.downloadInvoicePdf');
+        Route::get('/payments/{payment}/invoice/preview', [SalesOrderController::class, 'previewInvoicePdf'])->name('sales.previewInvoicePdf');
+        Route::get('/payments/{payment}/wa-data', [SalesOrderController::class, 'getWhatsAppInvoiceData'])->name('sales.whatsappInvoiceData');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         Route::put('/sales/{salesOrder}/payments/{payment}/update-method', [SalesOrderController::class, 'updatePaymentMethod'])
             ->name('sales.payments.update-method');
@@ -175,6 +188,7 @@ Route::middleware(['auth', 'owner'])->prefix('owner')->name('owner.')->group(fun
             Route::get('create', [\App\Http\Controllers\Owner\StockOpnameController::class, 'create'])->name('create');
             Route::post('/', [\App\Http\Controllers\Owner\StockOpnameController::class, 'store'])->name('store');
             Route::get('download-template', [\App\Http\Controllers\Owner\StockOpnameController::class, 'downloadTemplate'])->name('template');
+            Route::get('search-products', [\App\Http\Controllers\Owner\StockOpnameController::class, 'searchProducts'])->name('search-products');
             Route::get('{stockOpname}', [\App\Http\Controllers\Owner\StockOpnameController::class, 'show'])->name('show');
             Route::get('{stockOpname}/edit', [\App\Http\Controllers\Owner\StockOpnameController::class, 'edit'])->name('edit');
             Route::put('{stockOpname}', [\App\Http\Controllers\Owner\StockOpnameController::class, 'update'])->name('update');
@@ -359,6 +373,9 @@ Route::middleware(['auth', 'finance'])->prefix('finance')->name('finance.')->gro
         Route::post('/sales/{salesOrder}/complete', [\App\Http\Controllers\Finance\SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\Finance\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\Finance\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
+        Route::get('/payments/{payment}/invoice', [\App\Http\Controllers\Finance\SalesOrderController::class, 'downloadInvoicePdf'])->name('sales.downloadInvoicePdf');
+        Route::get('/payments/{payment}/invoice/preview', [\App\Http\Controllers\Finance\SalesOrderController::class, 'previewInvoicePdf'])->name('sales.previewInvoicePdf');
+        Route::get('/payments/{payment}/wa-data', [\App\Http\Controllers\Finance\SalesOrderController::class, 'getWhatsAppInvoiceData'])->name('sales.whatsappInvoiceData');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\Finance\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         // ✅ TAMBAH ROUTE RELATED PO UNTUK FINANCE
         Route::get('/sales/{salesOrder}/related-po', [\App\Http\Controllers\Finance\SalesOrderController::class, 'getRelatedPurchaseOrder'])->name('sales.related-po');
@@ -508,6 +525,9 @@ Route::middleware(['auth', 'kepala_toko', 'check.shift.blocking'])->prefix('kepa
         Route::post('/sales/{salesOrder}/complete', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'complete'])->name('sales.complete');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
+        Route::get('/payments/{payment}/invoice', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'downloadInvoicePdf'])->name('sales.downloadInvoicePdf');
+        Route::get('/payments/{payment}/invoice/preview', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'previewInvoicePdf'])->name('sales.previewInvoicePdf');
+        Route::get('/payments/{payment}/wa-data', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'getWhatsAppInvoiceData'])->name('sales.whatsappInvoiceData');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         Route::post('sales/{salesOrder}/link-to-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'linkToPurchaseOrder'])->name('sales.link-to-po');
         Route::post('sales/{salesOrder}/unlink-from-po', [\App\Http\Controllers\KepalaToko\SalesOrderController::class, 'unlinkFromPurchaseOrder'])->name('sales.unlink-from-po');
@@ -669,6 +689,9 @@ Route::middleware(['auth', 'admin', 'check.shift.blocking'])->prefix('admin')->n
         Route::post('/sales/{salesOrder}/complete-without-po', [\App\Http\Controllers\Admin\SalesOrderController::class, 'completeWithoutPO'])->name('sales.complete-without-po');
         Route::get('/payments/{payment}/nota', [\App\Http\Controllers\Admin\SalesOrderController::class, 'printNota'])->name('sales.printNota');
         Route::get('/payments/{payment}/nota-direct', [\App\Http\Controllers\Admin\SalesOrderController::class, 'printNotaDirect'])->name('sales.printNotaDirect');
+        Route::get('/payments/{payment}/invoice', [\App\Http\Controllers\Admin\SalesOrderController::class, 'downloadInvoicePdf'])->name('sales.downloadInvoicePdf');
+        Route::get('/payments/{payment}/invoice/preview', [\App\Http\Controllers\Admin\SalesOrderController::class, 'previewInvoicePdf'])->name('sales.previewInvoicePdf');
+        Route::get('/payments/{payment}/wa-data', [\App\Http\Controllers\Admin\SalesOrderController::class, 'getWhatsAppInvoiceData'])->name('sales.whatsappInvoiceData');
         Route::post('/sales/{salesOrder}/payment/{payment}/upload-proof', [\App\Http\Controllers\Admin\SalesOrderController::class, 'uploadProof'])->name('sales.uploadProof');
         Route::get('/sales/payment-proof/{payment}', function (\App\Models\Payment $payment) {
             // Cek apakah user punya akses

@@ -493,3 +493,15 @@ Proyek ini telah dikonfigurasi dan berjalan optimal pada shared hosting (Hosting
   <b>© 2026 Sukses Digital Lab — Pare Custom Apparel POS & ERP Platform.</b><br>
   <i>Dirancang untuk efisiensi, akurasi finansial, dan stabilitas operasional konveksi modern.</i>
 </p>
+
+## Smoke Test (read-only)
+
+Menembak semua route GET dengan sesi login nyata untuk mendeteksi regresi setelah
+perubahan (upgrade framework, refactor). Hanya GET — tidak mengubah data.
+
+```bash
+# jalankan dari CLI, file skrip JANGAN ditaruh di web root
+php scripts/smoke-test.php owner /tmp/owner.json /path/to/app
+```
+
+Bandingkan hasil JSON sebelum vs sesudah perubahan; jumlah 200 tidak boleh turun.

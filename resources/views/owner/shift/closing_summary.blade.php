@@ -175,9 +175,9 @@
             <h2>📊 Informasi Shift</h2>
             <table>
                 <tr><th>Kasir</th><td>{{ $shift->user->name }}</td></tr>
-                <tr><th>Mulai</th><td>{{ $shift->start_time->format('d/m/Y H:i') }}</td></tr>
-                <tr><th>Selesai</th><td>{{ $shift->end_time->format('d/m/Y H:i') }}</td></tr>
-                <tr><th>Durasi</th><td>{{ $shift->start_time->diff($shift->end_time)->format('%h jam %i mnt') }}</td></tr>
+                <tr><th>Mulai</th><td>{{ $shift->start_time?->format('d/m/Y H:i') ?? '-' }}</td></tr>
+                <tr><th>Selesai</th><td>{{ $shift->end_time?->format('d/m/Y H:i') ?? 'Belum selesai' }}</td></tr>
+                <tr><th>Durasi</th><td>{{ ($shift->start_time && $shift->end_time) ? $shift->start_time->diff($shift->end_time)->format('%h jam %i mnt') : '-' }}</td></tr>
             </table>
         </div>
 
