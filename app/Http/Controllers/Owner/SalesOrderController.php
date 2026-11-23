@@ -27,6 +27,7 @@ use App\Services\SalesPurchaseSyncService;
 use App\Traits\HandlesSalesOrderWorkflow;
 use App\Traits\ManagesPayments;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\InvoiceService;
 use App\Exports\SalesOrderExport;
 
 class SalesOrderController extends Controller
@@ -894,6 +895,35 @@ class SalesOrderController extends Controller
             'salesOrder' => $salesOrder,
             'payment' => $payment,
             'autoPrint' => true,
+        ]);
+    }
+
+    public function downloadInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->downloadPdf($payment->salesOrder, $payment);
+    }
+
+    public function previewInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->previewPdf($payment->salesOrder, $payment);
+    }
+
+    public function getWhatsAppInvoiceData(Payment $payment, InvoiceService $invoiceService)
+    {
+        $salesOrder = $payment->salesOrder;
+        $customerPhone = $salesOrder->customer->phone ?? '';
+        $invoiceUrl = route('invoice.public.payment', ['salesOrder' => $salesOrder->so_number, 'payment' => $payment->id]);
+        $message = $invoiceService->buildWhatsAppMessage($salesOrder, $payment, $invoiceUrl);
+        $waUrl = $invoiceService->buildWhatsAppUrl($salesOrder, $payment, $invoiceUrl);
+
+        return response()->json([
+            'success' => true,
+            'customer_name' => $salesOrder->customer->name ?? 'Umum',
+            'customer_phone' => $customerPhone,
+            'formatted_phone' => $invoiceService->formatPhoneNumber($customerPhone),
+            'message' => $message,
+            'wa_url' => $waUrl,
+            'invoice_url' => $invoiceUrl,
         ]);
     }
 

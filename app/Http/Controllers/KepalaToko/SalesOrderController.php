@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Traits\HandlesSalesOrderWorkflow;
 use App\Traits\ManagesPayments;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\InvoiceService;
 use App\Exports\SalesOrderExport;
 
 class SalesOrderController extends Controller
@@ -1010,6 +1011,35 @@ if (empty($customerId) && !empty($validated['customer_name'])) {
         $salesOrder = $payment->salesOrder;
         $pdf = Pdf::loadView('kepala-toko.sales.nota', compact('salesOrder', 'payment'));
         return $pdf->download('nota_' . $salesOrder->so_number . '_payment_' . $payment->id . '.pdf');
+    }
+
+    public function downloadInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->downloadPdf($payment->salesOrder, $payment);
+    }
+
+    public function previewInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->previewPdf($payment->salesOrder, $payment);
+    }
+
+    public function getWhatsAppInvoiceData(Payment $payment, InvoiceService $invoiceService)
+    {
+        $salesOrder = $payment->salesOrder;
+        $customerPhone = $salesOrder->customer->phone ?? '';
+        $invoiceUrl = route('invoice.public.payment', ['salesOrder' => $salesOrder->so_number, 'payment' => $payment->id]);
+        $message = $invoiceService->buildWhatsAppMessage($salesOrder, $payment, $invoiceUrl);
+        $waUrl = $invoiceService->buildWhatsAppUrl($salesOrder, $payment, $invoiceUrl);
+
+        return response()->json([
+            'success' => true,
+            'customer_name' => $salesOrder->customer->name ?? 'Umum',
+            'customer_phone' => $customerPhone,
+            'formatted_phone' => $invoiceService->formatPhoneNumber($customerPhone),
+            'message' => $message,
+            'wa_url' => $waUrl,
+            'invoice_url' => $invoiceUrl,
+        ]);
     }
 
     public function printNotaDirect(Payment $payment): View

@@ -614,14 +614,19 @@
                                         <td class="px-4 py-2 border text-center">
                                             <div class="flex justify-center gap-2">
                                                 <button onclick="showPrintOptions({{ $payment->id }})"
-                                                    class="text-green-600 hover:text-green-800" title="Cetak Nota">
+                                                    class="text-green-600 hover:text-green-800" title="Cetak Nota Thermal">
                                                     <i class="bi bi-printer"></i>
                                                 </button>
-                                                <a href="{{ route('owner.sales.printNota', $payment) }}"
-                                                    class="text-blue-600 hover:text-blue-800" title="Download PDF">
-                                                    <i class="bi bi-download"></i>
+                                                <a href="{{ route('owner.sales.downloadInvoicePdf', $payment) }}"
+                                                    target="_blank"
+                                                    class="text-indigo-600 hover:text-indigo-800" title="Download Invoice PDF A4 (Customer)">
+                                                    <i class="bi bi-file-earmark-pdf"></i>
                                                 </a>
-                                                <!-- TAMBAH TOMBOL INI -->
+                                                <button onclick="openWhatsAppModal({{ $payment->id }})"
+                                                    class="text-emerald-600 hover:text-emerald-800" title="Kirim Nota ke Customer via WhatsApp">
+                                                    <i class="bi bi-whatsapp"></i>
+                                                </button>
+                                                <!-- TOMBOL KOREKSI PEMBAYARAN -->
                                                 <button
                                                     onclick="openEditPaymentMethodModal({{ $payment->id }}, '{{ $payment->method }}', {{ $payment->amount }}, {{ $payment->cash_amount }}, {{ $payment->transfer_amount }}, '{{ $payment->reference_number }}', '{{ \Carbon\Carbon::parse($payment->paid_at)->format('Y-m-d\TH:i') }}', '{{ addslashes($payment->note) }}')"
                                                     class="text-yellow-600 hover:text-yellow-800" title="Koreksi Pembayaran">
@@ -1017,13 +1022,23 @@
                     </div>
                 </button>
 
-                <!-- Option 3: PDF Download -->
-                <button onclick="downloadThermalPDF()"
-                    class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
+                <!-- Option 3: Download Invoice PDF A4 -->
+                <button onclick="downloadCustomerInvoicePdf()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
                     <i class="bi bi-file-earmark-pdf text-xl"></i>
                     <div class="text-left">
-                        <div class="font-semibold">Download PDF</div>
-                        <div class="text-xs opacity-90">Simpan sebagai PDF</div>
+                        <div class="font-semibold">Invoice PDF (Customer)</div>
+                        <div class="text-xs opacity-90">Unduh Invoice A4 resmi untuk customer</div>
+                    </div>
+                </button>
+
+                <!-- Option 4: Kirim WA -->
+                <button onclick="openWhatsAppFromPrintModal()"
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-3 shadow">
+                    <i class="bi bi-whatsapp text-xl"></i>
+                    <div class="text-left">
+                        <div class="font-semibold">Kirim Nota via WhatsApp</div>
+                        <div class="text-xs opacity-90">Kirim rincian pembayaran ke customer</div>
                     </div>
                 </button>
             </div>
@@ -1046,6 +1061,65 @@
     <div id="thermalReceipt" style="display: none;">
         <div class="thermal-receipt">
             <pre id="rcpt-text">Menyiapkan nota...</pre>
+        </div>
+    </div>
+
+    <!-- Modal WhatsApp Invoice -->
+    <div id="waModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            <div class="bg-emerald-600 px-6 py-4 flex items-center gap-3">
+                <i class="bi bi-whatsapp text-white text-2xl"></i>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Kirim Nota via WhatsApp</h3>
+                    <p class="text-emerald-100 text-sm">Kirim rincian pembayaran ke customer</p>
+                </div>
+                <button onclick="closeWhatsAppModal()" class="ml-auto text-white hover:text-emerald-200 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Loading state -->
+                <div id="wa-loading" class="flex justify-center items-center py-6">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                    <span class="ml-3 text-gray-500">Memuat data customer...</span>
+                </div>
+                <!-- Content -->
+                <div id="wa-content" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            <i class="bi bi-person mr-1"></i> Customer
+                        </label>
+                        <div id="wa-customer-name" class="text-gray-800 font-medium"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            <i class="bi bi-phone mr-1"></i> Nomor WhatsApp
+                        </label>
+                        <input type="text" id="wa-phone-input"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            placeholder="Contoh: 628123456789">
+                        <p class="text-xs text-gray-400 mt-1">Format: 628xxx... (tanpa + atau spasi)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            <i class="bi bi-chat-text mr-1"></i> Preview Pesan
+                        </label>
+                        <textarea id="wa-message-preview" rows="8"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 focus:ring-2 focus:ring-emerald-500 resize-none"
+                            readonly></textarea>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="sendWhatsApp()" id="btn-send-wa"
+                            class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">
+                            <i class="bi bi-whatsapp"></i>
+                            Kirim via WhatsApp
+                        </button>
+                        <button onclick="copyWaMessage()"
+                            class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">
+                            <i class="bi bi-clipboard"></i>
+                            Salin Teks
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1397,14 +1471,89 @@
             showToast('File text berhasil diunduh! Buka dengan aplikasi printer.', 'success');
         }
 
-        // 3. PDF DOWNLOAD
+        // 3. Thermal PDF Nota (unchanged old function, keep compatibility)
         function downloadThermalPDF() {
             if (!currentPaymentData) return;
-
-            // Redirect to PDF route
             window.open('{{ route("owner.sales.printNota", ":paymentId") }}'.replace(':paymentId', currentPaymentId), '_blank');
             closePrintModal();
         }
+
+        // 4. Download Invoice PDF Resmi A4 (Customer)
+        function downloadCustomerInvoicePdf() {
+            if (!currentPaymentId) return;
+            window.open('{{ route("owner.sales.downloadInvoicePdf", ":paymentId") }}'.replace(':paymentId', currentPaymentId), '_blank');
+            closePrintModal();
+        }
+
+        // 5. Buka WA modal dari print modal
+        function openWhatsAppFromPrintModal() {
+            closePrintModal();
+            openWhatsAppModal(currentPaymentId);
+        }
+
+        // WA Modal state
+        let waPaymentId = null;
+        let waData = null;
+
+        function openWhatsAppModal(paymentId) {
+            waPaymentId = paymentId;
+            waData = null;
+
+            // Reset modal
+            document.getElementById('wa-loading').classList.remove('hidden');
+            document.getElementById('wa-content').classList.add('hidden');
+            document.getElementById('waModal').classList.remove('hidden');
+
+            // Fetch WA data from backend
+            fetch('{{ route("owner.sales.whatsappInvoiceData", ":paymentId") }}'.replace(':paymentId', paymentId))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        waData = data;
+                        document.getElementById('wa-customer-name').textContent = data.customer_name;
+                        document.getElementById('wa-phone-input').value = data.formatted_phone || '';
+                        document.getElementById('wa-message-preview').value = data.message;
+                        document.getElementById('wa-loading').classList.add('hidden');
+                        document.getElementById('wa-content').classList.remove('hidden');
+                    } else {
+                        alert('Gagal memuat data WhatsApp.');
+                        closeWhatsAppModal();
+                    }
+                })
+                .catch(() => {
+                    alert('Gagal memuat data WhatsApp. Cek koneksi.');
+                    closeWhatsAppModal();
+                });
+        }
+
+        function closeWhatsAppModal() {
+            document.getElementById('waModal').classList.add('hidden');
+            waPaymentId = null;
+            waData = null;
+        }
+
+        function sendWhatsApp() {
+            if (!waData) return;
+            const phone = document.getElementById('wa-phone-input').value.replace(/[^0-9]/g, '');
+            const message = document.getElementById('wa-message-preview').value;
+            let waUrl;
+            if (phone) {
+                waUrl = 'https://api.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(message);
+            } else {
+                waUrl = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(message);
+            }
+            window.open(waUrl, '_blank');
+            closeWhatsAppModal();
+            showToast('Membuka WhatsApp...', 'success');
+        }
+
+        function copyWaMessage() {
+            const textarea = document.getElementById('wa-message-preview');
+            textarea.select();
+            document.execCommand('copy');
+            showToast('Teks pesan berhasil disalin ke clipboard!', 'success');
+        }
+
 
         // Build thermal receipt text
         function buildThermalReceiptText(salesOrder, payment, totalPaid, remaining) {

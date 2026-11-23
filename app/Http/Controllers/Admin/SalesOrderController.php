@@ -27,6 +27,7 @@ use App\Exports\SalesOrderTemplateExport;
 use App\Exports\SalesOrderExport;
 use App\Imports\SalesOrderImport;
 use App\Services\SalesPurchaseSyncService;
+use App\Services\InvoiceService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Validator;
 
@@ -920,6 +921,35 @@ class SalesOrderController extends Controller
         $pdf = Pdf::loadView('admin.sales.nota', compact('salesOrder', 'payment'));
         $pdf->setPaper([0, 0, 164, 1000], 'portrait'); // 58mm thermal
         return $pdf->download('nota_' . $salesOrder->so_number . '_bayar_' . $payment->id . '.pdf');
+    }
+
+    public function downloadInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->downloadPdf($payment->salesOrder, $payment);
+    }
+
+    public function previewInvoicePdf(Payment $payment, InvoiceService $invoiceService)
+    {
+        return $invoiceService->previewPdf($payment->salesOrder, $payment);
+    }
+
+    public function getWhatsAppInvoiceData(Payment $payment, InvoiceService $invoiceService)
+    {
+        $salesOrder = $payment->salesOrder;
+        $customerPhone = $salesOrder->customer->phone ?? '';
+        $invoiceUrl = route('invoice.public.payment', ['salesOrder' => $salesOrder->so_number, 'payment' => $payment->id]);
+        $message = $invoiceService->buildWhatsAppMessage($salesOrder, $payment, $invoiceUrl);
+        $waUrl = $invoiceService->buildWhatsAppUrl($salesOrder, $payment, $invoiceUrl);
+
+        return response()->json([
+            'success' => true,
+            'customer_name' => $salesOrder->customer->name ?? 'Umum',
+            'customer_phone' => $customerPhone,
+            'formatted_phone' => $invoiceService->formatPhoneNumber($customerPhone),
+            'message' => $message,
+            'wa_url' => $waUrl,
+            'invoice_url' => $invoiceUrl,
+        ]);
     }
 
     public function uploadProof(Request $request, SalesOrder $salesOrder, Payment $payment): RedirectResponse
