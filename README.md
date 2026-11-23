@@ -431,6 +431,10 @@ DB_DATABASE=u150456332_parecustom_app
 DB_USERNAME=u150456332_parecustom
 DB_PASSWORD=...
 
+# Retry koneksi otomatis (mis. saat server MySQL penuh: 1040 Too many connections)
+DB_RETRY_ATTEMPTS=3
+DB_RETRY_DELAY_MS=200
+
 # Pengaturan Session & Cookie
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -481,6 +485,7 @@ Proyek ini telah dikonfigurasi dan berjalan optimal pada shared hosting (Hosting
 | **Gambar bukti bayar / mock-up tidak tampil (404)** | Symlink `public/storage` ke folder `storage/app/public` terputus. | Jalankan perintah `php artisan storage:link`. |
 | **Error saat download Export Excel** | Relasi query N+1 overload atau batas memory PHP terlampaui. | Pastikan `payments` ter-eager load dan memory limit PHP diset minimal 256MB. |
 | **Data tampilan lama masih muncul setelah update kode** | Cache route/view Blade masih tersimpan di server. | Jalankan `php artisan optimize:clear` melalui terminal atau SSH. |
+| **Halaman error "Too many connections" (MySQL 1040)** | Server MySQL shared hosting penuh — bukan bug aplikasi. | Aplikasi otomatis retry (lihat `DB_RETRY_ATTEMPTS`). Bila sering terjadi, minta hosting memindahkan ke server lain atau menaikkan `max_connections`. |
 
 ---
 

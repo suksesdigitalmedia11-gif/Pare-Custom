@@ -60,6 +60,9 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Retry koneksi saat MySQL menolak koneksi baru (mis. 1040 Too many connections)
+            'retry_attempts' => (int) env('DB_RETRY_ATTEMPTS', 3),
+            'retry_delay_ms' => (int) env('DB_RETRY_DELAY_MS', 200),
         ],
 
         'mariadb' => [
