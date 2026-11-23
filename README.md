@@ -521,3 +521,16 @@ diabaikan. Jangan jalankan `php artisan test` langsung saat config ter-cache.
 
 Hasil saat ini: **19 test, 43 assertion, semua lulus** — aman dijalankan di
 staging maupun production.
+
+## Hardening `public_html` (penting)
+
+Doc root `kasir.parecustom.com` menunjuk ke **folder aplikasi** (bukan `public/`),
+sehingga tanpa aturan tambahan file internal dapat diakses lewat HTTP.
+`.htaccess` di root aplikasi memblokir:
+
+- `.env*`, `composer.json`, `composer.lock`, `composer.phar`, `artisan`, `phpunit.xml*`
+- `*.bak`, `*.tar.gz`, `*.sql`, `*.log`, `*.sh`, `*.md`
+- folder `app/`, `bootstrap/`, `config/`, `database/`, `resources/`, `routes/`, `tests/`, `vendor/`, `scripts/`
+
+Salinan konfigurasi produksi: `htaccess.production`.
+Jangan menyimpan backup/dump database di dalam web root — simpan di `~/backups-kasir`.
